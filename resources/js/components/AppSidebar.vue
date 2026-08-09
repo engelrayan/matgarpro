@@ -5,7 +5,7 @@ import NavUser from '@/components/NavUser.vue';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/vue3';
-import { Boxes, Globe, LayoutGrid, LayoutList, LayoutTemplate, MessageCircle, Package, Palette, Radio, ScrollText, ShoppingBag, Store, Truck } from 'lucide-vue-next';
+import { Boxes, Globe, LayoutGrid, LayoutList, LayoutTemplate, MessageCircle, Package, Palette, Radio, ScrollText, ShoppingBag, ShoppingCart, Store, TrendingUp, Truck } from 'lucide-vue-next';
 import AppLogo from './AppLogo.vue';
 
 /*
@@ -24,6 +24,8 @@ const navGroups: NavGroup[] = [
         items: [
             { title: 'لوحة التحكم', href: '/dashboard', icon: LayoutGrid },
             { title: 'الطلبات', href: '/orders', icon: ShoppingBag },
+            { title: 'السلات المتروكة', href: '/carts', icon: ShoppingCart },
+            { title: 'تقرير الربح', href: '/reports/profit', icon: TrendingUp },
             { title: 'المنتجات', href: '/products', icon: Package },
             { title: 'الأقسام', href: '/categories', icon: LayoutList },
         ],

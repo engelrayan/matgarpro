@@ -108,6 +108,11 @@ class Store extends Model
         return $this->hasMany(Order::class);
     }
 
+    public function abandonedCarts(): HasMany
+    {
+        return $this->hasMany(AbandonedCart::class);
+    }
+
     /** The store's link to Daman, if the merchant has connected one. */
     public function damanIntegration(): HasOne
     {

@@ -12,6 +12,7 @@ use App\Services\Storefront\FunnelTracker;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use App\Services\Storefront\CartCapture;
 use Illuminate\Http\Response;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -21,6 +22,7 @@ class CheckoutController extends Controller
     public function __construct(
         private readonly PlaceOrder $placeOrder,
         private readonly FunnelTracker $funnel,
+        private readonly CartCapture $carts,
     ) {}
 
     /**
@@ -35,6 +37,12 @@ class CheckoutController extends Controller
         $product = $store->products()->find($request->integer('product_id'));
 
         $this->funnel->checkoutStart($request, $store, $product);
+
+        // Same beacon carries whatever they have typed so far. One endpoint
+        // rather than two: the browser is already calling this on the first
+        // keystroke, and a second request per field would be traffic the
+        // merchant pays for.
+        $this->carts->remember($request, $store, $request->all());
 
         return response()->noContent();
     }
@@ -76,6 +84,10 @@ class CheckoutController extends Controller
             $store,
             $store->products()->find($data['product_id']),
         );
+
+        // Close the draft this order came from, so the merchant never chases a
+        // customer about an order they already placed.
+        $this->carts->recover($request, $store, $order);
 
         return redirect()->route('storefront.thanks', $order->id);
     }

@@ -97,13 +97,28 @@
      */
     let started = false;
 
-    function markCheckoutStart() {
-        if (started) return;
-        started = true;
-
+    /**
+     * Send the beacon, carrying whatever has been typed so far.
+     *
+     * The same request does two jobs: it marks the funnel step, and it leaves
+     * the merchant a recoverable draft. Splitting them would double the
+     * requests on a page the merchant pays per visit for.
+     */
+    function sendBeacon() {
+        const form = document.getElementById('orderForm');
         const body = new FormData();
+
         body.append('product_id', '{{ $product->id }}');
         body.append('_token', '{{ csrf_token() }}');
+        body.append('variant_id', variantIdEl.value || '');
+        body.append('quantity', qtyEl.value || '1');
+
+        // Only the fields worth calling someone back about. The rest of the
+        // form is not ours to keep from a customer who never submitted it.
+        ['customer_name', 'customer_phone', 'governorate'].forEach((name) => {
+            const field = form.elements[name];
+            if (field && field.value) body.append(name, field.value);
+        });
 
         // keepalive so the beacon survives the customer navigating away mid-form.
         fetch('{{ route('storefront.checkout.start') }}', {
@@ -111,6 +126,13 @@
             body,
             keepalive: true,
         }).catch(() => {});
+    }
+
+    function markCheckoutStart() {
+        if (started) return;
+        started = true;
+
+        sendBeacon();
 
         // Meta counts a filled form as intent, which is what it optimises
         // toward when there are not yet enough purchases to learn from.
@@ -126,6 +148,26 @@
 
     document.getElementById('orderForm')
         .addEventListener('input', markCheckoutStart, { once: true });
+
+    /*
+     * Re-send once they stop typing, and again if they leave.
+     *
+     * The first beacon fires on the very first keystroke, when the phone field
+     * is usually still empty — without these the draft would almost always be
+     * unreachable, which is the whole value of keeping it.
+     */
+    let draftTimer;
+
+    document.getElementById('orderForm').addEventListener('input', () => {
+        clearTimeout(draftTimer);
+        draftTimer = setTimeout(sendBeacon, 2500);
+    });
+
+    // `pagehide`, not `unload`: mobile browsers frequently skip `unload`, and
+    // a phone is where most of this traffic abandons.
+    window.addEventListener('pagehide', () => {
+        if (started) sendBeacon();
+    });
 
     // Sticky bar: mirror the running total, and get out of the way once the
     // real button is visible so the customer is never shown two buy buttons.

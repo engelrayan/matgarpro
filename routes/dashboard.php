@@ -1,11 +1,13 @@
 <?php
 
 use App\Http\Controllers\Dashboard\BuilderController;
+use App\Http\Controllers\Dashboard\AbandonedCartController;
 use App\Http\Controllers\Dashboard\CategoryController;
 use App\Http\Controllers\Dashboard\DamanShipmentController;
 use App\Http\Controllers\Dashboard\OrderController;
 use App\Http\Controllers\Dashboard\OrderWhatsappController;
 use App\Http\Controllers\Dashboard\ProductController;
+use App\Http\Controllers\Dashboard\ProfitController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -52,6 +54,11 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::post('builder/{page}/publish', [BuilderController::class, 'publish'])->name('builder.publish');
     Route::post('builder/{page}/discard', [BuilderController::class, 'discard'])->name('builder.discard');
     Route::post('builder/{page}/reset', [BuilderController::class, 'reset'])->name('builder.reset');
+
+    Route::get('reports/profit', ProfitController::class)->name('reports.profit');
+
+    Route::get('carts', [AbandonedCartController::class, 'index'])->name('carts.index');
+    Route::patch('carts/{cart}/contacted', [AbandonedCartController::class, 'contacted'])->name('carts.contacted');
 
     Route::get('orders', [OrderController::class, 'index'])->name('orders.index');
     Route::get('orders/waybills', [OrderController::class, 'waybills'])->name('orders.waybills');

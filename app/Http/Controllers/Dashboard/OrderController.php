@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Dashboard;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\Store;
+use App\Services\Customers\ReputationService;
 use App\Support\ArabicNumerals;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -160,6 +161,19 @@ class OrderController extends Controller
              | is not ours to hand to another.
              */
             'customer_history' => $this->customerHistory($store, $order),
+            /*
+             | The same question, answered across every store on the platform.
+             |
+             | This is the one thing a store-builder cannot tell a merchant: we
+             | ship the parcels, so we know which ones came back. A number that
+             | is new to this shop but has refused four parcels elsewhere is the
+             | order worth a phone call before it costs shipping twice.
+             |
+             | An aggregate only — never which store, which order, or what was
+             | in it. A warning about a phone number is useful; a window into a
+             | competitor's customers is not ours to open.
+             */
+            'network_reputation' => $this->networkReputation($order),
             // Reachable without going back to the list.
             'neighbours' => [
                 'prev' => $store->orders()->where('id', '<', $order->id)->max('id'),
@@ -190,6 +204,27 @@ class OrderController extends Controller
             'carrier' => $order->daman_carrier_name,
             'status_note' => $order->daman_status_note,
             'error' => $order->daman_error,
+        ];
+    }
+
+    /** @return array<string,mixed>|null */
+    private function networkReputation(Order $order): ?array
+    {
+        $record = app(ReputationService::class)->for($order->customer_phone);
+
+        // Nothing shipped to this number yet. "No data" on screen is noise —
+        // the panel simply does not appear.
+        if (! $record || $record->settled() === 0) {
+            return null;
+        }
+
+        return [
+            'delivered' => $record->delivered,
+            'refused' => $record->refused,
+            'stores' => $record->stores_count,
+            'delivery_rate' => $record->deliveryRate(),
+            'risky' => $record->isRisky(),
+            'summary' => $record->summary(),
         ];
     }
 

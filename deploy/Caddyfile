@@ -1,4 +1,4 @@
-# مَتاجر — edge configuration
+# متجر برو — edge configuration
 #
 # This is what makes a merchant's own domain work over HTTPS with no manual
 # step. Caddy obtains and renews a certificate the first time a real request
@@ -9,7 +9,7 @@
 # an app server — this file assumes the former).
 
 {
-	email ops@mataager.com
+	email ops@matgarpro.com
 
 	on_demand_tls {
 		# Caddy calls this BEFORE asking the CA for a certificate. A 2xx means
@@ -28,24 +28,30 @@
 # ---------------------------------------------------------------------------
 # The dashboard. Named explicitly so it is never served on a merchant domain.
 # ---------------------------------------------------------------------------
-app.mataager.com {
-	root * /var/www/mataager/public
+app.matgarpro.com {
+	# NOTE: must match the deploy path on the server. Renamed with the rest of
+	# the rebrand — confirm with `ls /var/www` before reloading Caddy, because
+	# a wrong root here serves a 404 for every store at once.
+	root * /var/www/matgarpro/public
 	encode zstd gzip
 	php_fastcgi unix//run/php/php8.3-fpm.sock
 	file_server
 }
 
 # ---------------------------------------------------------------------------
-# Every store: the free {slug}.mataager.com sub-domain (one wildcard
+# Every store: the free {slug}.matgarpro.com sub-domain (one wildcard
 # certificate) plus any custom domain, each getting its own certificate on
 # demand.
 # ---------------------------------------------------------------------------
-*.mataager.com, https:// {
+*.matgarpro.com, https:// {
 	tls {
 		on_demand
 	}
 
-	root * /var/www/mataager/public
+	# NOTE: must match the deploy path on the server. Renamed with the rest of
+	# the rebrand — confirm with `ls /var/www` before reloading Caddy, because
+	# a wrong root here serves a 404 for every store at once.
+	root * /var/www/matgarpro/public
 	encode zstd gzip
 
 	# Storefront pages are paid for with ad money — a slow first byte is a

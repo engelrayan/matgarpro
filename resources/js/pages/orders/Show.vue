@@ -4,7 +4,7 @@ import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/vue3';
 import {
     AlertTriangle, ChevronLeft, ChevronRight, Copy, Check, LoaderCircle, MapPin,
-    MessageCircle, Package, Phone, Printer, Send, Truck, User,
+    MessageCircle, Package, Phone, Printer, Send, ShieldAlert, ShieldCheck, Truck, User,
 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
@@ -42,6 +42,10 @@ const props = defineProps<{
     whatsapp_enabled: boolean;
     statuses: { value: string; label: string }[];
     customer_history: { orders: number; delivered: number; refused: number; delivery_rate: number | null };
+    network_reputation: {
+        delivered: number; refused: number; stores: number;
+        delivery_rate: number | null; risky: boolean; summary: string | null;
+    } | null;
     neighbours: { prev: number | null; next: number | null };
 }>();
 
@@ -295,6 +299,64 @@ const sendWhatsapp = () => {
                             <Check v-if="copied === 'address'" class="mt-0.5 size-3.5 text-success" />
                             <Copy v-else class="mt-0.5 size-3.5 text-muted-foreground" />
                         </button>
+                    </section>
+
+                    <!-- ── Network record ──────────────────────────────────
+                         Above the store's own history on purpose: a customer
+                         who is new here but has refused four parcels elsewhere
+                         is exactly the order a merchant would otherwise ship
+                         blind. Only appears once the platform has actually
+                         delivered something to this number.
+                    -->
+                    <section
+                        v-if="network_reputation"
+                        class="surface p-5"
+                        :class="network_reputation.risky ? 'border-destructive/50 bg-destructive/[0.03]' : 'border-success/40'"
+                    >
+                        <div class="flex items-start gap-2">
+                            <ShieldAlert v-if="network_reputation.risky" class="mt-0.5 size-4 shrink-0 text-destructive" />
+                            <ShieldCheck v-else class="mt-0.5 size-4 shrink-0 text-success" />
+                            <div class="min-w-0">
+                                <h2 class="font-semibold">سجله على المنصة</h2>
+                                <p class="mt-0.5 text-xs text-muted-foreground">
+                                    من {{ network_reputation.stores }} متجر على متجر برو
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 grid grid-cols-3 gap-2 text-center">
+                            <div>
+                                <p class="tabular text-lg font-bold text-success">{{ network_reputation.delivered }}</p>
+                                <p class="text-xs text-muted-foreground">استلم</p>
+                            </div>
+                            <div>
+                                <p class="tabular text-lg font-bold" :class="network_reputation.refused ? 'text-destructive' : ''">
+                                    {{ network_reputation.refused }}
+                                </p>
+                                <p class="text-xs text-muted-foreground">رفض</p>
+                            </div>
+                            <div>
+                                <p class="tabular text-lg font-bold">{{ network_reputation.delivery_rate }}%</p>
+                                <p class="text-xs text-muted-foreground">نسبة التسليم</p>
+                            </div>
+                        </div>
+
+                        <p
+                            v-if="network_reputation.summary"
+                            class="mt-3 rounded-lg p-2.5 text-xs leading-relaxed"
+                            :class="network_reputation.risky
+                                ? 'bg-destructive/5 text-destructive'
+                                : 'bg-success/5 text-success'"
+                        >
+                            {{ network_reputation.summary }}
+                        </p>
+
+                        <!-- The boundary, said out loud. A merchant seeing
+                             another shop's data would be a problem; they should
+                             know this is not that. -->
+                        <p class="mt-3 text-[11px] leading-relaxed text-muted-foreground">
+                            أرقام مجمّعة عن الرقم ده بس — مافيش أي بيانات عن متاجر تانية أو مشترياته منها.
+                        </p>
                     </section>
 
                     <!-- The number that decides whether this parcel is worth
