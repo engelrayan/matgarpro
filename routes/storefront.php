@@ -31,8 +31,19 @@ Route::get('/c/{slug}', [HomeController::class, 'category'])->name('storefront.c
 // Beacon fired when the customer starts filling the form. Separate from the
 // order itself, because the people who start and never finish are exactly the
 // number the conversion rate is about.
-Route::post('/checkout/start', [CheckoutController::class, 'start'])->name('storefront.checkout.start');
+// Fired on every form the customer touches, so it is limited generously and
+// only to stop a script from filling the funnel table.
+Route::post('/checkout/start', [CheckoutController::class, 'start'])
+    ->middleware('throttle:60,1')
+    ->name('storefront.checkout.start');
 
-Route::post('/checkout', [CheckoutController::class, 'store'])->name('storefront.checkout');
+/*
+| The order itself. Billed to the merchant the instant it is created — see the
+| `checkout` limiter in AppServiceProvider for why that makes this the one
+| public endpoint worth attacking.
+*/
+Route::post('/checkout', [CheckoutController::class, 'store'])
+    ->middleware('throttle:checkout')
+    ->name('storefront.checkout');
 
 Route::get('/thanks/{order}', [CheckoutController::class, 'thanks'])->name('storefront.thanks');

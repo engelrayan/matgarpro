@@ -109,6 +109,24 @@
                 <input type="hidden" name="product_id" value="{{ $product->id }}">
                 <input type="hidden" name="variant_id" id="variantId" value="">
 
+                {{-- Two traps for form-filling scripts. An order bills the
+                     merchant the moment it is created, so a flood of fake ones
+                     is a way to drain a shop's balance until it stops selling.
+
+                     Positioned off-screen rather than `display:none` — some
+                     bots skip hidden inputs, and a real customer never reaches
+                     this one either way: no tab stop, no autocomplete, hidden
+                     from screen readers. --}}
+                <div aria-hidden="true" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden">
+                    <label for="confirm_url">لا تكتب هنا</label>
+                    <input type="text" id="confirm_url" name="confirm_url" tabindex="-1" autocomplete="off" value="">
+                </div>
+
+                {{-- When the form was opened, encrypted so it cannot be
+                     back-dated. A human needs seconds to fill this in; a
+                     script posts instantly. --}}
+                <input type="hidden" name="form_opened_at" value="{{ Crypt::encryptString((string) time()) }}">
+
                 {{-- Options ------------------------------------------------ --}}
                 @foreach ($product->options ?? [] as $option)
                     <div>

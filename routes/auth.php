@@ -14,7 +14,11 @@ Route::middleware('guest')->group(function () {
     Route::get('register', [RegisteredUserController::class, 'create'])
         ->name('register');
 
-    Route::post('register', [RegisteredUserController::class, 'store']);
+    // Nothing here limited account creation. An open registration endpoint is
+    // a way to fill the users table — and every account creates a store, so
+    // the cost is rows in five tables, not one.
+    Route::post('register', [RegisteredUserController::class, 'store'])
+        ->middleware('throttle:8,60');
 
     Route::get('login', [AuthenticatedSessionController::class, 'create'])
         ->name('login');
@@ -24,7 +28,13 @@ Route::middleware('guest')->group(function () {
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])
         ->name('password.request');
 
+    /*
+    | Laravel's broker already throttles per email address. This adds the axis
+    | it does not cover: one IP walking a list of addresses, which sends real
+    | mail to real people and burns the platform's sending reputation.
+    */
     Route::post('forgot-password', [PasswordResetLinkController::class, 'store'])
+        ->middleware('throttle:10,60')
         ->name('password.email');
 
     Route::get('reset-password/{token}', [NewPasswordController::class, 'create'])

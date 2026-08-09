@@ -6,8 +6,11 @@ use App\Models\Store;
 use App\Services\Builder\PageRenderer;
 use App\Services\Dns\DnsResolver;
 use App\Services\Dns\ResilientDnsResolver;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
 use Illuminate\Pagination\Paginator;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
@@ -42,6 +45,33 @@ class AppServiceProvider extends ServiceProvider
         // extra query per row — a storefront list is the worst place to find out.
         Model::preventLazyLoading(! $this->app->isProduction());
         Model::preventSilentlyDiscardingAttributes(! $this->app->isProduction());
+
+        /*
+        | Checkout is the one public endpoint that costs the merchant money.
+        |
+        | `PlaceOrder` bills the store the moment an order is created, so an
+        | unthrottled checkout is not a spam problem — it is a way to drain a
+        | competitor's wallet until their balance drops past the overdraft
+        | floor and their shop stops accepting real orders. Five thousand
+        | requests is a few minutes of scripting.
+        |
+        | Keyed by IP *and* shop: a shopping mall, a company office or an
+        | Egyptian mobile carrier can put hundreds of genuine customers behind
+        | one address, and a global per-IP limit would shut a real shop rather
+        | than an attacker. Twenty an hour is far above any honest buyer and
+        | far below anything that can do damage.
+        |
+        | The shop is identified by hostname, not by the resolved Store model:
+        | `throttle` carries a framework priority that puts it ahead of the
+        | custom `store` middleware, so the model is not attached yet when this
+        | runs. The Host header is what identifies a storefront anyway — it is
+        | how ResolveStore finds the shop in the first place.
+        */
+        RateLimiter::for('checkout', fn (Request $request) => Limit::perHour(20)
+            ->by($request->ip() . '|' . $request->getHost())
+            ->response(fn () => back()
+                ->withInput()
+                ->withErrors(['product_id' => 'طلبات كتير من نفس المكان في وقت قصير. استنى شوية وجرّب تاني.'])));
 
         /*
         | The storefront's chrome comes from the builder too.

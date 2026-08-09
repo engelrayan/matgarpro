@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Models\Store;
 use App\Support\ArabicNumerals;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Crypt;
 
 class CheckoutRequest extends FormRequest
 {
@@ -26,12 +27,73 @@ class CheckoutRequest extends FormRequest
         ]);
     }
 
+    /**
+     * Two traps a human never springs and a script almost always does.
+     *
+     * They run before validation because a rejected order should cost nothing
+     * — no field rules, no database round trip, and above all no billing: an
+     * order is charged to the merchant the moment it is created.
+     *
+     * Rate limiting alone is not enough here. A patient script under twenty
+     * orders an hour still costs the merchant real money every day, and stays
+     * under any limit generous enough not to shut a busy shop.
+     */
+    protected function passedValidation(): void
+    {
+        // 1. The honeypot. A field positioned off-screen with autocomplete
+        //    off, so nothing but a form-filler ever puts anything in it.
+        if (filled($this->input('confirm_url'))) {
+            abort(422);
+        }
+
+        // 2. The clock. The page stamps an encrypted open-time into the form;
+        //    a human takes at least a few seconds to type a name, a phone and
+        //    an address, and a script posts instantly.
+        $openedAt = $this->openedAt();
+
+        if ($openedAt !== null && (time() - $openedAt) < self::MIN_FILL_SECONDS) {
+            abort(422);
+        }
+    }
+
+    /** Nobody fills a cash-on-delivery form faster than this. */
+    private const MIN_FILL_SECONDS = 3;
+
+    /**
+     * The form's open time, or null when the field is missing or unreadable.
+     *
+     * Encrypted rather than a plain number so it cannot be back-dated, and
+     * missing is tolerated rather than fatal — a cached page or an older form
+     * still in somebody's browser must not stop a real sale.
+     */
+    private function openedAt(): ?int
+    {
+        $token = (string) $this->input('form_opened_at');
+
+        if ($token === '') {
+            return null;
+        }
+
+        try {
+            return (int) Crypt::decryptString($token);
+        } catch (\Throwable) {
+            // Forged or from a previous APP_KEY. Not proof of an attack on its
+            // own, and the honeypot and the rate limit both still apply.
+            return null;
+        }
+    }
+
     public function rules(): array
     {
         $rules = [
             'product_id' => ['required', 'integer'],
             'variant_id' => ['nullable', 'integer'],
             'quantity' => ['required', 'integer', 'min:1', 'max:100'],
+
+            // Present so the trap fields are never flagged as unexpected input
+            // and never reach the order.
+            'confirm_url' => ['nullable', 'string', 'max:200'],
+            'form_opened_at' => ['nullable', 'string', 'max:400'],
         ];
 
         /*
