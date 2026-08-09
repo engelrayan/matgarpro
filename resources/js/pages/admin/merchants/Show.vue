@@ -26,7 +26,7 @@ const STATUS_LABEL: Record<string, string> = {
     <AdminLayout :title="merchant.name" subtitle="بيانات التاجر ومتاجره">
         <Head :title="merchant.name" />
 
-        <div class="mx-auto max-w-4xl space-y-5">
+        <div class="mx-auto w-full max-w-4xl space-y-5">
             <section class="surface p-5">
                 <dl class="grid gap-4 sm:grid-cols-3 text-sm">
                     <div>

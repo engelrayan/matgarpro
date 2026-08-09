@@ -53,7 +53,7 @@ const show = (value: unknown) => {
     <AdminLayout title="سجل التدقيق" :subtitle="`${num(logs.total)} حركة`">
         <Head title="سجل التدقيق" />
 
-        <div class="mx-auto max-w-5xl space-y-4">
+        <div class="mx-auto w-full max-w-5xl space-y-4">
             <div class="surface grid gap-3 p-4 sm:grid-cols-3">
                 <div class="relative">
                     <Search class="absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />

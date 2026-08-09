@@ -74,7 +74,7 @@ const PRICE_SOURCE: Record<string, string> = {
     <AdminLayout title="المتاجر" :subtitle="`${num(stores.total)} متجر`">
         <Head title="المتاجر" />
 
-        <div class="mx-auto max-w-7xl space-y-4">
+        <div class="mx-auto w-full max-w-7xl space-y-4">
             <!-- ── Filters ───────────────────────────────────────────────── -->
             <div class="surface grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-6">
                 <div class="relative lg:col-span-2">

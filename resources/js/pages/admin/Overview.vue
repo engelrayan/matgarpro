@@ -91,7 +91,7 @@ const attentionCount = computed(
     <AdminLayout title="نظرة عامة" subtitle="كل اللي بيحصل في المنصة">
         <Head title="نظرة عامة" />
 
-        <div class="mx-auto max-w-7xl space-y-5">
+        <div class="mx-auto w-full max-w-7xl space-y-5">
             <!-- ── Range ─────────────────────────────────────────────────── -->
             <div class="flex flex-wrap items-center gap-1 rounded-xl border border-border bg-card p-1">
                 <button

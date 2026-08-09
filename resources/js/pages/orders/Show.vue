@@ -145,7 +145,7 @@ const sendWhatsapp = () => {
     <AppLayout :breadcrumbs="breadcrumbItems">
         <Head :title="`طلب #${order.number}`" />
 
-        <div class="mx-auto max-w-6xl space-y-5 p-4 md:p-6">
+        <div class="mx-auto w-full max-w-6xl space-y-5 p-4 md:p-6">
             <!-- ── Header ─────────────────────────────────────────────── -->
             <div class="flex flex-wrap items-center gap-3">
                 <div class="flex items-center gap-1">

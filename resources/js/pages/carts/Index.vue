@@ -2,7 +2,8 @@
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/vue3';
-import { Check, MessageCircle, Phone, ShoppingCart } from 'lucide-vue-next';
+import { Check, Keyboard, LogOut, MessageCircle, Phone, ShoppingCart, TrendingUp } from 'lucide-vue-next';
+import { computed } from 'vue';
 
 interface Cart {
     id: number;
@@ -33,13 +34,15 @@ const breadcrumbItems: BreadcrumbItem[] = [{ title: 'السلات المتروك
 const money = (v: string | number) =>
     Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-// Pre-written so following up is one tap. The tone is a nudge, not a sales
-// pitch — this person already chose the product and stopped at the form.
+// Pre-written so following up is one tap. A nudge, not a pitch — this person
+// already chose the product and stopped at the form.
 const whatsappUrl = (cart: Cart) => {
     const phone = cart.customer_phone.replace(/^0/, '20');
     const lines = [
         `أهلاً${cart.customer_name ? ' ' + cart.customer_name : ''} 👋`,
-        cart.product ? `شفت إنك كنت بتطلب ${cart.product}${cart.variant ? ` (${cart.variant})` : ''}.` : 'شفت إنك كنت بتعمل طلب عندنا.',
+        cart.product
+            ? `شفت إنك كنت بتطلب ${cart.product}${cart.variant ? ` (${cart.variant})` : ''}.`
+            : 'شفت إنك كنت بتعمل طلب عندنا.',
         'حصلت مشكلة في الطلب؟ أقدر أكمّله لك دلوقتي.',
         'الدفع عند الاستلام زي ما هو.',
     ];
@@ -52,61 +55,80 @@ const markContacted = (cart: Cart) =>
 
 const go = (filter: string) =>
     router.get('/carts', { filter }, { preserveState: true, preserveScroll: true, replace: true });
+
+// Shown in place of an empty box. A merchant lands here before anything has
+// been abandoned, so the space is better spent explaining the feature than on
+// a placeholder.
+const howItWorks = [
+    { icon: Keyboard, title: 'العميل بيكتب رقمه', body: 'أول ما يبدأ يملا الفورم، بنحفظ اللي كتبه — الاسم والرقم والمحافظة.' },
+    { icon: LogOut, title: 'ويسيب الصفحة', body: 'اتلهى، أو النت قطع، أو اتردد. الطلب ضاع والرقم موجود.' },
+    { icon: MessageCircle, title: 'إنت بتكلّمه', body: 'زرار واحد بيفتح واتساب برسالة فيها اسمه والمنتج اللي كان عايزه.' },
+];
+
+// Only meaningful once something has actually been recovered; a rate out of
+// zero attempts is a number that misleads.
+const recoveryRate = computed(() => {
+    const total = props.summary.open + props.summary.recovered;
+
+    return total > 0 ? Math.round((props.summary.recovered / total) * 100) : null;
+});
 </script>
 
 <template>
     <AppLayout :breadcrumbs="breadcrumbItems">
         <Head title="السلات المتروكة" />
 
-        <div class="mx-auto max-w-6xl space-y-5 p-4 md:p-6">
-            <div>
-                <h1 class="text-2xl font-bold tracking-tight">السلات المتروكة</h1>
-                <p class="mt-1 text-sm leading-relaxed text-muted-foreground">
-                    ناس اختارت منتج وكتبت رقمها وماكمّلتش. دول أرخص مبيعات ممكن تعملها —
-                    رسالة واحدة بتفرق.
-                </p>
-            </div>
+        <div class="mx-auto w-full max-w-7xl space-y-5 p-4 md:p-6">
+            <!-- ── Header + the number that decides the next hour ──────── -->
+            <div class="grid gap-5 lg:grid-cols-[1fr_22rem]">
+                <div>
+                    <h1 class="text-2xl font-bold tracking-tight">السلات المتروكة</h1>
+                    <p class="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground">
+                        ناس اختارت منتج وكتبت رقمها وماكمّلتش. دول أرخص مبيعات ممكن تعملها —
+                        العميل خلاص عاجبه المنتج، فاضل رسالة واحدة.
+                    </p>
 
-            <!-- What is on the table right now: the number that decides whether
-                 this screen is worth the next hour. -->
-            <div class="grid gap-4 sm:grid-cols-3">
-                <div class="surface-lux p-5">
-                    <p class="text-sm text-muted-foreground">قيمة السلات المفتوحة</p>
-                    <p class="text-foil tabular mt-2 text-3xl font-bold tracking-tight">
+                    <div class="mt-4 flex flex-wrap gap-1.5">
+                        <button
+                            v-for="tab in [
+                                { key: 'open', label: 'مفتوحة', count: summary.open },
+                                { key: 'recovered', label: 'اترجعت', count: summary.recovered },
+                            ]"
+                            :key="tab.key"
+                            class="rounded-xl border px-3 py-1.5 text-sm transition-colors"
+                            :class="filter === tab.key
+                                ? 'border-primary bg-primary text-primary-foreground'
+                                : 'border-border bg-card text-muted-foreground hover:text-foreground'"
+                            @click="go(tab.key)"
+                        >
+                            {{ tab.label }}
+                            <span class="tabular mr-1 opacity-70">{{ tab.count }}</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="surface-lux halo-gold relative flex flex-col justify-center p-6">
+                    <p class="text-sm text-muted-foreground">فلوس مستنية على الطاولة</p>
+                    <p class="text-foil tabular mt-2 text-4xl font-bold tracking-tight">
                         {{ money(summary.open_value) }}
-                        <span class="text-sm text-muted-foreground">{{ currency }}</span>
+                        <span class="text-base text-muted-foreground">{{ currency }}</span>
+                    </p>
+                    <p class="mt-2 text-xs text-muted-foreground">
+                        <span class="tabular">{{ summary.open }}</span> سلة مفتوحة
+                        <template v-if="recoveryRate !== null">
+                            · استرجعت <span class="tabular font-medium text-success">{{ recoveryRate }}%</span> لحد دلوقتي
+                        </template>
                     </p>
                 </div>
-
-                <div class="stat-tile">
-                    <span class="stat-tile__value">{{ summary.open }}</span>
-                    <span class="stat-tile__label">سلة مفتوحة</span>
-                </div>
-
-                <div class="stat-tile">
-                    <span class="stat-tile__value text-success">{{ summary.recovered }}</span>
-                    <span class="stat-tile__label">اترجعت وبقت طلب</span>
-                </div>
             </div>
 
-            <div class="flex gap-1.5">
-                <button
-                    v-for="tab in [{ key: 'open', label: 'مفتوحة' }, { key: 'recovered', label: 'اترجعت' }]"
-                    :key="tab.key"
-                    class="rounded-xl border px-3 py-1.5 text-sm transition-colors"
-                    :class="filter === tab.key
-                        ? 'border-primary bg-primary text-primary-foreground'
-                        : 'border-border bg-card text-muted-foreground hover:text-foreground'"
-                    @click="go(tab.key)"
-                >{{ tab.label }}</button>
-            </div>
-
-            <div v-if="carts.data.length" class="space-y-3">
+            <!-- ── The list ────────────────────────────────────────────── -->
+            <div v-if="carts.data.length" class="grid gap-3 xl:grid-cols-2">
                 <div
                     v-for="cart in carts.data"
                     :key="cart.id"
-                    class="surface flex flex-wrap items-center gap-4 p-4"
-                    :class="{ 'opacity-60': cart.contacted_at && !cart.recovered }"
+                    class="surface flex flex-wrap items-center gap-4 p-4 transition-opacity"
+                    :class="{ 'opacity-55': cart.contacted_at && !cart.recovered }"
                 >
                     <img v-if="cart.image" :src="cart.image" alt=""
                          class="size-14 shrink-0 rounded-xl border border-border object-cover" />
@@ -115,19 +137,17 @@ const go = (filter: string) =>
                     </div>
 
                     <div class="min-w-0 flex-1">
-                        <p class="font-medium">
+                        <p class="truncate font-medium">
                             {{ cart.customer_name || 'من غير اسم' }}
                             <span v-if="cart.governorate" class="text-sm font-normal text-muted-foreground">
                                 · {{ cart.governorate }}
                             </span>
                         </p>
-                        <p class="tabular mt-0.5 text-sm text-muted-foreground" dir="ltr">
-                            {{ cart.customer_phone }}
-                        </p>
+                        <p class="tabular mt-0.5 text-sm text-muted-foreground" dir="ltr">{{ cart.customer_phone }}</p>
                         <p class="mt-1 truncate text-xs text-muted-foreground">
                             {{ cart.quantity }}× {{ cart.product ?? 'منتج اتشال' }}
                             <span v-if="cart.variant">({{ cart.variant }})</span>
-                            · ساب الصفحة {{ cart.abandoned_at }}
+                            · {{ cart.abandoned_at }}
                         </p>
                     </div>
 
@@ -136,14 +156,16 @@ const go = (filter: string) =>
                         <p class="text-xs text-muted-foreground">{{ currency }}</p>
                     </div>
 
-                    <div class="flex shrink-0 items-center gap-2">
+                    <div class="flex w-full shrink-0 items-center gap-2 sm:w-auto">
                         <span v-if="cart.recovered" class="badge-success">اترجعت</span>
 
                         <template v-else>
-                            <span v-if="cart.contacted_at" class="badge-neutral">اتكلمنا {{ cart.contacted_at }}</span>
+                            <span v-if="cart.contacted_at" class="badge-neutral shrink-0">
+                                اتكلمنا {{ cart.contacted_at }}
+                            </span>
 
                             <a :href="whatsappUrl(cart)" target="_blank" rel="noopener"
-                               class="btn-primary" @click="markContacted(cart)">
+                               class="btn-primary flex-1 sm:flex-none" @click="markContacted(cart)">
                                 <MessageCircle class="size-4" />
                                 كلّمه
                             </a>
@@ -161,16 +183,54 @@ const go = (filter: string) =>
                 </div>
             </div>
 
-            <div v-else class="surface px-6 py-16 text-center">
-                <span class="mx-auto flex size-14 items-center justify-center rounded-2xl bg-muted">
-                    <ShoppingCart class="size-6 text-muted-foreground" />
-                </span>
-                <p class="mt-4 font-medium">
-                    {{ filter === 'recovered' ? 'لسه مفيش سلة اترجعت' : 'مفيش سلات متروكة' }}
-                </p>
-                <p class="mx-auto mt-1.5 max-w-sm text-sm text-muted-foreground">
-                    لما حد يبدأ يملا فورم الطلب ويسيبه، هيظهر هنا برقمه عشان تكلّمه.
-                </p>
+            <!--
+                Empty state as an explainer, not a placeholder.
+                A merchant lands here before anything has been abandoned, so the
+                space is better spent showing how the feature works — and what
+                the message they will send looks like — than on a grey box.
+            -->
+            <div v-else class="surface overflow-hidden">
+                <div class="border-b border-border px-6 py-5 text-center">
+                    <p class="font-medium">
+                        {{ filter === 'recovered' ? 'لسه مفيش سلة اترجعت' : 'مفيش سلات متروكة دلوقتي' }}
+                    </p>
+                    <p class="mx-auto mt-1.5 max-w-md text-sm leading-relaxed text-muted-foreground">
+                        كل ما حد يبدأ يملا فورم الطلب ويسيبه، هيظهر هنا برقمه وقيمة سلته.
+                    </p>
+                </div>
+
+                <div class="grid gap-px bg-border md:grid-cols-3">
+                    <div v-for="(step, i) in howItWorks" :key="step.title" class="bg-card p-6">
+                        <div class="flex items-center gap-3">
+                            <span class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                                <component :is="step.icon" class="size-5" />
+                            </span>
+                            <span class="tabular text-2xl font-bold text-muted-foreground/25">٠{{ i + 1 }}</span>
+                        </div>
+                        <p class="mt-4 font-semibold">{{ step.title }}</p>
+                        <p class="mt-1.5 text-sm leading-relaxed text-muted-foreground">{{ step.body }}</p>
+                    </div>
+                </div>
+
+                <!-- The actual message, so the merchant knows what goes out
+                     before the first one ever does. -->
+                <div class="border-t border-border bg-muted/30 p-6">
+                    <p class="mb-3 flex items-center gap-2 text-sm font-medium">
+                        <TrendingUp class="size-4 text-primary" />
+                        الرسالة اللي هتتبعت
+                    </p>
+
+                    <div class="max-w-md rounded-2xl rounded-tr-sm bg-card p-4 text-sm leading-relaxed shadow-e1">
+                        <p>أهلاً سارة 👋</p>
+                        <p class="mt-1">شفت إنك كنت بتطلب قميص قطن مصري (أبيض · L).</p>
+                        <p class="mt-1">حصلت مشكلة في الطلب؟ أقدر أكمّله لك دلوقتي.</p>
+                        <p class="mt-1">الدفع عند الاستلام زي ما هو.</p>
+                    </div>
+
+                    <p class="mt-3 text-xs text-muted-foreground">
+                        بتتكتب لوحدها باسم العميل والمنتج اللي كان مختاره — وإنت تعدّل فيها زي ما تحب قبل ما تبعتها.
+                    </p>
+                </div>
             </div>
 
             <div v-if="carts.links.length > 3" class="flex flex-wrap justify-center gap-1">

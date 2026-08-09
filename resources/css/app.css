@@ -608,3 +608,29 @@
         transform: none;
     }
 }
+
+/*
+| RTL guarantees for the mobile drawer.
+|
+| The sidebar already passes `side="right"`, and the Sheet variant it maps to
+| already sets `right-0` — verified in both the source and the deployed bundle.
+| These two rules exist anyway because the drawer opening on the wrong edge is
+| the kind of bug that survives a rebuild: a cached chunk, a utility class that
+| lost a tailwind-merge conflict, or a future refactor that forgets the prop.
+|
+| Anchored to the data attributes the sidebar sets on its own mobile sheet, so
+| nothing else on the page is affected — and written with `!important` because
+| the utility it may have to beat is itself a class on the same element.
+*/
+@layer utilities {
+    [dir='rtl'] [data-sidebar='sidebar'][data-mobile='true'] {
+        right: 0 !important;
+        left: auto !important;
+    }
+
+    /* Its close button belongs on the reading-start edge, not hard right. */
+    [dir='rtl'] [data-sidebar='sidebar'][data-mobile='true'] > button {
+        right: auto;
+        left: 1rem;
+    }
+}

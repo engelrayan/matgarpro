@@ -94,7 +94,7 @@ const destroy = (category: Category) => {
     <AppLayout :breadcrumbs="breadcrumbItems">
         <Head title="الأقسام" />
 
-        <div class="mx-auto max-w-3xl space-y-5 p-4 md:p-6">
+        <div class="mx-auto w-full max-w-3xl space-y-5 p-4 md:p-6">
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <h1 class="text-2xl font-bold tracking-tight">الأقسام</h1>

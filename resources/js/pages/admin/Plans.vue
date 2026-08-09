@@ -96,7 +96,7 @@ const editingPlan = () => props.plans.find((p) => p.id === editingId.value);
     <AdminLayout title="الخطط والأسعار" subtitle="ده اللي بيحدد كل متجر بيدفع كام">
         <Head title="الخطط والأسعار" />
 
-        <div class="mx-auto max-w-6xl space-y-5">
+        <div class="mx-auto w-full max-w-6xl space-y-5">
             <div class="grid gap-5 lg:grid-cols-3">
                 <!-- ── Plans ─────────────────────────────────────────────── -->
                 <div class="space-y-3 lg:col-span-2">

@@ -319,7 +319,109 @@ const columns = computed(() => [
 
             <!-- ── Grid ───────────────────────────────────────────────── -->
             <div class="surface overflow-hidden">
-                <div class="overflow-x-auto">
+                <!--
+                    Phones get cards, not the table.
+
+                    The grid is twelve columns and 72rem wide — on a 390px
+                    screen that is a horizontal scroll two-and-a-half screens
+                    long, and the merchant loses the order number the moment
+                    they scroll far enough to read the address. Below `md` the
+                    same row is stacked into a card instead: nothing is cut off
+                    and nothing needs scrolling sideways.
+
+                    Inline cell editing stays desktop-only on purpose. Editing
+                    a value in place needs a pointer and room for the input;
+                    on a phone the card links to the order's own page, which is
+                    a better editor than a cramped cell.
+                -->
+                <ul class="divide-y divide-border md:hidden">
+                    <li
+                        v-for="order in orders.data"
+                        :key="order.id"
+                        class="p-4 transition-colors"
+                        :class="selected.includes(order.id) ? 'bg-primary/5' : ''"
+                    >
+                        <div class="flex items-start gap-3">
+                            <input
+                                v-model="selected"
+                                type="checkbox"
+                                :value="order.id"
+                                class="mt-1 size-4 shrink-0 rounded border-input accent-primary"
+                            />
+
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-baseline justify-between gap-2">
+                                    <a :href="`/orders/${order.id}`" class="tabular font-semibold text-primary hover:underline">
+                                        #{{ order.number }}
+                                    </a>
+                                    <span class="tabular shrink-0 font-semibold" dir="ltr">{{ order.total }}</span>
+                                </div>
+
+                                <p class="mt-1 truncate font-medium">{{ order.customer_name }}</p>
+
+                                <!-- A phone number on a phone should be one tap
+                                     away from a call — this is the number the
+                                     merchant rings to confirm the order. -->
+                                <a
+                                    v-if="order.customer_phone"
+                                    :href="`tel:${order.customer_phone}`"
+                                    class="tabular mt-0.5 block text-sm text-muted-foreground"
+                                    dir="ltr"
+                                >
+                                    {{ order.customer_phone }}
+                                </a>
+
+                                <p class="mt-1 text-xs text-muted-foreground">
+                                    <span v-if="order.governorate">{{ order.governorate }}</span>
+                                    <span v-if="order.governorate && order.address"> · </span>
+                                    <span>{{ order.address }}</span>
+                                </p>
+
+                                <p v-if="order.items_summary" class="mt-1 truncate text-xs text-muted-foreground">
+                                    {{ order.items_summary }}
+                                </p>
+
+                                <div class="mt-2.5 flex flex-wrap items-center gap-2">
+                                    <select
+                                        class="cursor-pointer rounded-lg border-0 py-1 pr-1 text-xs focus:outline-none focus:ring-2 focus:ring-ring/30"
+                                        :class="STATUS_BADGE[order.status]"
+                                        :value="order.status"
+                                        @change="setStatus(order, ($event.target as HTMLSelectElement).value)"
+                                    >
+                                        <option v-for="s in statuses" :key="s.value" :value="s.value">{{ s.label }}</option>
+                                    </select>
+
+                                    <span
+                                        v-if="showWhatsapp && order.whatsapp && WHATSAPP_MARK[order.whatsapp]"
+                                        class="text-xs font-bold"
+                                        :class="WHATSAPP_MARK[order.whatsapp].class"
+                                        :title="WHATSAPP_MARK[order.whatsapp].title"
+                                    >
+                                        {{ WHATSAPP_MARK[order.whatsapp].icon }}
+                                    </span>
+
+                                    <span class="tabular mr-auto text-[11px] text-muted-foreground" dir="ltr">
+                                        {{ order.created_at }}
+                                    </span>
+                                </div>
+
+                                <div v-if="showDaman && order.daman" class="mt-2 border-t border-border pt-2 text-xs">
+                                    <template v-if="order.daman.tracking_number">
+                                        <span class="tabular font-medium" dir="ltr">{{ order.daman.tracking_number }}</span>
+                                        <span class="text-muted-foreground"> · {{ order.daman.carrier ?? 'ضمان' }}</span>
+                                    </template>
+                                    <span v-else-if="order.daman.error" class="badge-danger">اترفض</span>
+                                </div>
+                            </div>
+                        </div>
+                    </li>
+
+                    <li v-if="!orders.data.length" class="px-6 py-16 text-center text-muted-foreground">
+                        مفيش طلبات هنا.
+                    </li>
+                </ul>
+
+                <div class="hidden overflow-x-auto md:block">
                     <table class="w-full min-w-[72rem] border-collapse text-sm">
                         <thead class="bg-muted/50">
                             <tr>
@@ -449,7 +551,11 @@ const columns = computed(() => [
                     <p class="text-xs text-muted-foreground">
                         <span class="tabular">{{ orders.from ?? 0 }}–{{ orders.to ?? 0 }}</span>
                         من <span class="tabular">{{ orders.total }}</span>
-                        · دوس على أي خانة عشان تعدّلها
+                        <!-- Inline editing is desktop-only, so the hint is too:
+                             telling a merchant on a phone to tap a cell that
+                             does not exist is worse than saying nothing. -->
+                        <span class="hidden md:inline"> · دوس على أي خانة عشان تعدّلها</span>
+                        <span class="md:hidden"> · افتح الطلب عشان تعدّله</span>
                     </p>
                 </div>
             </div>

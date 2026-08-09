@@ -210,4 +210,18 @@ class ProfitReportTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page->component('reports/Profit'));
     }
+
+    /**
+     * With nothing sold the page has to render an empty product list rather
+     * than fail on missing totals — the empty state is drawn client-side from
+     * exactly this shape.
+     */
+    public function test_a_store_with_no_sales_still_gets_a_usable_payload(): void
+    {
+        $report = $this->report();
+
+        $this->assertSame([], $report['products']);
+        $this->assertSame(0.0, $report['totals']['profit']);
+        $this->assertSame(100, $report['cost_coverage']['percent']);
+    }
 }

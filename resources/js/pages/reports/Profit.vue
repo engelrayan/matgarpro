@@ -58,7 +58,7 @@ const losers = computed(() => props.report.products.filter((p) => p.profit < 0))
     <AppLayout :breadcrumbs="breadcrumbItems">
         <Head title="تقرير الربح" />
 
-        <div class="mx-auto max-w-6xl space-y-5 p-4 md:p-6">
+        <div class="mx-auto w-full max-w-7xl space-y-5 p-4 md:p-6">
             <div class="flex flex-wrap items-end justify-between gap-3">
                 <div>
                     <h1 class="text-2xl font-bold tracking-tight">تقرير الربح</h1>
@@ -105,8 +105,10 @@ const losers = computed(() => props.report.products.filter((p) => p.profit < 0))
                 </div>
             </div>
 
-            <!-- The point of the whole report, said in one line. -->
-            <div class="surface flex flex-wrap items-start gap-2 p-4 text-sm">
+            <!-- The point of the whole report, said in one line. `gap-3` and a
+                 fixed icon column: at Arabic line-heights the icon and the text
+                 collide when they share inline flow. -->
+            <div class="surface flex items-start gap-3 p-4 text-sm">
                 <Info class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                 <p class="min-w-0 flex-1 leading-relaxed text-muted-foreground">
                     الطلب المرتجع مش صفر — إنت دفعت شحن رايح وجاي. بنحسبه
@@ -138,8 +140,59 @@ const losers = computed(() => props.report.products.filter((p) => p.profit < 0))
                 </p>
             </div>
 
+            <!--
+                Nothing sold yet — so show what the report will say, worked
+                through on real numbers. A merchant who has not seen this
+                calculation before is exactly who the feature is for, and an
+                empty table teaches them nothing.
+            -->
+            <div v-if="!report.products.length" class="surface overflow-hidden">
+                <div class="border-b border-border px-6 py-5">
+                    <p class="font-medium">مفيش طلبات اتسلّمت في الفترة دي</p>
+                    <p class="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                        أول ما تبدأ توصّل طلبات، هتلاقي هنا ربح كل منتج بعد التكلفة والمرتجع.
+                        كده مثال على الحساب:
+                    </p>
+                </div>
+
+                <div class="grid gap-px bg-border lg:grid-cols-[1fr_20rem]">
+                    <div class="bg-card p-6">
+                        <p class="text-sm font-medium">منتج بيتباع بـ ٤٠٠ وتكلفته ٢٥٠</p>
+
+                        <div class="mt-4 space-y-2.5 text-sm">
+                            <div v-for="line in [
+                                { label: '٣ طلبات اتسلّمت', value: '+١٬٢٠٠', tone: 'text-success' },
+                                { label: 'تكلفة البضاعة (٣ × ٢٥٠)', value: '−٧٥٠', tone: 'text-muted-foreground' },
+                                { label: 'طلبين مرتجع — شحن رايح وجاي', value: '−١٢٠', tone: 'text-destructive' },
+                            ]" :key="line.label" class="flex items-center justify-between gap-4">
+                                <span class="text-muted-foreground">{{ line.label }}</span>
+                                <span class="tabular font-medium" :class="line.tone" dir="ltr">{{ line.value }}</span>
+                            </div>
+
+                            <div class="flex items-center justify-between gap-4 border-t border-border pt-3">
+                                <span class="font-semibold">صافي الربح</span>
+                                <span class="tabular text-lg font-bold text-success" dir="ltr">٣٣٠</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- The contrast that makes the point: same product, same
+                         month, a number four times larger and wrong. -->
+                    <div class="bg-card p-6">
+                        <p class="text-sm text-muted-foreground">في أي منصة تانية</p>
+                        <p class="tabular mt-2 text-3xl font-bold text-muted-foreground/50" dir="ltr">١٬٢٠٠</p>
+                        <p class="mt-1 text-xs text-muted-foreground">«مبيعات»</p>
+
+                        <p class="mt-5 rounded-xl bg-destructive/5 p-3 text-xs leading-relaxed text-destructive">
+                            الرقم ده مش غلط — هو بس مش ربحك. الفرق بينه وبين الـ٣٣٠
+                            هو تكلفة بضاعتك وشحن المرتجعات.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
             <!-- ── Per product ─────────────────────────────────────────── -->
-            <div class="surface overflow-hidden">
+            <div v-else class="surface overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="w-full min-w-[52rem] text-sm">
                         <thead class="bg-muted/50">
@@ -184,11 +237,6 @@ const losers = computed(() => props.report.products.filter((p) => p.profit < 0))
                                 </td>
                             </tr>
 
-                            <tr v-if="!report.products.length">
-                                <td colspan="7" class="px-6 py-16 text-center text-muted-foreground">
-                                    مفيش طلبات اتسلّمت في الفترة دي.
-                                </td>
-                            </tr>
                         </tbody>
                     </table>
                 </div>

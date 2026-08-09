@@ -119,7 +119,7 @@ const TX_LABEL: Record<string, string> = {
             </a>
         </template>
 
-        <div class="mx-auto max-w-7xl space-y-5">
+        <div class="mx-auto w-full max-w-7xl space-y-5">
             <!-- ── Can it sell right now? ────────────────────────────────── -->
             <div
                 v-if="!store.can_accept_orders"

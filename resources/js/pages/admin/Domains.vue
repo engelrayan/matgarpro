@@ -69,7 +69,7 @@ const LABEL: Record<string, string> = {
     <AdminLayout title="الدومينات" :subtitle="`${num(counts.total)} دومين`">
         <Head title="الدومينات" />
 
-        <div class="mx-auto max-w-6xl space-y-4">
+        <div class="mx-auto w-full max-w-6xl space-y-4">
             <!--
                 Our own DNS targets, on this screen on purpose: a sudden wave of
                 failures is far more often our records moving than fifty

@@ -45,7 +45,7 @@ const STATUS_LABEL: Record<string, string> = {
     <AdminLayout title="الثيمات" :subtitle="`${num(themes.length)} ثيم على ${num(totalStores)} متجر`">
         <Head title="الثيمات" />
 
-        <div class="mx-auto max-w-6xl space-y-5">
+        <div class="mx-auto w-full max-w-6xl space-y-5">
             <!--
                 A theme key on a store that we stopped shipping. Those stores
                 are silently rendering the default right now, which is the kind

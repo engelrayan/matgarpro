@@ -75,7 +75,7 @@ const savePassword = () =>
     <AdminLayout title="المشرفين" subtitle="مين يقدر يدخل اللوحة ويعمل إيه">
         <Head title="المشرفين" />
 
-        <div class="mx-auto max-w-4xl space-y-5">
+        <div class="mx-auto w-full max-w-4xl space-y-5">
             <div class="flex justify-end">
                 <button class="btn-primary" @click="showCreate = !showCreate">
                     <Plus class="size-4" />

@@ -112,7 +112,7 @@ const copyUrl = async () => {
     <AppLayout :breadcrumbs="breadcrumbItems">
         <Head title="لوحة التحكم" />
 
-        <div class="mx-auto max-w-7xl space-y-5 p-4 md:p-6">
+        <div class="mx-auto w-full max-w-7xl space-y-5 p-4 md:p-6">
             <!-- ── Store header ─────────────────────────────────────────── -->
             <section class="surface-lux bg-aurora overflow-hidden p-6">
                 <div class="flex flex-wrap items-center gap-5">
