@@ -1,0 +1,610 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+|--------------------------------------------------------------------------
+| مَتاجر — Design System
+|--------------------------------------------------------------------------
+| Identity: "Jade & Gold" — deep jade is the brand voice, antique gold is the
+| accent reserved for money, success and emphasis. The canvas is a warm ivory
+| rather than pure white: it is the cheapest single trick for making a SaaS
+| feel expensive, and it keeps long dashboard sessions easy on the eyes.
+|
+| Every colour is declared as raw `H S% L%` so Tailwind can compose it with
+| opacity modifiers (`bg-primary/10`). Never hardcode a hex in a component —
+| add a token here instead, otherwise dark mode silently breaks.
+*/
+
+@layer base {
+    :root {
+        /* ---- Brand: Jade ------------------------------------------------ */
+        --jade-50: 158 60% 96%;
+        --jade-100: 156 62% 90%;
+        --jade-200: 157 57% 79%;
+        --jade-300: 158 52% 64%;
+        --jade-400: 161 54% 48%;
+        --jade-500: 164 76% 36%;
+        --jade-600: 167 83% 28%;
+        --jade-700: 167 83% 23%;
+        --jade-800: 166 79% 18%;
+        --jade-900: 165 76% 14%;
+        --jade-950: 166 84% 8%;
+
+        /* ---- Accent: Antique Gold --------------------------------------- */
+        --gold-50: 45 67% 96%;
+        --gold-100: 44 66% 89%;
+        --gold-200: 43 68% 79%;
+        --gold-300: 43 68% 66%;
+        --gold-400: 43 65% 55%;
+        --gold-500: 43 64% 46%;
+        --gold-600: 42 66% 39%;
+        --gold-700: 39 63% 32%;
+        --gold-800: 36 55% 28%;
+        --gold-900: 34 49% 25%;
+        --gold-950: 33 58% 13%;
+
+        /* ---- Neutrals: warm sand, faint green undertone ------------------ */
+        --sand-50: 45 33% 98%;
+        --sand-100: 44 28% 95%;
+        --sand-200: 42 20% 90%;
+        --sand-300: 40 14% 82%;
+        --sand-400: 38 9% 64%;
+        --sand-500: 36 7% 50%;
+        --sand-600: 40 7% 40%;
+        --sand-700: 45 8% 31%;
+        --sand-800: 50 9% 21%;
+        --sand-900: 60 10% 13%;
+        --sand-950: 160 18% 6%;
+
+        /* ---- Semantic (light) ------------------------------------------- */
+        --background: 45 33% 98%;
+        --foreground: 160 18% 6%;
+
+        --card: 0 0% 100%;
+        --card-foreground: 160 18% 6%;
+
+        --popover: 0 0% 100%;
+        --popover-foreground: 160 18% 6%;
+
+        --primary: 167 83% 28%;
+        --primary-foreground: 158 60% 96%;
+
+        --secondary: 44 28% 95%;
+        --secondary-foreground: 166 79% 18%;
+
+        --muted: 44 28% 95%;
+        --muted-foreground: 36 7% 44%;
+
+        --accent: 43 64% 46%;
+        --accent-foreground: 33 58% 13%;
+
+        --success: 164 76% 32%;
+        --success-foreground: 158 60% 96%;
+        --warning: 32 85% 46%;
+        --warning-foreground: 30 60% 12%;
+        --destructive: 355 72% 47%;
+        --destructive-foreground: 0 0% 100%;
+        --info: 205 78% 42%;
+        --info-foreground: 0 0% 100%;
+
+        --border: 42 20% 89%;
+        --input: 42 20% 87%;
+        --ring: 167 83% 28%;
+
+        /* ---- Charts: ordered for categorical series ---------------------- */
+        --chart-1: 167 83% 28%;
+        --chart-2: 43 64% 46%;
+        --chart-3: 196 62% 38%;
+        --chart-4: 161 54% 48%;
+        --chart-5: 15 63% 52%;
+        --chart-6: 262 45% 52%;
+
+        /* ---- Sidebar: deep jade, dark in both themes --------------------- */
+        --sidebar-background: 166 84% 8%;
+        --sidebar-foreground: 156 30% 82%;
+        --sidebar-primary: 43 64% 46%;
+        --sidebar-primary-foreground: 33 58% 13%;
+        --sidebar-accent: 166 79% 14%;
+        --sidebar-accent-foreground: 158 60% 96%;
+        --sidebar-border: 166 60% 14%;
+        --sidebar-ring: 43 64% 46%;
+
+        --radius: 0.75rem;
+    }
+
+    .dark {
+        --background: 160 22% 5%;
+        --foreground: 150 14% 93%;
+
+        --card: 165 20% 8%;
+        --card-foreground: 150 14% 93%;
+
+        --popover: 165 22% 7%;
+        --popover-foreground: 150 14% 93%;
+
+        --primary: 161 54% 48%;
+        --primary-foreground: 166 84% 8%;
+
+        --secondary: 165 14% 14%;
+        --secondary-foreground: 150 14% 93%;
+
+        --muted: 165 14% 13%;
+        --muted-foreground: 150 6% 62%;
+
+        --accent: 43 65% 55%;
+        --accent-foreground: 33 58% 13%;
+
+        --success: 161 54% 45%;
+        --success-foreground: 166 84% 8%;
+        --warning: 38 82% 55%;
+        --warning-foreground: 30 60% 10%;
+        --destructive: 356 68% 56%;
+        --destructive-foreground: 0 0% 100%;
+        --info: 202 70% 55%;
+        --info-foreground: 205 50% 10%;
+
+        --border: 165 12% 17%;
+        --input: 165 12% 19%;
+        --ring: 161 54% 48%;
+
+        --sidebar-background: 166 40% 6%;
+        --sidebar-foreground: 156 22% 78%;
+        --sidebar-accent: 165 30% 11%;
+        --sidebar-border: 165 25% 12%;
+    }
+}
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+
+    html {
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+        @apply bg-background text-foreground antialiased;
+        text-rendering: optimizeLegibility;
+    }
+
+    /* Arabic digits in data tables must line up column-to-column. */
+    .tabular,
+    table td,
+    table th {
+        font-variant-numeric: tabular-nums;
+    }
+
+    ::selection {
+        @apply bg-primary/20 text-foreground;
+    }
+
+    /* A visible, branded focus ring — never remove it, only restyle it. */
+    :focus-visible {
+        @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+    }
+
+    ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+
+    ::-webkit-scrollbar-track {
+        @apply bg-transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        @apply rounded-full border-[3px] border-solid border-transparent bg-sand-300 bg-clip-padding;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        @apply bg-sand-400;
+    }
+}
+
+@layer components {
+    /*
+    | Surfaces
+    | `.surface` is the default card. `.surface-lux` adds the gold hairline and
+    | is reserved for money-bearing panels (payouts, revenue, plan) — if every
+    | card is special, none of them are.
+    */
+    .surface {
+        @apply rounded-2xl border border-border bg-card shadow-e1;
+    }
+
+    .surface-lux {
+        @apply relative rounded-2xl border border-gold-200/70 bg-card shadow-e2;
+    }
+
+    .surface-lux::before {
+        content: '';
+        @apply pointer-events-none absolute inset-x-0 top-0 h-px;
+        background: linear-gradient(to left, transparent, hsl(var(--gold-400) / 0.9), transparent);
+    }
+
+    .surface-ink {
+        @apply rounded-2xl border border-jade-800/60 bg-jade-950 text-jade-50 shadow-e3;
+    }
+
+    /* Frosted panel — for overlays sitting on imagery, not for flat pages. */
+    .glass {
+        @apply border border-white/15 bg-white/70 backdrop-blur-xl;
+    }
+
+    .dark .glass {
+        @apply border-white/10 bg-jade-950/60;
+    }
+
+    /* Elevated key figure. */
+    .stat-tile {
+        @apply surface flex flex-col gap-1 p-5;
+    }
+
+    .stat-tile__value {
+        @apply tabular text-3xl font-semibold tracking-tight;
+    }
+
+    .stat-tile__label {
+        @apply text-sm text-muted-foreground;
+    }
+
+    /* Section heading with a gold rule running off to the side. */
+    .rule-gold {
+        @apply flex items-center gap-4;
+    }
+
+    .rule-gold::after {
+        content: '';
+        @apply h-px flex-1;
+        background: linear-gradient(to left, hsl(var(--gold-300) / 0.8), transparent);
+    }
+
+    .badge {
+        @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium leading-none;
+    }
+
+    .badge-success {
+        @apply badge bg-success/10 text-success;
+    }
+
+    .badge-warning {
+        @apply badge bg-warning/10 text-warning;
+    }
+
+    .badge-danger {
+        @apply badge bg-destructive/10 text-destructive;
+    }
+
+    .badge-info {
+        @apply badge bg-info/10 text-info;
+    }
+
+    .badge-gold {
+        @apply badge bg-gold-500/10 text-gold-700;
+    }
+
+    .dark .badge-gold {
+        @apply text-gold-300;
+    }
+
+    .badge-neutral {
+        @apply badge bg-muted text-muted-foreground;
+    }
+
+    /* ---- Buttons ------------------------------------------------------- */
+    .btn {
+        @apply inline-flex select-none items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200 disabled:pointer-events-none disabled:opacity-50;
+    }
+
+    .btn-primary {
+        @apply btn bg-primary text-primary-foreground shadow-e1 hover:brightness-110 active:scale-[0.98];
+    }
+
+    .btn-gold {
+        @apply btn bg-gold-500 text-gold-950 shadow-e1 hover:bg-gold-400 active:scale-[0.98];
+    }
+
+    .btn-outline {
+        @apply btn border border-border bg-transparent hover:bg-muted;
+    }
+
+    .btn-ghost {
+        @apply btn bg-transparent hover:bg-muted;
+    }
+
+    .btn-danger {
+        @apply btn bg-destructive text-destructive-foreground hover:brightness-110 active:scale-[0.98];
+    }
+
+    /* ---- Form controls -------------------------------------------------- */
+    .field {
+        @apply w-full rounded-xl border border-input bg-card px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/70 focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/25 focus:ring-offset-0;
+    }
+
+    .field-label {
+        @apply mb-1.5 block text-sm font-medium text-foreground;
+    }
+
+    .field-hint {
+        @apply mt-1.5 text-xs text-muted-foreground;
+    }
+
+    .field-error {
+        @apply mt-1.5 text-xs text-destructive;
+    }
+}
+
+@layer utilities {
+    /* Gold foil text — headline use only; it fails contrast at body sizes. */
+    .text-foil {
+        background: linear-gradient(
+            100deg,
+            hsl(var(--gold-700)),
+            hsl(var(--gold-400)) 45%,
+            hsl(var(--gold-200)) 55%,
+            hsl(var(--gold-500))
+        );
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+
+    .text-jade-gradient {
+        background: linear-gradient(100deg, hsl(var(--jade-700)), hsl(var(--jade-400)));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+
+    /* Soft radial brand wash for hero sections. */
+    .bg-aurora {
+        background-image:
+            radial-gradient(60rem 30rem at 85% -10%, hsl(var(--jade-400) / 0.18), transparent 60%),
+            radial-gradient(45rem 25rem at 5% 0%, hsl(var(--gold-300) / 0.16), transparent 55%);
+    }
+
+    /* Diagonal sheen that sweeps once on hover. Pair with `overflow-hidden`. */
+    .sheen {
+        @apply relative overflow-hidden;
+    }
+
+    .sheen::after {
+        content: '';
+        @apply pointer-events-none absolute inset-0 -translate-x-full;
+        background: linear-gradient(110deg, transparent 30%, hsl(0 0% 100% / 0.28) 50%, transparent 70%);
+    }
+
+    .sheen:hover::after {
+        animation: sheen-sweep 0.9s ease-out;
+    }
+
+    @keyframes sheen-sweep {
+        to {
+            transform: translateX(200%);
+        }
+    }
+
+    /* Respect the user's motion preference across every animated utility. */
+    @media (prefers-reduced-motion: reduce) {
+        .sheen:hover::after {
+            animation: none;
+        }
+    }
+}
+
+
+@layer components {
+    /*
+    | Merchant-written product descriptions.
+    |
+    | Scoped rather than global: the HTML comes from a contenteditable editor
+    | and is sanitised to a small allow-list, so only these tags can appear —
+    | and each needs spacing the surrounding page does not apply to bare tags.
+    */
+    .prose-description h3,
+    .prose-description h4 {
+        @apply mb-1.5 mt-4 text-base font-bold text-foreground;
+    }
+
+    .prose-description p {
+        @apply my-2;
+    }
+
+    .prose-description ul {
+        @apply my-2 list-disc space-y-1 pr-5;
+    }
+
+    .prose-description ol {
+        @apply my-2 list-decimal space-y-1 pr-5;
+    }
+
+    .prose-description a {
+        @apply text-primary underline;
+    }
+
+    .prose-description strong,
+    .prose-description b {
+        @apply font-semibold text-foreground;
+    }
+}
+
+@layer utilities {
+    /*
+    | Showroom ribbon.
+    |
+    | Translates by half its own width, and the strip repeats its content
+    | twice, so the loop point lands exactly where it started — a percentage
+    | tied to the viewport would visibly jump on a narrow phone.
+    */
+    @keyframes demo-marquee {
+        from { transform: translateX(0); }
+        to { transform: translateX(50%); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .animate-\[demo-marquee_28s_linear_infinite\] {
+            animation: none;
+        }
+    }
+}
+
+@layer utilities {
+    /*
+    |--------------------------------------------------------------------------
+    | Marketing page depth
+    |--------------------------------------------------------------------------
+    | The landing page is the one surface that has to feel expensive on first
+    | paint. These are deliberately NOT in the dashboard's vocabulary: a product
+    | screen wants to be quiet, a sales page wants presence.
+    */
+
+    /* Layered colour mesh. Four offset radials rather than one gradient — a
+       single linear gradient reads as a cheap template header. */
+    .mesh {
+        background-color: hsl(var(--background));
+        background-image:
+            radial-gradient(42rem 30rem at 12% -8%, hsl(var(--jade-400) / 0.20), transparent 60%),
+            radial-gradient(38rem 26rem at 88% 2%, hsl(var(--gold-300) / 0.22), transparent 58%),
+            radial-gradient(34rem 28rem at 50% 108%, hsl(var(--jade-300) / 0.16), transparent 60%),
+            radial-gradient(28rem 22rem at 78% 68%, hsl(var(--gold-200) / 0.14), transparent 62%);
+    }
+
+    .mesh-ink {
+        background-color: hsl(var(--jade-950));
+        background-image:
+            radial-gradient(46rem 32rem at 84% -10%, hsl(var(--jade-400) / 0.22), transparent 62%),
+            radial-gradient(38rem 28rem at 6% 104%, hsl(var(--gold-500) / 0.20), transparent 60%),
+            radial-gradient(30rem 24rem at 50% 40%, hsl(var(--jade-600) / 0.18), transparent 66%);
+    }
+
+    /* A soft halo behind a hero element, so it sits in light rather than on a
+       flat plane. */
+    .halo::before {
+        content: '';
+        @apply pointer-events-none absolute -inset-8 -z-10 rounded-[3rem] blur-3xl;
+        background: radial-gradient(closest-side, hsl(var(--jade-400) / 0.28), transparent);
+    }
+
+    .halo-gold::before {
+        background: radial-gradient(closest-side, hsl(var(--gold-400) / 0.30), transparent);
+    }
+
+    /* Hairline grid, barely visible. Gives large empty areas a surface instead
+       of a void. */
+    .grid-lines {
+        background-image:
+            linear-gradient(hsl(var(--border) / 0.55) 1px, transparent 1px),
+            linear-gradient(90deg, hsl(var(--border) / 0.55) 1px, transparent 1px);
+        background-size: 3.5rem 3.5rem;
+        mask-image: radial-gradient(60% 60% at 50% 40%, #000, transparent);
+    }
+
+    /*
+    | Scroll reveal.
+    |
+    | Elements start shifted and transparent, and an observer adds `.shown`.
+    | The default state is the VISIBLE one under reduced motion and when JS
+    | never runs — a page that stays blank because a script failed is worse
+    | than a page with no animation.
+    */
+    .reveal {
+        opacity: 0;
+        transform: translateY(1.25rem);
+        transition:
+            opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+            transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .reveal.shown,
+    .no-js .reveal {
+        opacity: 1;
+        transform: none;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .reveal {
+            opacity: 1;
+            transform: none;
+            transition: none;
+        }
+    }
+
+    /* Slow vertical drift for the floating hero pills. */
+    @keyframes float-y {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-0.5rem); }
+    }
+
+    .floaty {
+        animation: float-y 6s ease-in-out infinite;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .floaty { animation: none; }
+    }
+}
+
+@layer utilities {
+    /*
+    | Infinite feature strip.
+    |
+    | The track holds the list twice and slides exactly half its own width, so
+    | the loop point lands where it started. A percentage tied to the viewport
+    | would visibly jump on a narrow phone.
+    */
+    @keyframes ticker {
+        from { transform: translateX(0); }
+        to   { transform: translateX(-50%); }
+    }
+
+    .ticker-track {
+        animation: ticker 38s linear infinite;
+    }
+
+    .ticker:hover .ticker-track {
+        animation-play-state: paused;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .ticker-track { animation: none; }
+    }
+
+    /* Faint checkerboard for the hero panel's interior. Softer than a grid —
+       it reads as texture rather than as a table. */
+    .checks {
+        background-image:
+            linear-gradient(45deg, hsl(var(--jade-500) / 0.05) 25%, transparent 25%),
+            linear-gradient(-45deg, hsl(var(--jade-500) / 0.05) 25%, transparent 25%),
+            linear-gradient(45deg, transparent 75%, hsl(var(--jade-500) / 0.05) 75%),
+            linear-gradient(-45deg, transparent 75%, hsl(var(--jade-500) / 0.05) 75%);
+        background-size: 4rem 4rem;
+        background-position: 0 0, 0 2rem, 2rem -2rem, -2rem 0;
+        mask-image: radial-gradient(70% 70% at 50% 45%, #000, transparent);
+    }
+}
+
+@layer utilities {
+    /*
+    | Hero demo scenes.
+    |
+    | Scene 1 is visible by default and the rest are hidden, so with no JS the
+    | shot is a complete storefront rather than an empty frame. The script only
+    | ever moves `.is-active` between them.
+    */
+    .demo-scene {
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(0.5rem);
+        transition: opacity 0.45s ease, transform 0.45s ease, visibility 0.45s;
+    }
+
+    /* Without the script, scene 1 stands in as a plain storefront shot. */
+    [data-demo]:not(.demo-ready) .demo-scene[data-scene='0'],
+    .demo-scene.is-active {
+        opacity: 1;
+        visibility: visible;
+        transform: none;
+    }
+}

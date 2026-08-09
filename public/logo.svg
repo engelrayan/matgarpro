@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40">
+  <!--
+    متجر برو mark — standalone copy for the favicon and for anywhere the app's
+    CSS variables are not available (a mail client, an OG image, a bookmark).
+    Colours are the resolved jade and gold tokens rather than var() references.
+  -->
+  <rect width="40" height="40" rx="11" fill="#0d6d5b"/>
+
+  <path d="M6.5 13.4c0-2.5 1.7-4.6 3.7-4.6h19.6c2 0 3.7 2.1 3.7 4.6H6.5Z" fill="#d3a441"/>
+  <path d="M6.5 13.4h27v1.1c0 .8-.6 1.4-1.4 1.4H7.9c-.8 0-1.4-.6-1.4-1.4v-1.1Z" fill="#e0bd75"/>
+
+  <path d="m20 18.6 4.1 3.5a1.5 1.5 0 0 1-1.9 2.3L20 22.6l-2.2 1.8a1.5 1.5 0 1 1-1.9-2.3l4.1-3.5Z" fill="#e0bd75"/>
+
+  <path d="M20 25.4c-3.4 0-6.1 2.7-6.1 6.1V34h12.2v-2.5c0-3.4-2.7-6.1-6.1-6.1Z" fill="#04231d" fill-opacity=".3"/>
+  <path d="M20 26.6a4.4 4.4 0 0 0-4.4 4.4V34h8.8v-3a4.4 4.4 0 0 0-4.4-4.4Z" fill="#f4e6c6"/>
+</svg>

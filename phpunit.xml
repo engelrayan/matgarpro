@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+>
+    <testsuites>
+        <testsuite name="Unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+        <testsuite name="Feature">
+            <directory>tests/Feature</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory>app</directory>
+        </include>
+    </source>
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="APP_MAINTENANCE_DRIVER" value="file"/>
+        <env name="BCRYPT_ROUNDS" value="4"/>
+        <env name="CACHE_STORE" value="array"/>
+        <!--
+          Tests run on MySQL, not sqlite. The two disagree on enums, JSON
+          columns, strict GROUP BY and index length limits, so a green sqlite
+          suite over a MySQL production database is a false negative waiting to
+          happen. Create it once: CREATE DATABASE mataager_testing;
+        -->
+        <env name="DB_CONNECTION" value="mysql"/>
+        <env name="DB_DATABASE" value="mataager_testing"/>
+
+        <env name="MAIL_MAILER" value="array"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="SESSION_DRIVER" value="array"/>
+
+        <!-- Pinned so the suite does not change meaning when .env does. -->
+        <env name="STOREFRONT_DOMAIN" value="mataager.test"/>
+        <env name="STOREFRONT_APP_DOMAIN" value="localhost"/>
+        <env name="STOREFRONT_DNS_A" value="203.0.113.10,203.0.113.11"/>
+        <env name="STOREFRONT_DNS_CNAME" value="connect.mataager.test"/>
+        <env name="BILLING_OVERDRAFT_LIMIT" value="25"/>
+        <env name="BILLING_DEFAULT_PRICE_PER_ORDER" value="0"/>
+    </php>
+</phpunit>

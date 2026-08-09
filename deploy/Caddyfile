@@ -1,0 +1,67 @@
+# مَتاجر — edge configuration
+#
+# This is what makes a merchant's own domain work over HTTPS with no manual
+# step. Caddy obtains and renews a certificate the first time a real request
+# arrives for an unknown hostname, but only for hostnames our API vouches for.
+#
+# Deploy: caddy run --config deploy/Caddyfile
+# The app itself must be reachable on 127.0.0.1:8000 (php-fpm behind Caddy, or
+# an app server — this file assumes the former).
+
+{
+	email ops@mataager.com
+
+	on_demand_tls {
+		# Caddy calls this BEFORE asking the CA for a certificate. A 2xx means
+		# the hostname belongs to a real store; anything else refuses the
+		# handshake. Without this gate, anyone could point a few thousand
+		# hostnames at our IP and burn through the CA's rate limit in minutes.
+		ask http://127.0.0.1:8000/api/tls/check
+
+		# Ceiling on how fast new certificates may be issued, as a second line
+		# of defence if the ask endpoint is ever misconfigured.
+		interval 2m
+		burst 8
+	}
+}
+
+# ---------------------------------------------------------------------------
+# The dashboard. Named explicitly so it is never served on a merchant domain.
+# ---------------------------------------------------------------------------
+app.mataager.com {
+	root * /var/www/mataager/public
+	encode zstd gzip
+	php_fastcgi unix//run/php/php8.3-fpm.sock
+	file_server
+}
+
+# ---------------------------------------------------------------------------
+# Every store: the free {slug}.mataager.com sub-domain (one wildcard
+# certificate) plus any custom domain, each getting its own certificate on
+# demand.
+# ---------------------------------------------------------------------------
+*.mataager.com, https:// {
+	tls {
+		on_demand
+	}
+
+	root * /var/www/mataager/public
+	encode zstd gzip
+
+	# Storefront pages are paid for with ad money — a slow first byte is a
+	# measurable share of the merchant's budget.
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
+	@static {
+		path /build/* /storage/* *.css *.js *.woff2 *.png *.jpg *.svg *.webp
+	}
+	header @static Cache-Control "public, max-age=31536000, immutable"
+
+	php_fastcgi unix//run/php/php8.3-fpm.sock
+	file_server
+}
