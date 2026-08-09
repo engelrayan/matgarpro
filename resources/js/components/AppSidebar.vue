@@ -48,7 +48,7 @@ const navGroups: NavGroup[] = [
             { title: 'بيانات المتجر', href: '/settings/store', icon: Store },
             { title: 'واتساب', href: '/settings/whatsapp', icon: MessageCircle },
             { title: 'الشحن مع ضمان', href: '/settings/daman', icon: Truck },
-            { title: 'الدومين', href: '/settings/domains', icon: Globe },
+            { title: 'الدومين والحساب', href: '/settings/general', icon: Globe },
         ],
     },
 ];

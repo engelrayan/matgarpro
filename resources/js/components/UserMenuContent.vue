@@ -15,9 +15,11 @@ defineProps<{ user: User }>();
  * with "الطلبات" for room in the rail.
  */
 const accountItems = [
-    { title: 'الملف الشخصي', href: '/settings/profile', icon: UserRound },
-    { title: 'كلمة المرور', href: '/settings/password', icon: KeyRound },
-    { title: 'المظهر', href: '/settings/appearance', icon: Palette },
+    // One destination, not three. The profile, the password and the appearance
+    // switch are three small forms that now live on one screen — three menu
+    // items for three sections of the same page is a menu that makes the app
+    // look bigger than it is.
+    { title: 'إعدادات المتجر والدومين', href: '/settings/general', icon: UserRound },
 ];
 </script>
 

@@ -11,9 +11,11 @@ const { class: containerClass = '' } = defineProps<Props>();
 const { appearance, updateAppearance } = useAppearance();
 
 const tabs = [
-    { value: 'light', Icon: Sun, label: 'Light' },
-    { value: 'dark', Icon: Moon, label: 'Dark' },
-    { value: 'system', Icon: Monitor, label: 'System' },
+    // Arabic, like the rest of the app. These three words sat in English on a
+    // screen where every other word was Arabic.
+    { value: 'light', Icon: Sun, label: 'فاتح' },
+    { value: 'dark', Icon: Moon, label: 'غامق' },
+    { value: 'system', Icon: Monitor, label: 'حسب الجهاز' },
 ] as const;
 </script>
 

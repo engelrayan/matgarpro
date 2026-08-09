@@ -4,6 +4,7 @@ use App\Http\Controllers\Settings\CatalogController;
 use App\Http\Controllers\Settings\CheckoutFieldsController;
 use App\Http\Controllers\Settings\DamanController;
 use App\Http\Controllers\Settings\DomainController;
+use App\Http\Controllers\Settings\GeneralController;
 use App\Http\Controllers\Settings\PasswordController;
 use App\Http\Controllers\Settings\PixelController;
 use App\Http\Controllers\Settings\ProfileController;
@@ -17,6 +18,16 @@ Route::middleware('auth')->group(function () {
     // The store, not the user profile: a merchant opening settings is far more
     // often there to change their storefront than their own password.
     Route::redirect('settings', 'settings/store');
+
+    /*
+    | Account and domain, on one screen.
+    |
+    | The four forms it carries still post to their own endpoints below — this
+    | route only renders them together. The old single-purpose pages stay
+    | reachable: they are what password-reset mails and a merchant's own
+    | bookmarks point at, and breaking those to tidy a sidebar is a bad trade.
+    */
+    Route::get('settings/general', [GeneralController::class, 'edit'])->name('settings.general');
 
     Route::get('settings/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('settings/profile', [ProfileController::class, 'update'])->name('profile.update');
