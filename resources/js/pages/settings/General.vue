@@ -5,8 +5,8 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import {
-    Check, Copy, Globe, KeyRound, LoaderCircle, Lock, Palette, RefreshCw,
-    Star, Trash2, TriangleAlert, User,
+    Check, Copy, Globe, ImagePlus, KeyRound, LoaderCircle, Lock, Palette,
+    RefreshCw, Star, Store as StoreIcon, Trash2, TriangleAlert, User, X,
 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
@@ -44,13 +44,68 @@ interface Domain {
 const props = defineProps<{
     mustVerifyEmail: boolean;
     status?: string;
-    store: { name: string; slug: string; platform_host: string; canonical_url: string };
+    store: {
+        name: string;
+        slug: string;
+        description: string | null;
+        logo_url: string | null;
+        platform_host: string;
+        canonical_url: string;
+    };
     domains: Domain[];
 }>();
 
 const breadcrumbItems: BreadcrumbItem[] = [{ title: 'إعدادات المتجر والدومين', href: '/settings/general' }];
 
 const user = computed(() => usePage().props.auth.user as { name: string; email: string; email_verified_at: string | null });
+
+// ── Store ────────────────────────────────────────────────────────────────
+const storeForm = useForm({
+    name: props.store.name,
+    description: props.store.description ?? '',
+    logo: null as File | null,
+    remove_logo: false,
+});
+
+const logoPreview = ref<string | null>(null);
+
+/** What the merchant should be looking at right now — not what is saved. */
+const logo = computed(() => {
+    if (storeForm.remove_logo) return null;
+    return logoPreview.value ?? props.store.logo_url;
+});
+
+const pickLogo = (event: Event) => {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+
+    storeForm.logo = file;
+    storeForm.remove_logo = false;
+    logoPreview.value = URL.createObjectURL(file);
+};
+
+const dropLogo = () => {
+    storeForm.logo = null;
+    storeForm.remove_logo = true;
+    logoPreview.value = null;
+};
+
+// The storefront falls back to the first letter of the name when there is no
+// logo, so the preview here has to show the same thing.
+const initial = computed(() => storeForm.name.trim().charAt(0) || 'م');
+
+const saveStore = () =>
+    // POST, not PATCH: the form carries a file, and PHP does not populate
+    // uploads on a spoofed PATCH body.
+    storeForm.post(route('store.update'), {
+        preserveScroll: true,
+        forceFormData: true,
+        onSuccess: () => {
+            storeForm.remove_logo = false;
+            storeForm.logo = null;
+            logoPreview.value = null;
+        },
+    });
 
 // ── Profile ──────────────────────────────────────────────────────────────
 const profile = useForm({ name: user.value.name, email: user.value.email });
@@ -120,6 +175,9 @@ const deleteAccount = () =>
     });
 
 const SECTIONS = [
+    // The store comes first. A merchant opening settings is far more often
+    // here to change their shop than their own password.
+    { id: 'store', label: 'بيانات المتجر', icon: StoreIcon },
     { id: 'profile', label: 'الملف الشخصي', icon: User },
     { id: 'password', label: 'كلمة المرور', icon: KeyRound },
     { id: 'appearance', label: 'المظهر', icon: Palette },
@@ -163,6 +221,65 @@ const SECTIONS = [
                     <p v-if="status" class="rounded-xl bg-success/10 px-4 py-3 text-sm text-success">
                         {{ status === 'profile-updated' ? 'اتحفظت بياناتك.' : 'تمام، اتحفظ.' }}
                     </p>
+
+                    <!-- ── Store ───────────────────────────────────────── -->
+                    <section id="store" class="surface scroll-mt-6 p-6">
+                        <h2 class="text-base font-semibold">بيانات المتجر</h2>
+                        <p class="mt-1 text-sm text-muted-foreground">
+                            الاسم واللوجو اللي الزبون بيشوفهم فوق في متجرك.
+                        </p>
+
+                        <form class="mt-5 space-y-5" @submit.prevent="saveStore">
+                            <div>
+                                <label class="field-label">اللوجو</label>
+                                <div class="flex items-center gap-4">
+                                    <!-- The preview shows exactly what the
+                                         storefront will render, initial fallback
+                                         included — a merchant should not have to
+                                         save to find out. -->
+                                    <span class="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted">
+                                        <img v-if="logo" :src="logo" alt="" class="size-full object-cover" />
+                                        <span v-else class="text-2xl font-bold text-primary">{{ initial }}</span>
+                                    </span>
+
+                                    <div class="flex flex-wrap gap-2">
+                                        <label class="btn-outline cursor-pointer">
+                                            <ImagePlus class="size-4" />
+                                            {{ logo ? 'غيّر اللوجو' : 'ارفع لوجو' }}
+                                            <input type="file" accept="image/*" class="hidden" @change="pickLogo" />
+                                        </label>
+                                        <button v-if="logo" type="button" class="btn-ghost text-destructive" @click="dropLogo">
+                                            <X class="size-4" />
+                                            شيله
+                                        </button>
+                                    </div>
+                                </div>
+                                <p class="field-hint">مربع أفضل. أقصى حجم ٢ ميجا.</p>
+                                <InputError :message="storeForm.errors.logo" />
+                            </div>
+
+                            <div>
+                                <label class="field-label" for="store_name">اسم المتجر</label>
+                                <input id="store_name" v-model="storeForm.name" class="field" required />
+                                <InputError :message="storeForm.errors.name" />
+                            </div>
+
+                            <div>
+                                <label class="field-label" for="store_description">وصف قصير</label>
+                                <textarea id="store_description" v-model="storeForm.description" class="field" rows="3" />
+                                <p class="field-hint">بيظهر تحت اسم المتجر وفي نتايج البحث على جوجل.</p>
+                                <InputError :message="storeForm.errors.description" />
+                            </div>
+
+                            <div class="flex items-center gap-3">
+                                <button type="submit" class="btn-primary" :disabled="storeForm.processing">
+                                    <LoaderCircle v-if="storeForm.processing" class="size-4 animate-spin" />
+                                    احفظ
+                                </button>
+                                <span v-if="storeForm.recentlySuccessful" class="text-sm text-success">اتحفظ</span>
+                            </div>
+                        </form>
+                    </section>
 
                     <!-- ── Profile ─────────────────────────────────────── -->
                     <section id="profile" class="surface scroll-mt-6 p-6">

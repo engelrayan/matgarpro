@@ -35,6 +35,8 @@ class GeneralController extends Controller
             'store' => [
                 'name' => $store->name,
                 'slug' => $store->slug,
+                'description' => $store->description,
+                'logo_url' => $store->logoUrl(),
                 'platform_host' => $store->platformHost(),
                 'canonical_url' => $store->canonicalUrl(),
             ],

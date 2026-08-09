@@ -35,6 +35,10 @@ class GeneralSettingsTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->component('settings/General')
                 ->has('store.platform_host')
+                // The store's own data lives here too — the logo preview
+                // cannot render without it.
+                ->has('store.logo_url')
+                ->has('store.description')
                 ->has('domains')
                 ->has('mustVerifyEmail'));
     }
@@ -69,7 +73,7 @@ class GeneralSettingsTest extends TestCase
     {
         $user = $this->merchant();
 
-        foreach (['/settings/profile', '/settings/password', '/settings/domains'] as $url) {
+        foreach (['/settings/profile', '/settings/password', '/settings/domains', '/settings/store'] as $url) {
             $this->actingAs($user)->get($url)->assertOk();
         }
     }

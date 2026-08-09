@@ -45,10 +45,11 @@ const navGroups: NavGroup[] = [
     {
         label: 'الإعدادات',
         items: [
-            { title: 'بيانات المتجر', href: '/settings/store', icon: Store },
+            // Store data, account and domain are one screen now.
+            { title: 'إعدادات المتجر', href: '/settings/general', icon: Store },
             { title: 'واتساب', href: '/settings/whatsapp', icon: MessageCircle },
             { title: 'الشحن مع ضمان', href: '/settings/daman', icon: Truck },
-            { title: 'الدومين والحساب', href: '/settings/general', icon: Globe },
+            { title: 'الدومين', href: '/settings/general#domain', icon: Globe },
         ],
     },
 ];
