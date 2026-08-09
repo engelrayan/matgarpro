@@ -3,6 +3,7 @@
 namespace App\Services\Storefront;
 
 use App\Exceptions\DomainException;
+use App\Jobs\IssueStoreDomainCertificate;
 use App\Models\Store;
 use App\Models\StoreDomain;
 use App\Services\Dns\DnsResolver;
@@ -121,7 +122,22 @@ class StoreDomainService
             $domain->last_error = $result['reason'];
         }
 
+        $wasServing = $domain->getOriginal('status') === StoreDomain::STATUS_ACTIVE;
+
         $domain->save();
+
+        /*
+         | The moment a hostname starts pointing at us is the only moment it
+         | can answer an ACME challenge — so that is when the certificate is
+         | asked for, not on a nightly sweep the merchant would sit through.
+         |
+         | Only on the transition into `active`: re-checking an already-serving
+         | domain must not queue a second order, because Let's Encrypt counts
+         | those against a weekly limit the merchant never sees.
+         */
+        if (! $wasServing && $domain->status === StoreDomain::STATUS_ACTIVE) {
+            IssueStoreDomainCertificate::dispatch($domain->id);
+        }
 
         return $domain->refresh();
     }
@@ -193,6 +209,11 @@ class StoreDomainService
      */
     public function detach(StoreDomain $domain): void
     {
+        // Before the row goes: the generated nginx vhost is named after this
+        // hostname, and a config file pointing at a store that no longer owns
+        // the domain is how one merchant ends up serving another's shop.
+        app(CertificateIssuer::class)->forget($domain->domain);
+
         DB::transaction(function () use ($domain) {
             $domain->delete();
 

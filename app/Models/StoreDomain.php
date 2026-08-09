@@ -20,6 +20,21 @@ class StoreDomain extends Model
     /** Checked repeatedly and still wrong. Not terminal — the merchant retries. */
     public const STATUS_FAILED = 'failed';
 
+    /*
+     | Certificate state, separate from DNS state on purpose.
+     |
+     | A hostname can be `STATUS_ACTIVE` and serving the shop while its
+     | certificate is still queued — the merchant then sees a green badge and a
+     | red "Not secure" at the same time. Two fields, two badges, no lying.
+     */
+    public const SSL_PENDING = 'pending';
+
+    public const SSL_ISSUING = 'issuing';
+
+    public const SSL_ISSUED = 'issued';
+
+    public const SSL_FAILED = 'failed';
+
     protected $fillable = [
         'store_id',
         'domain',
@@ -38,7 +53,10 @@ class StoreDomain extends Model
         'verified_at' => 'datetime',
         'last_checked_at' => 'datetime',
         'ssl_issued_at' => 'datetime',
+        'ssl_expires_at' => 'datetime',
+        'ssl_retry_after' => 'datetime',
         'check_attempts' => 'integer',
+        'ssl_attempts' => 'integer',
     ];
 
     protected $hidden = ['verification_token'];
@@ -57,6 +75,25 @@ class StoreDomain extends Model
     public function isServing(): bool
     {
         return $this->status === self::STATUS_ACTIVE;
+    }
+
+    /** Can a customer open this without the browser calling it "Not secure"? */
+    public function isSecure(): bool
+    {
+        return $this->ssl_status === self::SSL_ISSUED;
+    }
+
+    /** One sentence for the merchant about the padlock, in their words. */
+    public function sslMessage(): string
+    {
+        return match ($this->ssl_status) {
+            self::SSL_ISSUED => 'الاتصال مؤمّن — القفل ظاهر للزبون.',
+            self::SSL_ISSUING => 'بنستخرج شهادة الأمان دلوقتي — دقيقة وتخلص.',
+            self::SSL_FAILED => 'الشهادة مانفعتش تتصدر. بنحاول تاني تلقائي.',
+            default => $this->isServing()
+                ? 'الدومين شغّال، وشهادة الأمان في الطابور.'
+                : 'شهادة الأمان بتتظبط بعد ما الدومين يتأكد.',
+        };
     }
 
     /** Apex domains cannot hold a CNAME, so they get different instructions. */

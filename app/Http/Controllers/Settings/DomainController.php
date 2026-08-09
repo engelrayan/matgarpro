@@ -46,6 +46,12 @@ class DomainController extends Controller
                     'is_primary' => $d->is_primary,
                     'is_apex' => $d->isApex(),
                     'last_error' => $d->last_error,
+                    // The padlock is its own state. A hostname can be serving
+                    // the shop while its certificate is still queued, and one
+                    // combined badge would have to lie about one of them.
+                    'ssl_status' => $d->ssl_status,
+                    'ssl_message' => $d->sslMessage(),
+                    'is_secure' => $d->isSecure(),
                     'last_checked_at' => $d->last_checked_at?->diffForHumans(),
                     'verified_at' => $d->verified_at?->toDateTimeString(),
                     'instructions' => $d->dnsInstructions(),

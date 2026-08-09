@@ -19,6 +19,9 @@ interface Domain {
     id: number;
     domain: string;
     status: 'pending' | 'active' | 'failed';
+    ssl_status: 'pending' | 'issuing' | 'issued' | 'failed';
+    ssl_message: string;
+    is_secure: boolean;
     is_primary: boolean;
     is_apex: boolean;
     last_error: string | null;
@@ -65,6 +68,20 @@ const badgeFor = (status: Domain['status']) =>
 
 const labelFor = (status: Domain['status']) =>
     ({ active: 'شغّال', pending: 'في انتظار الـ DNS', failed: 'فشل التحقق' })[status];
+
+/*
+ * The padlock gets its own badge, never merged into the one above.
+ *
+ * A domain can be serving the shop while its certificate is still being
+ * issued — and a merchant looking at a single green badge next to a browser
+ * saying "Not secure" concludes the platform is lying to them. Two states,
+ * two badges, and the sentence underneath says which one is which.
+ */
+const sslBadge = (status: Domain['ssl_status']) =>
+    ({ issued: 'badge-success', issuing: 'badge-info', pending: 'badge-neutral', failed: 'badge-danger' })[status];
+
+const sslLabel = (status: Domain['ssl_status']) =>
+    ({ issued: '🔒 مؤمّن', issuing: 'بيتأمّن…', pending: 'الأمان في الطابور', failed: 'الأمان فشل' })[status];
 </script>
 
 <template>
@@ -119,8 +136,13 @@ const labelFor = (status: Domain['status']) =>
                                 <div class="flex flex-wrap items-center gap-2">
                                     <span class="truncate font-mono text-sm font-medium" dir="ltr">{{ domain.domain }}</span>
                                     <span :class="badgeFor(domain.status)">{{ labelFor(domain.status) }}</span>
+                                    <span :class="sslBadge(domain.ssl_status)">{{ sslLabel(domain.ssl_status) }}</span>
                                     <span v-if="domain.is_primary" class="badge-gold">الأساسي</span>
                                 </div>
+                                <p class="mt-1.5 text-xs" :class="domain.ssl_status === 'failed' ? 'text-destructive' : 'text-muted-foreground'">
+                                    {{ domain.ssl_message }}
+                                </p>
+
                                 <p v-if="domain.last_error" class="mt-1.5 text-xs text-muted-foreground">
                                     {{ domain.last_error }}
                                 </p>

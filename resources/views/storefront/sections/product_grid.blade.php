@@ -2,12 +2,7 @@
 
 <section class="mx-auto max-w-6xl px-5 py-10">
     @if ($products->isEmpty())
-        {{-- Not silence: a shop with no products yet still has a visitor on it,
-             and a blank screen reads as broken rather than as new. --}}
-        <div class="py-16 text-center">
-            <p class="text-lg font-medium">{{ $store->name }}</p>
-            <p class="mt-2 text-sm text-muted-foreground">المتجر لسه بيتجهّز. تعالى بعد شوية.</p>
-        </div>
+        @include('storefront.partials.coming-soon')
     @else
         @if ($settings['title'])
             <h2 class="mb-5 text-lg font-bold tracking-tight">{{ $settings['title'] }}</h2>
