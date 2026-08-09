@@ -5,7 +5,7 @@ namespace App\Providers;
 use App\Models\Store;
 use App\Services\Builder\PageRenderer;
 use App\Services\Dns\DnsResolver;
-use App\Services\Dns\SystemDnsResolver;
+use App\Services\Dns\ResilientDnsResolver;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\View;
@@ -15,9 +15,15 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        // Bound as an interface so tests can swap in a fake zone file instead of
-        // making real DNS queries, which are slow and flaky in CI.
-        $this->app->bind(DnsResolver::class, SystemDnsResolver::class);
+        /*
+        | Bound as an interface so tests can swap in a fake zone file instead of
+        | making real DNS queries, which are slow and flaky in CI.
+        |
+        | The resilient one wraps the system resolver and falls back to DNS over
+        | HTTPS when it answers with nothing — see ResilientDnsResolver for why
+        | that is not paranoia.
+        */
+        $this->app->bind(DnsResolver::class, ResilientDnsResolver::class);
 
         // One per request: the header, the footer and the page body share its
         // section data, so the category list is fetched once and not three

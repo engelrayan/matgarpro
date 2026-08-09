@@ -54,6 +54,21 @@ return [
             explode(',', (string) env('STOREFRONT_DNS_A', '')),
         ))),
         'cname' => env('STOREFRONT_DNS_CNAME', 'connect.matgarpro.com'),
+
+        /*
+        | Second opinion when the host resolver comes back empty.
+        |
+        | Not a nicety. Custom domains hang off one `dns_get_record` call, and
+        | twice a broken `systemd-resolved` on the server has made a perfectly
+        | correct domain look unverified — a merchant staring at "الـ DNS لسه
+        | بينتشر" for hours about DNS that had propagated long before.
+        |
+        | HTTPS on 443, so nothing about the machine's own resolver setup can
+        | break it.
+        */
+        'doh' => (bool) env('STOREFRONT_DNS_DOH', true),
+
+        'doh_endpoint' => env('STOREFRONT_DNS_DOH_ENDPOINT', 'https://cloudflare-dns.com/dns-query'),
     ],
 
     /*
