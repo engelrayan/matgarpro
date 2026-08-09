@@ -92,232 +92,245 @@ const setPricing = (inclusive: boolean) =>
     <AppLayout :breadcrumbs="breadcrumbItems">
         <Head title="الشحن مع ضمان" />
 
-        <SettingsLayout>
-            <div class="space-y-6">
-                <div>
-                    <h1 class="text-2xl font-bold tracking-tight">الشحن مع ضمان</h1>
-                    <p class="mt-1 text-sm text-muted-foreground">
-                        اربط متجرك بحسابك في ضمان، وابعتله الطلبات المتأكدة بضغطة واحدة. ضمان
-                        بيوصّلها لشركة الشحن اللي إنت متعاقد معاها ويرجّعلك رقم الطلب ورقم البوليصة.
-                    </p>
+        <!-- `wide`, not the settings default — same reason as the WhatsApp
+             screen: keys, one money setting, and the numbers are three jobs
+             that belong beside each other, not stacked down a narrow column. -->
+        <SettingsLayout width="wide">
+            <div class="space-y-5">
+                <!-- ── Header ─────────────────────────────────────────────
+                     Status and the two dangerous buttons up top, where a
+                     merchant looks first to answer "is this on?".
+                -->
+                <div class="flex flex-wrap items-start justify-between gap-4">
+                    <div class="max-w-2xl">
+                        <h1 class="text-2xl font-bold tracking-tight">الشحن مع ضمان</h1>
+                        <p class="mt-1 text-sm leading-relaxed text-muted-foreground">
+                            اربط متجرك بحسابك في ضمان، وابعتله الطلبات المتأكدة بضغطة واحدة. ضمان
+                            بيوصّلها لشركة الشحن اللي إنت متعاقد معاها ويرجّعلك رقم الطلب ورقم البوليصة.
+                        </p>
+                    </div>
+
+                    <div v-if="link" class="flex flex-wrap items-center gap-2">
+                        <span v-if="link.is_active" class="badge-success gap-1">
+                            <ShieldCheck class="size-3" />
+                            شغّال
+                        </span>
+                        <span v-else class="badge-neutral">متوقّف</span>
+
+                        <!-- A test key never reaches a real carrier. Said loudly,
+                             because the failure mode is a merchant believing a
+                             day's parcels are on their way. -->
+                        <span v-if="link.environment === 'test'" class="badge-warning">
+                            مفتاح تجريبي — مفيش شحن حقيقي
+                        </span>
+
+                        <span v-if="link.key_prefix" class="font-mono text-xs text-muted-foreground" dir="ltr">
+                            {{ link.key_prefix }}…
+                        </span>
+
+                        <button class="btn-outline py-1.5" @click="toggle">
+                            {{ link.is_active ? 'وقّف' : 'شغّل' }}
+                        </button>
+                        <button class="btn-ghost py-1.5 text-destructive" @click="disconnect">
+                            <Link2Off class="size-4" />
+                            فك الربط
+                        </button>
+                    </div>
                 </div>
 
-                <div v-if="flash" class="flex items-start gap-2 rounded-xl border border-success/30 bg-success/5 p-4 text-sm text-success">
+                <div v-if="flash" class="flex items-start gap-2 rounded-xl border border-success/30 bg-success/5 p-3.5 text-sm text-success">
                     <Check class="mt-0.5 size-4 shrink-0" />
                     <span>{{ flash }}</span>
                 </div>
 
-                <!-- ── Not connected ──────────────────────────────────────── -->
-                <section v-if="!link" class="surface p-5">
-                    <h2 class="flex items-center gap-2 font-semibold">
-                        <Truck class="size-4" />
-                        اربط حسابك
-                    </h2>
+                <p v-if="link?.last_error" class="flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/5 p-3.5 text-sm text-warning">
+                    <AlertTriangle class="mt-0.5 size-4 shrink-0" />
+                    <span>آخر محاولة فشلت: {{ link.last_error }}</span>
+                </p>
 
-                    <ol class="mt-3 space-y-2 text-sm leading-relaxed text-muted-foreground">
-                        <li>١ — افتح حسابك في ضمان → إعدادات الـ API.</li>
-                        <li>٢ — اعمل مفتاح جديد (Live لو عايز شحن حقيقي، Test لو بتجرّب).</li>
-                        <li>٣ — الصقه هنا. المفتاح بيظهر مرة واحدة بس عند ضمان، فخده وقتها.</li>
-                    </ol>
+                <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_21rem]">
+                    <div class="min-w-0 space-y-5">
+                        <!-- ── Not connected ──────────────────────────── -->
+                        <section v-if="!link" class="surface p-5">
+                            <h2 class="flex items-center gap-2 font-semibold">
+                                <Truck class="size-4" />
+                                اربط حسابك
+                            </h2>
 
-                    <form class="mt-4 space-y-3" @submit.prevent="connect">
-                        <input
-                            v-model="keyForm.api_key"
-                            class="field font-mono text-sm"
-                            dir="ltr"
-                            placeholder="dm_live_…"
-                            autocomplete="off"
-                        />
-                        <InputError :message="keyForm.errors.api_key" />
+                            <ol class="mt-3 grid gap-2 text-sm leading-relaxed text-muted-foreground sm:grid-cols-3">
+                                <li class="rounded-xl border border-border p-3">١ — افتح حسابك في ضمان → إعدادات الـ API.</li>
+                                <li class="rounded-xl border border-border p-3">٢ — اعمل مفتاح جديد (Live لو عايز شحن حقيقي، Test لو بتجرّب).</li>
+                                <li class="rounded-xl border border-border p-3">٣ — الصقه هنا. المفتاح بيظهر مرة واحدة بس عند ضمان، فخده وقتها.</li>
+                            </ol>
 
-                        <button type="submit" class="btn-primary" :disabled="keyForm.processing || !keyForm.api_key">
-                            <LoaderCircle v-if="keyForm.processing" class="size-4 animate-spin" />
-                            اربط دلوقتي
-                        </button>
-                    </form>
-                </section>
-
-                <!-- ── Connected ──────────────────────────────────────────── -->
-                <template v-else>
-                    <section class="surface p-5">
-                        <div class="flex flex-wrap items-center gap-2">
-                            <span v-if="link.is_active" class="badge-success gap-1">
-                                <ShieldCheck class="size-3" />
-                                مربوط وشغّال
-                            </span>
-                            <span v-else class="badge-neutral">مربوط بس متوقّف</span>
-
-                            <!-- A test key never reaches a real carrier. Said
-                                 loudly, because the failure mode is a merchant
-                                 believing a day's parcels are on their way. -->
-                            <span v-if="link.environment === 'test'" class="badge-warning">
-                                مفتاح تجريبي — مفيش شحن حقيقي
-                            </span>
-
-                            <span v-if="link.key_prefix" class="font-mono text-xs text-muted-foreground" dir="ltr">
-                                {{ link.key_prefix }}…
-                            </span>
-                        </div>
-
-                        <div class="mt-4 grid grid-cols-3 gap-3 text-center">
-                            <div class="rounded-xl border border-border p-3">
-                                <p class="tabular text-xl font-bold">{{ stats.shipped }}</p>
-                                <p class="mt-0.5 text-xs text-muted-foreground">اتشحن عبر ضمان</p>
-                            </div>
-                            <div class="rounded-xl border border-border p-3">
-                                <p class="tabular text-xl font-bold">{{ stats.awaiting }}</p>
-                                <p class="mt-0.5 text-xs text-muted-foreground">متأكد ولسه ماتبعتش</p>
-                            </div>
-                            <div class="rounded-xl border border-border p-3">
-                                <p class="tabular text-xl font-bold" :class="stats.failed ? 'text-destructive' : ''">
-                                    {{ stats.failed }}
-                                </p>
-                                <p class="mt-0.5 text-xs text-muted-foreground">اترفض</p>
-                            </div>
-                        </div>
-
-                        <p v-if="link.last_shipped_at" class="mt-3 text-xs text-muted-foreground">
-                            آخر إرسال {{ link.last_shipped_at }}
-                        </p>
-
-                        <p v-if="link.last_error" class="mt-2 flex items-start gap-1.5 text-xs text-destructive">
-                            <AlertTriangle class="mt-0.5 size-3.5 shrink-0" />
-                            {{ link.last_error }}
-                        </p>
-
-                        <div class="mt-4 flex flex-wrap gap-2">
-                            <button class="btn-outline" @click="toggle">
-                                {{ link.is_active ? 'وقّف الربط مؤقتًا' : 'شغّل الربط' }}
-                            </button>
-                            <button class="btn-ghost text-destructive" @click="disconnect">
-                                <Link2Off class="size-4" />
-                                فك الربط
-                            </button>
-                        </div>
-                    </section>
-
-                    <!-- ── Collection amount ──────────────────────────────
-                         The one setting here that can cost the merchant money
-                         if it disagrees with their Daman account.
-                    -->
-                    <section class="surface p-5">
-                        <h2 class="font-semibold">المبلغ اللي المندوب هيحصّله</h2>
-                        <p class="mt-1 text-sm text-muted-foreground">
-                            لازم يطابق نفس الإعداد في حسابك على ضمان.
-                        </p>
-
-                        <div class="mt-4 space-y-2">
-                            <button
-                                class="w-full rounded-xl border p-3 text-right transition-colors"
-                                :class="link.cod_includes_shipping ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/40'"
-                                @click="setPricing(true)"
-                            >
-                                <span class="flex items-center gap-2 text-sm font-medium">
-                                    <Check v-if="link.cod_includes_shipping" class="size-4 text-primary" />
-                                    إجمالي الطلب زي ما العميل شافه
-                                </span>
-                                <span class="mt-1 block text-xs leading-relaxed text-muted-foreground">
-                                    بنبعت الإجمالي كله، وضمان بيخصم أجرة الشحن منه. ده اللي بيخلّي
-                                    العميل يدفع نفس الرقم المكتوب في المتجر.
-                                </span>
-                            </button>
-
-                            <button
-                                class="w-full rounded-xl border p-3 text-right transition-colors"
-                                :class="!link.cod_includes_shipping ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/40'"
-                                @click="setPricing(false)"
-                            >
-                                <span class="flex items-center gap-2 text-sm font-medium">
-                                    <Check v-if="!link.cod_includes_shipping" class="size-4 text-primary" />
-                                    قيمة المنتجات بس، وضمان يزوّد الشحن
-                                </span>
-                                <span class="mt-1 block text-xs leading-relaxed text-muted-foreground">
-                                    المبلغ اللي هيتحصّل ممكن يطلع مختلف عن اللي العميل شافه في
-                                    المتجر، لأن تسعيرة ضمان هي اللي بتحسب الشحن.
-                                </span>
-                            </button>
-                        </div>
-
-                        <p class="mt-3 flex items-start gap-1.5 rounded-xl border border-warning/30 bg-warning/5 p-3 text-xs leading-relaxed text-warning">
-                            <AlertTriangle class="mt-0.5 size-3.5 shrink-0" />
-                            لو الإعداد ده مختلف عن اللي في ضمان، المندوب هيطلب من العميل مبلغ غير
-                            اللي اتفقتوا عليه.
-                        </p>
-                    </section>
-
-                    <!-- ── Status updates ─────────────────────────────────── -->
-                    <section class="surface p-5">
-                        <h2 class="flex items-center gap-2 font-semibold">
-                            تحديث حالة الشحنات
-                            <span v-if="link.webhook_ready" class="badge-success">مفعّل</span>
-                            <span v-else class="badge-warning">ناقص خطوة</span>
-                        </h2>
-                        <p class="mt-1 text-sm leading-relaxed text-muted-foreground">
-                            من غير الخطوة دي الطلب هيفضل «تم الشحن» عندك لحد ما تغيّره بإيدك، حتى
-                            لو اتسلّم أو رجع.
-                        </p>
-
-                        <div class="mt-4 space-y-3">
-                            <div>
-                                <label class="mb-1.5 block text-sm font-medium">١ — حط الرابط ده في ضمان (Webhook URL)</label>
-                                <div class="flex gap-2">
-                                    <input :value="link.webhook_url" readonly class="field flex-1 font-mono text-xs" dir="ltr" />
-                                    <button class="btn-outline shrink-0" @click="copyUrl">
-                                        <Check v-if="copied" class="size-4 text-success" />
-                                        <Copy v-else class="size-4" />
-                                        نسخ
-                                    </button>
-                                </div>
-                            </div>
-
-                            <form @submit.prevent="saveSecret">
-                                <label class="mb-1.5 block text-sm font-medium">٢ — الصق الـ secret اللي ضمان عرضه عليك</label>
-                                <div class="flex gap-2">
-                                    <input
-                                        v-model="secretForm.webhook_secret"
-                                        class="field flex-1 font-mono text-xs"
-                                        dir="ltr"
-                                        :placeholder="link.webhook_ready ? 'غيّر الـ secret…' : 'whsec_…'"
-                                        autocomplete="off"
-                                    />
-                                    <button type="submit" class="btn-primary shrink-0" :disabled="secretForm.processing || !secretForm.webhook_secret">
-                                        <LoaderCircle v-if="secretForm.processing" class="size-4 animate-spin" />
-                                        حفظ
-                                    </button>
-                                </div>
-                                <InputError :message="secretForm.errors.webhook_secret" />
-                                <p class="field-hint">
-                                    بنستخدمه عشان نتأكد إن التحديث جاي من ضمان فعلًا مش من حد تاني.
-                                </p>
+                            <form class="mt-4 flex flex-wrap gap-2" @submit.prevent="connect">
+                                <input
+                                    v-model="keyForm.api_key"
+                                    class="field min-w-0 flex-1 font-mono text-sm"
+                                    dir="ltr"
+                                    placeholder="dm_live_…"
+                                    autocomplete="off"
+                                />
+                                <button type="submit" class="btn-primary shrink-0" :disabled="keyForm.processing || !keyForm.api_key">
+                                    <LoaderCircle v-if="keyForm.processing" class="size-4 animate-spin" />
+                                    اربط دلوقتي
+                                </button>
+                                <InputError class="w-full" :message="keyForm.errors.api_key" />
                             </form>
-                        </div>
+                        </section>
 
-                        <p v-if="link.last_webhook_at" class="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <Check class="size-3.5 text-success" />
-                            آخر تحديث وصل {{ link.last_webhook_at }}
-                        </p>
-                    </section>
+                        <!-- ── Connected ──────────────────────────────── -->
+                        <template v-else>
+                            <!-- ── Collection amount ──────────────────
+                                 The one setting here that can cost the merchant
+                                 money if it disagrees with their Daman account.
+                            -->
+                            <section class="surface p-5">
+                                <div class="flex flex-wrap items-baseline justify-between gap-2">
+                                    <h2 class="font-semibold">المبلغ اللي المندوب هيحصّله</h2>
+                                    <p class="text-sm text-muted-foreground">لازم يطابق نفس الإعداد في حسابك على ضمان.</p>
+                                </div>
 
-                    <!-- Where the button actually is, because a merchant who
-                         just connected goes looking for it. -->
-                    <section class="surface p-5">
-                        <p class="font-medium">وبعدين؟</p>
-                        <ul class="mt-3 space-y-2 text-sm text-muted-foreground">
-                            <li class="flex items-start gap-2">
-                                <Check class="mt-0.5 size-4 shrink-0 text-success" />
-                                أكّد الطلبات من صفحة الطلبات زي ما إنت عمل عادي.
-                            </li>
-                            <li class="flex items-start gap-2">
-                                <Check class="mt-0.5 size-4 shrink-0 text-success" />
-                                حدّد اللي عايز تشحنه، وهيظهرلك زرار «شحن عبر ضمان».
-                            </li>
-                            <li class="flex items-start gap-2">
-                                <Check class="mt-0.5 size-4 shrink-0 text-success" />
-                                رقم طلب ضمان ورقم البوليصة هيتكتبوا على كل طلب أول ما ضمان يرد.
-                            </li>
-                        </ul>
-                    </section>
-                </template>
+                                <div class="mt-4 grid gap-2 sm:grid-cols-2">
+                                    <button
+                                        class="flex h-full flex-col rounded-xl border p-3 text-right transition-colors"
+                                        :class="link.cod_includes_shipping ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/40'"
+                                        @click="setPricing(true)"
+                                    >
+                                        <span class="flex items-center gap-2 text-sm font-medium">
+                                            <Check v-if="link.cod_includes_shipping" class="size-4 shrink-0 text-primary" />
+                                            إجمالي الطلب زي ما العميل شافه
+                                        </span>
+                                        <span class="mt-1 block text-xs leading-relaxed text-muted-foreground">
+                                            بنبعت الإجمالي كله، وضمان بيخصم أجرة الشحن منه. ده اللي بيخلّي
+                                            العميل يدفع نفس الرقم المكتوب في المتجر.
+                                        </span>
+                                    </button>
+
+                                    <button
+                                        class="flex h-full flex-col rounded-xl border p-3 text-right transition-colors"
+                                        :class="!link.cod_includes_shipping ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/40'"
+                                        @click="setPricing(false)"
+                                    >
+                                        <span class="flex items-center gap-2 text-sm font-medium">
+                                            <Check v-if="!link.cod_includes_shipping" class="size-4 shrink-0 text-primary" />
+                                            قيمة المنتجات بس، وضمان يزوّد الشحن
+                                        </span>
+                                        <span class="mt-1 block text-xs leading-relaxed text-muted-foreground">
+                                            المبلغ اللي هيتحصّل ممكن يطلع مختلف عن اللي العميل شافه في
+                                            المتجر، لأن تسعيرة ضمان هي اللي بتحسب الشحن.
+                                        </span>
+                                    </button>
+                                </div>
+
+                                <p class="mt-3 flex items-start gap-1.5 rounded-xl border border-warning/30 bg-warning/5 p-3 text-xs leading-relaxed text-warning">
+                                    <AlertTriangle class="mt-0.5 size-3.5 shrink-0" />
+                                    لو الإعداد ده مختلف عن اللي في ضمان، المندوب هيطلب من العميل مبلغ غير
+                                    اللي اتفقتوا عليه.
+                                </p>
+                            </section>
+
+                            <!-- ── Status updates ─────────────────────── -->
+                            <section class="surface p-5">
+                                <div class="flex flex-wrap items-baseline justify-between gap-2">
+                                    <h2 class="flex items-center gap-2 font-semibold">
+                                        تحديث حالة الشحنات
+                                        <span v-if="link.webhook_ready" class="badge-success">مفعّل</span>
+                                        <span v-else class="badge-warning">ناقص خطوة</span>
+                                    </h2>
+                                    <p class="text-sm text-muted-foreground">
+                                        من غيرها الطلب هيفضل «تم الشحن» لحد ما تغيّره بإيدك.
+                                    </p>
+                                </div>
+
+                                <div class="mt-4 grid gap-3 lg:grid-cols-2">
+                                    <div>
+                                        <label class="mb-1.5 block text-sm font-medium">١ — حط الرابط ده في ضمان (Webhook URL)</label>
+                                        <div class="flex gap-2">
+                                            <input :value="link.webhook_url" readonly class="field min-w-0 flex-1 font-mono text-xs" dir="ltr" />
+                                            <button class="btn-outline shrink-0" @click="copyUrl">
+                                                <Check v-if="copied" class="size-4 text-success" />
+                                                <Copy v-else class="size-4" />
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <form @submit.prevent="saveSecret">
+                                        <label class="mb-1.5 block text-sm font-medium">٢ — الصق الـ secret اللي ضمان عرضه عليك</label>
+                                        <div class="flex gap-2">
+                                            <input
+                                                v-model="secretForm.webhook_secret"
+                                                class="field min-w-0 flex-1 font-mono text-xs"
+                                                dir="ltr"
+                                                :placeholder="link.webhook_ready ? 'غيّر الـ secret…' : 'whsec_…'"
+                                                autocomplete="off"
+                                            />
+                                            <button type="submit" class="btn-primary shrink-0" :disabled="secretForm.processing || !secretForm.webhook_secret">
+                                                <LoaderCircle v-if="secretForm.processing" class="size-4 animate-spin" />
+                                                حفظ
+                                            </button>
+                                        </div>
+                                        <InputError :message="secretForm.errors.webhook_secret" />
+                                        <p class="field-hint">
+                                            بنستخدمه عشان نتأكد إن التحديث جاي من ضمان فعلًا مش من حد تاني.
+                                        </p>
+                                    </form>
+                                </div>
+                            </section>
+                        </template>
+                    </div>
+
+                    <!-- ── The rail ───────────────────────────────────── -->
+                    <aside class="space-y-5">
+                        <section v-if="link" class="surface p-4">
+                            <h2 class="text-sm font-semibold">النتيجة</h2>
+
+                            <!-- Rows, not tiles: the labels are sentences, and
+                                 three of them across a 21rem rail wrap to mush. -->
+                            <div class="mt-3 space-y-2">
+                                <div class="flex items-center justify-between gap-2 rounded-xl border border-border px-3 py-2">
+                                    <span class="text-xs text-muted-foreground">اتشحن عبر ضمان</span>
+                                    <span class="tabular text-lg font-bold">{{ stats.shipped }}</span>
+                                </div>
+                                <div class="flex items-center justify-between gap-2 rounded-xl border border-border px-3 py-2">
+                                    <span class="text-xs text-muted-foreground">متأكد ولسه ماتبعتش</span>
+                                    <span class="tabular text-lg font-bold">{{ stats.awaiting }}</span>
+                                </div>
+                                <div class="flex items-center justify-between gap-2 rounded-xl border border-border px-3 py-2">
+                                    <span class="text-xs text-muted-foreground">اترفض</span>
+                                    <span class="tabular text-lg font-bold" :class="stats.failed ? 'text-destructive' : ''">
+                                        {{ stats.failed }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <p v-if="link.last_shipped_at" class="mt-3 text-[11px] leading-relaxed text-muted-foreground">
+                                آخر إرسال {{ link.last_shipped_at }}
+                                <template v-if="link.last_webhook_at"><br />آخر تحديث وصل {{ link.last_webhook_at }}</template>
+                            </p>
+                        </section>
+
+                        <!-- Where the button actually is, because a merchant who
+                             just connected goes looking for it. -->
+                        <section class="surface p-4">
+                            <h2 class="text-sm font-semibold">{{ link ? 'وبعدين؟' : 'هيحصل إيه بعد الربط' }}</h2>
+                            <ul class="mt-3 space-y-2.5 text-xs leading-relaxed text-muted-foreground">
+                                <li class="flex items-start gap-2">
+                                    <Check class="mt-0.5 size-3.5 shrink-0 text-success" />
+                                    أكّد الطلبات من صفحة الطلبات زي ما إنت عمل عادي.
+                                </li>
+                                <li class="flex items-start gap-2">
+                                    <Check class="mt-0.5 size-3.5 shrink-0 text-success" />
+                                    حدّد اللي عايز تشحنه، وهيظهرلك زرار «شحن عبر ضمان».
+                                </li>
+                                <li class="flex items-start gap-2">
+                                    <Check class="mt-0.5 size-3.5 shrink-0 text-success" />
+                                    رقم طلب ضمان ورقم البوليصة هيتكتبوا على كل طلب أول ما ضمان يرد.
+                                </li>
+                            </ul>
+                        </section>
+                    </aside>
+                </div>
             </div>
         </SettingsLayout>
     </AppLayout>

@@ -38,8 +38,10 @@ class ReplyInterpreter
 
     /** Single words, compared against whole tokens rather than substrings. */
     private const CANCEL_WORDS = [
-        '2', 'لا', 'لأ', 'الغاء', 'الغا', 'الغي', 'ملغي', 'كنسل', 'ارفض', 'رفض',
-        'مرفوض', 'no', 'nope', 'n', 'cancel', 'canceled', 'cancelled', 'stop',
+        // `الغ` is what «ألغِ» becomes once the kasra is stripped — which is
+        // exactly the word on Meta's own quick-reply button.
+        '2', 'لا', 'لأ', 'الغاء', 'الغا', 'الغي', 'الغ', 'ملغي', 'كنسل', 'ارفض',
+        'رفض', 'مرفوض', 'no', 'nope', 'n', 'cancel', 'canceled', 'cancelled', 'stop',
     ];
 
     private const CONFIRM_WORDS = [

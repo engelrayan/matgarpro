@@ -19,13 +19,29 @@ class StoreWhatsappIntegration extends Model
 
     public const DRIVER_WAPILOT = 'wapilot';
 
+    public const DRIVER_WHATS360 = 'whats360';
+
     public const DRIVER_CLOUD_API = 'cloud_api';
 
-    /** What a merchant has to fill in, per gateway. */
+    public const DRIVERS = [self::DRIVER_WAPILOT, self::DRIVER_WHATS360, self::DRIVER_CLOUD_API];
+
+    /**
+     * What a merchant has to fill in, per gateway.
+     *
+     * Fields listed in `OPTIONAL_CREDENTIALS` may be left blank — everything
+     * else has to be there before the store can send.
+     */
     public const CREDENTIAL_FIELDS = [
         self::DRIVER_WAPILOT => ['token', 'instance'],
+        self::DRIVER_WHATS360 => ['token', 'instance_id', 'base_url'],
         self::DRIVER_CLOUD_API => ['access_token', 'phone_number_id', 'app_secret'],
     ];
+
+    /**
+     * `app_secret` only verifies inbound signatures, and `base_url` falls back
+     * to the gateway's own host — a store sends perfectly well without either.
+     */
+    public const OPTIONAL_CREDENTIALS = ['app_secret', 'base_url'];
 
     /** Everything the message can say about the order. */
     public const PLACEHOLDERS = [
@@ -90,14 +106,18 @@ class StoreWhatsappIntegration extends Model
         }
 
         foreach (self::CREDENTIAL_FIELDS[$this->driver] ?? [] as $field) {
-            // The app secret only verifies inbound signatures; a store can send
-            // perfectly well without it.
-            if ($field !== 'app_secret' && blank($this->credential($field))) {
+            if (! in_array($field, self::OPTIONAL_CREDENTIALS, true) && blank($this->credential($field))) {
                 return false;
             }
         }
 
         return true;
+    }
+
+    /** True for the gateways that drive a real WhatsApp session over QR. */
+    public function isSessionGateway(): bool
+    {
+        return in_array($this->driver, [self::DRIVER_WAPILOT, self::DRIVER_WHATS360], true);
     }
 
     public function credential(string $key): ?string

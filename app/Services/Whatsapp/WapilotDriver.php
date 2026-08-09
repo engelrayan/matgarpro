@@ -3,7 +3,7 @@
 namespace App\Services\Whatsapp;
 
 use App\Models\StoreWhatsappIntegration;
-use App\Support\Phone;
+use App\Services\Whatsapp\Concerns\ParsesLooseWebhooks;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -18,6 +18,8 @@ use Illuminate\Support\Facades\Http;
  */
 class WapilotDriver implements WhatsappDriver
 {
+    use ParsesLooseWebhooks;
+
     private const BASE = 'https://api.wapilot.net/api/v2';
 
     public function __construct(private readonly StoreWhatsappIntegration $link) {}
@@ -71,66 +73,6 @@ class WapilotDriver implements WhatsappDriver
     public function webhookChallenge(Request $request): ?string
     {
         return null;
-    }
-
-    /**
-     * Pull replies out of whatever shape arrived.
-     *
-     * Deliberately tolerant. Unofficial gateways change their payload between
-     * versions and document it thinly, so this reads the shapes seen in the
-     * wild rather than one it insists on — and the raw body is logged either
-     * way, so an unrecognised shape is something we can see and add, not a
-     * silent loss of a customer's answer.
-     *
-     * @return array<int,InboundMessage>
-     */
-    public function parseWebhook(Request $request): array
-    {
-        $payload = $request->all();
-
-        $rows = data_get($payload, 'data.messages')
-            ?? data_get($payload, 'messages')
-            ?? data_get($payload, 'data')
-            ?? [$payload];
-
-        if (! is_array($rows)) {
-            return [];
-        }
-
-        // A single message object rather than a list of them.
-        if (! array_is_list($rows)) {
-            $rows = [$rows];
-        }
-
-        $messages = [];
-
-        foreach ($rows as $row) {
-            if (! is_array($row)) {
-                continue;
-            }
-
-            // Our own outgoing messages come back on the same webhook; echoing
-            // them into the reply reader would confirm orders nobody answered.
-            if (filter_var(data_get($row, 'from_me') ?? data_get($row, 'fromMe'), FILTER_VALIDATE_BOOL)) {
-                continue;
-            }
-
-            $from = (string) (data_get($row, 'from') ?? data_get($row, 'chat_id') ?? data_get($row, 'author') ?? '');
-            $body = data_get($row, 'body') ?? data_get($row, 'text') ?? data_get($row, 'message') ?? '';
-
-            if ($from === '' || ! is_string($body) || trim($body) === '') {
-                continue;
-            }
-
-            $messages[] = new InboundMessage(
-                // `201006262330@c.us` → the digits are all we match on.
-                phone: Phone::e164(explode('@', $from)[0]),
-                body: trim($body),
-                providerMessageId: (string) (data_get($row, 'id') ?? data_get($row, 'message_id') ?? '') ?: null,
-            );
-        }
-
-        return $messages;
     }
 
     /**

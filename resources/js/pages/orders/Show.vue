@@ -4,7 +4,7 @@ import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/vue3';
 import {
     AlertTriangle, ChevronLeft, ChevronRight, Copy, Check, LoaderCircle, MapPin,
-    MessageCircle, Package, Phone, Printer, Truck, User,
+    MessageCircle, Package, Phone, Printer, Send, Truck, User,
 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
@@ -32,9 +32,14 @@ const props = defineProps<{
             carrier: string | null; status: string | null; status_note: string | null;
             sent_at: string | null; error: string | null;
         } | null;
+        whatsapp: {
+            state: string | null; sent_at: string | null;
+            replied_at: string | null; error: string | null;
+        };
     };
     currency: string;
     daman_enabled: boolean;
+    whatsapp_enabled: boolean;
     statuses: { value: string; label: string }[];
     customer_history: { orders: number; delivered: number; refused: number; delivery_rate: number | null };
     neighbours: { prev: number | null; next: number | null };
@@ -109,6 +114,25 @@ const shipViaDaman = () => {
     router.post('/orders-bulk/daman', { ids: [props.order.id] }, {
         preserveScroll: true,
         onFinish: () => (shipping.value = false),
+    });
+};
+
+/* ── WhatsApp confirmation ──────────────────────────────────────────────── */
+
+const WHATSAPP_STATE: Record<string, { label: string; badge: string }> = {
+    sent: { label: 'مستني رد العميل', badge: 'badge-info' },
+    confirmed: { label: 'العميل أكّد', badge: 'badge-success' },
+    cancelled: { label: 'العميل لغى', badge: 'badge-danger' },
+    failed: { label: 'الرسالة ماوصلتش', badge: 'badge-danger' },
+};
+
+const messaging = ref(false);
+
+const sendWhatsapp = () => {
+    messaging.value = true;
+    router.post(`/orders/${props.order.id}/whatsapp`, {}, {
+        preserveScroll: true,
+        onFinish: () => (messaging.value = false),
     });
 };
 </script>
@@ -310,6 +334,51 @@ const shipViaDaman = () => {
                                 رفض {{ customer_history.refused }} طلبات قبل كده — أكّد معاه قبل ما تشحن.
                             </p>
                         </template>
+                    </section>
+
+                    <!-- The confirmation conversation.
+                         Separate from the order status because "never answered"
+                         and "not looked at yet" are different problems, and the
+                         merchant's follow-up list is built from the difference. -->
+                    <section v-if="whatsapp_enabled || order.whatsapp.state" class="surface p-5">
+                        <h2 class="flex flex-wrap items-center gap-2 font-semibold">
+                            <MessageCircle class="size-4" />
+                            تأكيد واتساب
+                            <span
+                                v-if="order.whatsapp.state && WHATSAPP_STATE[order.whatsapp.state]"
+                                :class="WHATSAPP_STATE[order.whatsapp.state].badge"
+                            >
+                                {{ WHATSAPP_STATE[order.whatsapp.state].label }}
+                            </span>
+                            <span v-else class="badge-neutral">ماتبعتش</span>
+                        </h2>
+
+                        <dl v-if="order.whatsapp.sent_at" class="mt-3 space-y-2 text-sm text-muted-foreground">
+                            <div class="flex justify-between gap-3">
+                                <dt>اتبعتت</dt>
+                                <dd class="tabular text-foreground" dir="ltr">{{ order.whatsapp.sent_at }}</dd>
+                            </div>
+                            <div v-if="order.whatsapp.replied_at" class="flex justify-between gap-3">
+                                <dt>رد</dt>
+                                <dd class="tabular text-foreground" dir="ltr">{{ order.whatsapp.replied_at }}</dd>
+                            </div>
+                        </dl>
+
+                        <p v-if="order.whatsapp.error" class="mt-3 flex items-start gap-1.5 rounded-lg bg-destructive/5 p-2.5 text-xs leading-relaxed text-destructive">
+                            <AlertTriangle class="mt-0.5 size-3.5 shrink-0" />
+                            {{ order.whatsapp.error }}
+                        </p>
+
+                        <button
+                            v-if="whatsapp_enabled"
+                            class="btn-outline mt-3 w-full"
+                            :disabled="messaging"
+                            @click="sendWhatsapp"
+                        >
+                            <LoaderCircle v-if="messaging" class="size-4 animate-spin" />
+                            <Send v-else class="size-4" />
+                            {{ order.whatsapp.sent_at ? 'ابعتها تاني' : 'ابعت التأكيد' }}
+                        </button>
                     </section>
 
                     <!-- The shipment as Daman sees it. Two numbers on purpose:

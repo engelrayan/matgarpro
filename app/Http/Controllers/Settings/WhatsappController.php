@@ -49,6 +49,9 @@ class WhatsappController extends Controller
                 'template_name' => $link->template_name,
                 'template_language' => $link->template_language,
                 'has_app_secret' => filled($link->credential('app_secret')),
+                // Not a secret — the merchant needs to see which host they
+                // pointed us at when a send fails.
+                'base_url' => $link->credential('base_url'),
                 'webhook_url' => $link->webhookUrl(),
                 'verify_token' => $link->verify_token,
                 'connected_at' => $link->connected_at?->diffForHumans(),
@@ -94,20 +97,23 @@ class WhatsappController extends Controller
         $store = $this->currentStore($request);
 
         $validated = $request->validate([
-            'driver' => ['required', Rule::in([
-                StoreWhatsappIntegration::DRIVER_WAPILOT,
-                StoreWhatsappIntegration::DRIVER_CLOUD_API,
-            ])],
-            // Wapilot
-            'token' => ['required_if:driver,wapilot', 'nullable', 'string', 'max:300'],
+            'driver' => ['required', Rule::in(StoreWhatsappIntegration::DRIVERS)],
+            // Wapilot and Whats360 both call it a token; only the second field
+            // differs, so `token` is required for either of them.
+            'token' => ['required_if:driver,wapilot', 'required_if:driver,whats360', 'nullable', 'string', 'max:300'],
             'instance' => ['required_if:driver,wapilot', 'nullable', 'string', 'max:100'],
+            // Whats360
+            'instance_id' => ['required_if:driver,whats360', 'nullable', 'string', 'max:100'],
+            'base_url' => ['nullable', 'string', 'max:200', 'url'],
             // Cloud API
             'access_token' => ['required_if:driver,cloud_api', 'nullable', 'string', 'max:1000'],
             'phone_number_id' => ['required_if:driver,cloud_api', 'nullable', 'string', 'max:64'],
             'app_secret' => ['nullable', 'string', 'max:200'],
         ], [
-            'token.required_if' => 'محتاجين التوكن بتاع Wapilot.',
+            'token.required_if' => 'محتاجين التوكن.',
             'instance.required_if' => 'محتاجين رقم الـ instance بتاع Wapilot.',
+            'instance_id.required_if' => 'محتاجين الـ instance ID بتاع Whats360.',
+            'base_url.url' => 'رابط الخدمة مش مظبوط — لازم يبدأ بـ https://',
             'access_token.required_if' => 'محتاجين الـ access token بتاع ميتا.',
             'phone_number_id.required_if' => 'محتاجين الـ phone number ID بتاع الرقم.',
         ]);

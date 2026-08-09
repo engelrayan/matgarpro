@@ -100,6 +100,7 @@ class ProductController extends Controller
                 'name' => $product->name,
                 'slug' => $product->slug,
                 'description' => $product->description,
+                'video_url' => $product->video_url,
                 'price' => $product->price,
                 'compare_at_price' => $product->compare_at_price,
                 'cost' => $product->cost,

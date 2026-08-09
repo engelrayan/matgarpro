@@ -71,7 +71,7 @@ class WhatsappWebhookController extends Controller
          | whose answer vanished, and the raw body is the only way to add it.
          */
         if ($messages === []) {
-            if (! $link->isCloudApi()) {
+            if ($link->isSessionGateway()) {
                 Log::info('WhatsApp webhook: nothing parsed', [
                     'store_id' => $link->store_id,
                     'driver' => $link->driver,

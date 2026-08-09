@@ -16,6 +16,22 @@ class ProductRequest extends FormRequest
             'slug' => ['nullable', 'string', 'max:255', 'regex:/^[\p{Arabic}a-z0-9\-]+$/iu'],
             'description' => ['nullable', 'string', 'max:20000'],
 
+            /*
+             | Optional product video.
+             |
+             | Validated by extraction, not by pattern: the rule passes only if
+             | Support\Video can pull a real id out of whatever was pasted, so
+             | every shape a merchant might paste (watch, youtu.be, Shorts, the
+             | bare id) is accepted and everything else — including a URL that
+             | merely contains the word "youtube" — is refused before it can
+             | reach an iframe.
+             */
+            'video_url' => ['nullable', 'string', 'max:300', function ($attribute, $value, $fail) {
+                if (filled($value) && \App\Support\Video::youtubeId($value) === null) {
+                    $fail('اللينك ده مش لينك فيديو يوتيوب. افتح الفيديو وانسخ اللينك من فوق.');
+                }
+            }],
+
             'price' => ['required', 'numeric', 'min:0', 'max:9999999'],
             'compare_at_price' => ['nullable', 'numeric', 'min:0', 'max:9999999', 'gt:price'],
             'cost' => ['nullable', 'numeric', 'min:0', 'max:9999999'],

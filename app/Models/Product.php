@@ -19,7 +19,7 @@ class Product extends Model
     public const STATUS_ACTIVE = 'active';
 
     protected $fillable = [
-        'store_id', 'name', 'slug', 'description', 'price', 'compare_at_price', 'sale_ends_at',
+        'store_id', 'name', 'slug', 'description', 'video_url', 'price', 'compare_at_price', 'sale_ends_at',
         'cost', 'sku', 'track_stock', 'stock', 'options', 'settings', 'status',
         'sort_order', 'seo_title', 'seo_description',
     ];
@@ -36,6 +36,19 @@ class Product extends Model
             'options' => 'array',
             'settings' => 'array',
         ];
+    }
+
+    /**
+     * The YouTube id behind `video_url`, or null when there is no video.
+     *
+     * Extracted rather than stored so the merchant keeps seeing the address
+     * they pasted, and so the `src` the browser eventually loads is a string
+     * this code built from eleven known-safe characters — never merchant text
+     * concatenated into an iframe.
+     */
+    public function videoId(): ?string
+    {
+        return \App\Support\Video::youtubeId($this->video_url);
     }
 
     /**

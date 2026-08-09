@@ -58,6 +58,10 @@ class SaveProduct
             // product goes through this action, and the description is
             // rendered unescaped on a page customers buy from.
             'description' => HtmlSanitizer::clean($data['description'] ?? null),
+            // Blank is stored as NULL, not "": the storefront tests `filled()`
+            // on this, and an empty string would render a video block with
+            // nothing in it.
+            'video_url' => filled($data['video_url'] ?? null) ? trim($data['video_url']) : null,
             'price' => $data['price'],
             'compare_at_price' => $data['compare_at_price'] ?? null,
             'cost' => $data['cost'] ?? null,

@@ -55,6 +55,8 @@ class OrderController extends Controller
                     ->implode(' · '),
                 'created_at' => $o->created_at->format('Y-m-d H:i'),
                 'daman' => $this->damanColumn($o),
+                // Only the state — the grid shows a dot, not a story.
+                'whatsapp' => $o->whatsapp_state,
             ]);
 
         return Inertia::render('orders/Index', [
@@ -122,6 +124,12 @@ class OrderController extends Controller
                 'tracking' => $order->tracking,
                 'created_at' => $order->created_at->format('Y-m-d H:i'),
                 'created_ago' => $order->created_at->diffForHumans(),
+                'whatsapp' => [
+                    'state' => $order->whatsapp_state,
+                    'sent_at' => $order->whatsapp_sent_at?->format('Y-m-d H:i'),
+                    'replied_at' => $order->whatsapp_replied_at?->format('Y-m-d H:i'),
+                    'error' => $order->whatsapp_error,
+                ],
                 'daman' => $order->isWithDaman() || filled($order->daman_error) ? [
                     'order_number' => $order->daman_order_number,
                     'tracking_number' => $order->daman_tracking_number,
@@ -141,6 +149,7 @@ class OrderController extends Controller
             ],
             'currency' => $store->currency,
             'daman_enabled' => (bool) $store->damanIntegration?->canShip(),
+            'whatsapp_enabled' => (bool) $store->whatsappIntegration?->canSend(),
             'statuses' => $this->statusOptions(),
             /*
              | How this customer has behaved before, across this store.

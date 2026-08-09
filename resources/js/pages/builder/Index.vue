@@ -280,10 +280,10 @@ const FRAME_WIDTH = { desktop: '100%', tablet: '820px', mobile: '390px' };
                     <span v-else>مسودة</span>
                 </p>
 
-                <button class="btn-ghost px-2.5 py-1.5" title="ارجع لآخر نسخة منشورة" @click="discard">
+                <button class="btn-ghost px-2.5 py-1.5" title="ألغي تعديلاتك وارجع لآخر نسخة نشرتها" @click="discard">
                     <Undo2 class="size-4" />
                 </button>
-                <button class="btn-ghost px-2.5 py-1.5" title="رجّع ترتيب المنصة" @click="resetToDefaults">
+                <button class="btn-ghost px-2.5 py-1.5" title="ابدأ من الشكل الجاهز من الأول" @click="resetToDefaults">
                     <RotateCcw class="size-4" />
                 </button>
 
@@ -298,8 +298,11 @@ const FRAME_WIDTH = { desktop: '100%', tablet: '820px', mobile: '390px' };
             <!-- ── Sections ─────────────────────────────────────────────── -->
             <aside class="flex w-72 shrink-0 flex-col border-l border-border bg-card">
                 <div class="flex items-center justify-between border-b border-border px-4 py-3">
-                    <p class="text-sm font-semibold">أقسام {{ pageLabel }}</p>
-                    <button class="btn-ghost px-2 py-1" @click="showCatalogue = !showCatalogue">
+                    <!-- "أجزاء", never "أقسام": a category of products is an
+                         قسم, and a merchant reading "أضف قسم" could not tell
+                         which of the two they were about to add. -->
+                    <p class="text-sm font-semibold">أجزاء {{ pageLabel }}</p>
+                    <button class="btn-ghost px-2 py-1" title="أضف جزء جديد للصفحة" @click="showCatalogue = !showCatalogue">
                         <Plus class="size-4" />
                     </button>
                 </div>
@@ -356,7 +359,7 @@ const FRAME_WIDTH = { desktop: '100%', tablet: '820px', mobile: '390px' };
                             <button
                                 class="p-1 text-muted-foreground transition-colors hover:text-foreground disabled:opacity-25"
                                 :disabled="definitionFor(section.type)?.locked"
-                                :title="definitionFor(section.type)?.locked ? 'القسم ده أساسي' : 'إخفاء'"
+                                :title="definitionFor(section.type)?.locked ? 'الجزء ده أساسي، مايتشالش' : 'اخفيه من الصفحة'"
                                 @click="toggleVisible(section)"
                             >
                                 <component :is="section.visible ? Eye : EyeOff" class="size-3.5" />
@@ -411,14 +414,14 @@ const FRAME_WIDTH = { desktop: '100%', tablet: '820px', mobile: '390px' };
                         />
 
                         <p v-if="visibleFields.length === 0" class="text-sm text-muted-foreground">
-                            القسم ده مالوش إعدادات — بيعرض بيانات المتجر زي ما هي.
+                            الجزء ده مالوش إعدادات — بيعرض بيانات متجرك زي ما هي.
                         </p>
                     </div>
                 </template>
 
                 <div v-else class="flex flex-1 items-center justify-center p-6 text-center">
                     <p class="text-sm text-muted-foreground">
-                        اختار قسم من القايمة، أو دوس على أي حتة في المعاينة.
+                        اختار جزء من القايمة اللي على اليمين، أو دوس على أي حتة في معاينة المتجر.
                     </p>
                 </div>
             </aside>

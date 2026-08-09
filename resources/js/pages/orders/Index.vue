@@ -29,6 +29,7 @@ interface Order {
     items_summary: string;
     created_at: string;
     daman: DamanCell | null;
+    whatsapp: string | null;
 }
 
 interface PaginatorLink {
@@ -45,6 +46,7 @@ const props = defineProps<{
     statuses: { value: string; label: string }[];
     governorates: string[];
     daman_enabled: boolean;
+    whatsapp_enabled: boolean;
 }>();
 
 const page = usePage();
@@ -164,6 +166,22 @@ const setStatus = (order: Order, status: string) =>
 // through it — or still has orders that went out that way before it was turned
 // off, which must not lose their waybill numbers.
 const showDaman = computed(() => props.daman_enabled || props.orders.data.some((o) => o.daman));
+
+/*
+ * The confirmation conversation, as one glyph.
+ *
+ * It belongs next to the status rather than in a column of its own: what the
+ * merchant is scanning for is the row that says "قيد المراجعة" *and* has been
+ * waiting on an answer since yesterday.
+ */
+const WHATSAPP_MARK: Record<string, { icon: string; class: string; title: string }> = {
+    sent: { icon: '●', class: 'text-info', title: 'مستني رد العميل على واتساب' },
+    confirmed: { icon: '✓', class: 'text-success', title: 'العميل أكّد على واتساب' },
+    cancelled: { icon: '✕', class: 'text-destructive', title: 'العميل لغى على واتساب' },
+    failed: { icon: '!', class: 'text-destructive', title: 'رسالة الواتساب ماوصلتش' },
+};
+
+const showWhatsapp = computed(() => props.whatsapp_enabled || props.orders.data.some((o) => o.whatsapp));
 
 const columns = computed(() => [
     { key: 'number', label: '#' },
@@ -366,14 +384,25 @@ const columns = computed(() => [
                                 </td>
 
                                 <td class="border-b border-border px-3 py-2">
-                                    <select
-                                        class="cursor-pointer rounded-lg border-0 py-1 pr-1 text-xs focus:outline-none focus:ring-2 focus:ring-ring/30"
-                                        :class="STATUS_BADGE[order.status]"
-                                        :value="order.status"
-                                        @change="setStatus(order, ($event.target as HTMLSelectElement).value)"
-                                    >
-                                        <option v-for="s in statuses" :key="s.value" :value="s.value">{{ s.label }}</option>
-                                    </select>
+                                    <div class="flex items-center gap-1.5">
+                                        <select
+                                            class="cursor-pointer rounded-lg border-0 py-1 pr-1 text-xs focus:outline-none focus:ring-2 focus:ring-ring/30"
+                                            :class="STATUS_BADGE[order.status]"
+                                            :value="order.status"
+                                            @change="setStatus(order, ($event.target as HTMLSelectElement).value)"
+                                        >
+                                            <option v-for="s in statuses" :key="s.value" :value="s.value">{{ s.label }}</option>
+                                        </select>
+
+                                        <span
+                                            v-if="showWhatsapp && order.whatsapp && WHATSAPP_MARK[order.whatsapp]"
+                                            class="cursor-help text-xs font-bold"
+                                            :class="WHATSAPP_MARK[order.whatsapp].class"
+                                            :title="WHATSAPP_MARK[order.whatsapp].title"
+                                        >
+                                            {{ WHATSAPP_MARK[order.whatsapp].icon }}
+                                        </span>
+                                    </div>
                                 </td>
 
                                 <!-- Two numbers, and the merchant needs both:

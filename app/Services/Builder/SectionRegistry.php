@@ -3,20 +3,32 @@
 namespace App\Services\Builder;
 
 /**
- * Every section a merchant can put on a page, and every setting it takes.
+ * Every part a merchant can put on a page, and every setting it takes.
  *
  * This is the single source of truth for four different things that would
  * otherwise drift apart within a month:
  *
- *  1. the catalogue the builder shows in "أضف قسم",
+ *  1. the catalogue the builder shows in "أضف جزء",
  *  2. the form controls rendered in the settings panel,
  *  3. the validation rules applied on save,
- *  4. the defaults a brand-new section starts with.
+ *  4. the defaults a brand-new part starts with.
  *
  * All four are derived from the `fields` array below, so adding a setting is
- * one edit here plus one line in the section's blade — never a change in four
+ * one edit here plus one line in the part's blade — never a change in four
  * places where the fourth is the one that gets forgotten and lets unvalidated
  * merchant input through.
+ *
+ * ── On the wording ──────────────────────────────────────────────────────
+ * Every `name`, `label`, `hint` and option in this file is read by a shop
+ * owner, not a developer. Two rules hold:
+ *
+ *  1. **No jargon.** "الهيرو", "شريط الثقة", "شبكة المنتجات" and "الشرايح"
+ *     mean nothing to somebody who sells clothes. They are named after what
+ *     the merchant sees on their own page.
+ *  2. **"قسم" only ever means a product category.** A block of the page is a
+ *     "جزء". The two used to share a word, and a merchant reading "أضف قسم"
+ *     could not tell whether they were about to add a page block or a
+ *     category of products.
  *
  * Field types the builder knows how to render:
  *   text · textarea · richtext · number · toggle · select · color · image
@@ -24,7 +36,7 @@ namespace App\Services\Builder;
  */
 class SectionRegistry
 {
-    /** Pages that carry a section list. */
+    /** Pages that carry a part list. */
     public const PAGES = ['home', 'product', 'category', 'header', 'footer'];
 
     public static function pageLabel(string $page): string
@@ -33,9 +45,19 @@ class SectionRegistry
             'home' => 'الصفحة الرئيسية',
             'product' => 'صفحة المنتج',
             'category' => 'صفحة القسم',
-            'header' => 'الهيدر',
-            'footer' => 'الفوتر',
+            'header' => 'أعلى الصفحة',
+            'footer' => 'أسفل الصفحة',
         ][$page] ?? $page;
+    }
+
+    /** Shared by every "كام في الصف؟" control, so they cannot drift apart. */
+    private function columnsField(string $default = '4'): array
+    {
+        return ['key' => 'columns', 'type' => 'select', 'label' => 'كام واحد في الصف؟', 'default' => $default, 'options' => [
+            ['value' => '2', 'label' => '٢ في الصف'],
+            ['value' => '3', 'label' => '٣ في الصف'],
+            ['value' => '4', 'label' => '٤ في الصف'],
+        ]];
     }
 
     /**
@@ -46,185 +68,173 @@ class SectionRegistry
         return [
             // ── Home ──────────────────────────────────────────────────────
             'hero' => [
-                'name' => 'الهيرو',
-                'description' => 'أول حاجة الزبون بيشوفها. سلايدر صور أو منتجات.',
+                'name' => 'الصورة الكبيرة فوق',
+                'description' => 'أول حاجة الزبون بيشوفها أول ما يفتح متجرك.',
                 'icon' => 'Presentation',
                 'pages' => ['home'],
                 'limit' => 1,
                 'fields' => [
-                    ['key' => 'source', 'type' => 'select', 'label' => 'مصدر الشرايح', 'default' => 'auto',
+                    ['key' => 'source', 'type' => 'select', 'label' => 'الصور تيجي منين؟', 'default' => 'auto',
                         'options' => [
-                            ['value' => 'auto', 'label' => 'من المنتجات (الخصومات الأول)'],
+                            ['value' => 'auto', 'label' => 'من منتجاتك تلقائي'],
                             ['value' => 'manual', 'label' => 'صور أرفعها بنفسي'],
                         ],
-                        'hint' => 'لو اخترت «من المنتجات» مش هتحتاج ترفع حاجة — الهيرو بيتعمل لوحده.'],
-                    ['key' => 'limit', 'type' => 'number', 'label' => 'عدد الشرايح', 'default' => 3, 'min' => 1, 'max' => 8,
+                        'hint' => 'لو سيبتها «من منتجاتك» مش هتحتاج ترفع أي صورة — بتتعمل لوحدها، وبتبدأ باللي عليه خصم.'],
+                    ['key' => 'limit', 'type' => 'number', 'label' => 'كام منتج يتعرض؟', 'default' => 3, 'min' => 1, 'max' => 8,
                         'when' => ['source' => 'auto']],
-                    ['key' => 'slides', 'type' => 'repeater', 'label' => 'الشرايح', 'default' => [], 'max' => 8,
+                    ['key' => 'slides', 'type' => 'repeater', 'label' => 'الصور', 'default' => [], 'max' => 8,
                         'when' => ['source' => 'manual'],
                         'item_label' => 'title',
                         'fields' => [
                             ['key' => 'image', 'type' => 'image', 'label' => 'الصورة', 'default' => null],
-                            ['key' => 'title', 'type' => 'text', 'label' => 'العنوان', 'default' => '', 'max' => 120],
-                            ['key' => 'subtitle', 'type' => 'text', 'label' => 'سطر تحت العنوان', 'default' => '', 'max' => 200],
-                            ['key' => 'button_text', 'type' => 'text', 'label' => 'نص الزر', 'default' => 'اطلب دلوقتي', 'max' => 40],
-                            ['key' => 'link', 'type' => 'link', 'label' => 'الزر يروح فين', 'default' => ''],
+                            ['key' => 'title', 'type' => 'text', 'label' => 'الكلام الكبير', 'default' => '', 'max' => 120],
+                            ['key' => 'subtitle', 'type' => 'text', 'label' => 'سطر صغير تحته', 'default' => '', 'max' => 200],
+                            ['key' => 'button_text', 'type' => 'text', 'label' => 'الكلام المكتوب على الزرار', 'default' => 'اطلب دلوقتي', 'max' => 40],
+                            ['key' => 'link', 'type' => 'link', 'label' => 'الزرار يودّي فين؟', 'default' => ''],
                         ]],
-                    ['key' => 'autoplay', 'type' => 'toggle', 'label' => 'تحرك لوحدها', 'default' => true],
-                    ['key' => 'interval', 'type' => 'number', 'label' => 'كل كام ثانية', 'default' => 6, 'min' => 2, 'max' => 30,
+                    ['key' => 'autoplay', 'type' => 'toggle', 'label' => 'الصور تتبدّل لوحدها', 'default' => true],
+                    ['key' => 'interval', 'type' => 'number', 'label' => 'تتبدّل كل كام ثانية؟', 'default' => 6, 'min' => 2, 'max' => 30,
                         'when' => ['autoplay' => true]],
                 ],
             ],
 
             'trust_bar' => [
-                'name' => 'شريط الثقة',
-                'description' => 'الدفع عند الاستلام، الشحن، الاستبدال — اعتراضات أول عملية شراء.',
+                'name' => 'مميزات متجرك',
+                'description' => 'سطور قصيرة بتطمّن الزبون: الدفع عند الاستلام، الشحن، الاستبدال.',
                 'icon' => 'ShieldCheck',
                 'pages' => ['home', 'product', 'category'],
                 'limit' => 2,
                 'fields' => [
-                    ['key' => 'items', 'type' => 'repeater', 'label' => 'المزايا', 'default' => [
+                    ['key' => 'items', 'type' => 'repeater', 'label' => 'المميزات', 'default' => [
                         ['icon' => 'check', 'title' => 'الدفع عند الاستلام', 'body' => 'ادفع لما يوصلك'],
                         ['icon' => 'truck', 'title' => 'شحن لكل المحافظات', 'body' => 'من ٢ لـ ٥ أيام'],
                         ['icon' => 'refresh', 'title' => 'استبدال ١٤ يوم', 'body' => 'من غير أسئلة'],
                     ], 'max' => 4, 'item_label' => 'title', 'fields' => [
-                        ['key' => 'icon', 'type' => 'select', 'label' => 'الأيقونة', 'default' => 'check', 'options' => [
-                            ['value' => 'check', 'label' => 'صح'],
-                            ['value' => 'truck', 'label' => 'شحن'],
-                            ['value' => 'refresh', 'label' => 'استبدال'],
-                            ['value' => 'shield', 'label' => 'ضمان'],
-                            ['value' => 'phone', 'label' => 'اتصال'],
-                            ['value' => 'wallet', 'label' => 'فلوس'],
+                        ['key' => 'icon', 'type' => 'select', 'label' => 'الرسمة', 'default' => 'check', 'options' => [
+                            ['value' => 'check', 'label' => 'علامة صح'],
+                            ['value' => 'truck', 'label' => 'عربية شحن'],
+                            ['value' => 'refresh', 'label' => 'سهم استبدال'],
+                            ['value' => 'shield', 'label' => 'درع ضمان'],
+                            ['value' => 'phone', 'label' => 'تليفون'],
+                            ['value' => 'wallet', 'label' => 'محفظة فلوس'],
                         ]],
-                        ['key' => 'title', 'type' => 'text', 'label' => 'العنوان', 'default' => '', 'max' => 60],
-                        ['key' => 'body', 'type' => 'text', 'label' => 'السطر الصغير', 'default' => '', 'max' => 80],
+                        ['key' => 'title', 'type' => 'text', 'label' => 'الكلام', 'default' => '', 'max' => 60],
+                        ['key' => 'body', 'type' => 'text', 'label' => 'شرح بسيط تحته', 'default' => '', 'max' => 80],
                     ]],
                 ],
             ],
 
             'deals' => [
-                'name' => 'العروض',
-                'description' => 'المنتجات اللي عليها خصم شغّال، الأقرب انتهاءً الأول.',
+                'name' => 'العروض والخصومات',
+                'description' => 'المنتجات اللي عليها خصم شغّال، والأقرب في انتهاء العرض بيظهر الأول.',
                 'icon' => 'Tag',
                 'pages' => ['home'],
                 'limit' => 1,
                 'fields' => [
-                    ['key' => 'title', 'type' => 'text', 'label' => 'العنوان', 'default' => 'عروض النهارده', 'max' => 80],
-                    ['key' => 'limit', 'type' => 'number', 'label' => 'عدد المنتجات', 'default' => 8, 'min' => 2, 'max' => 20],
+                    ['key' => 'title', 'type' => 'text', 'label' => 'الكلام اللي فوق', 'default' => 'عروض النهارده', 'max' => 80],
+                    ['key' => 'limit', 'type' => 'number', 'label' => 'كام منتج يتعرض؟', 'default' => 8, 'min' => 2, 'max' => 20],
                 ],
             ],
 
             'categories' => [
-                'name' => 'الأقسام',
-                'description' => 'كروت الأقسام. الأقسام الفاضية بتتخفي لوحدها.',
+                'name' => 'أقسام المتجر',
+                'description' => 'كروت أقسام منتجاتك. القسم الفاضي بيتخفي لوحده.',
                 'icon' => 'LayoutGrid',
                 'pages' => ['home'],
                 'limit' => 1,
                 'fields' => [
-                    ['key' => 'title', 'type' => 'text', 'label' => 'العنوان', 'default' => 'تسوّق حسب القسم', 'max' => 80],
-                    ['key' => 'columns', 'type' => 'select', 'label' => 'عدد الأعمدة', 'default' => '4', 'options' => [
-                        ['value' => '2', 'label' => 'عمودين'],
-                        ['value' => '3', 'label' => '٣ أعمدة'],
-                        ['value' => '4', 'label' => '٤ أعمدة'],
-                    ]],
-                    ['key' => 'limit', 'type' => 'number', 'label' => 'أقصى عدد', 'default' => 8, 'min' => 2, 'max' => 24],
+                    ['key' => 'title', 'type' => 'text', 'label' => 'الكلام اللي فوق', 'default' => 'تسوّق حسب القسم', 'max' => 80],
+                    $this->columnsField(),
+                    ['key' => 'limit', 'type' => 'number', 'label' => 'أكتر كام قسم يظهر؟', 'default' => 8, 'min' => 2, 'max' => 24],
                 ],
             ],
 
             'featured_products' => [
-                'name' => 'منتجات مختارة',
-                'description' => 'أنت بتختار المنتجات بنفسك وبالترتيب اللي انت عايزه.',
+                'name' => 'منتجات تختارها بنفسك',
+                'description' => 'أنت اللي بتحدد المنتجات وترتيبها — مش تلقائي.',
                 'icon' => 'Star',
                 'pages' => ['home', 'product', 'category'],
                 'limit' => 3,
                 'fields' => [
-                    ['key' => 'title', 'type' => 'text', 'label' => 'العنوان', 'default' => 'الأكثر مبيعاً', 'max' => 80],
+                    ['key' => 'title', 'type' => 'text', 'label' => 'الكلام اللي فوق', 'default' => 'الأكثر مبيعاً', 'max' => 80],
                     ['key' => 'products', 'type' => 'products', 'label' => 'المنتجات', 'default' => [], 'max' => 12],
-                    ['key' => 'columns', 'type' => 'select', 'label' => 'عدد الأعمدة', 'default' => '4', 'options' => [
-                        ['value' => '2', 'label' => 'عمودين'],
-                        ['value' => '3', 'label' => '٣ أعمدة'],
-                        ['value' => '4', 'label' => '٤ أعمدة'],
-                    ]],
+                    $this->columnsField(),
                 ],
             ],
 
             'product_grid' => [
-                'name' => 'شبكة المنتجات',
-                'description' => 'كل المنتجات أو قسم معيّن، بترتيب تختاره.',
+                'name' => 'كل المنتجات',
+                'description' => 'عرض منتجاتك — كلها أو الأحدث أو قسم معيّن.',
                 'icon' => 'Grid3x3',
                 'pages' => ['home'],
                 'limit' => 2,
                 'fields' => [
-                    ['key' => 'title', 'type' => 'text', 'label' => 'العنوان', 'default' => 'كل المنتجات', 'max' => 80],
-                    ['key' => 'source', 'type' => 'select', 'label' => 'المصدر', 'default' => 'all', 'options' => [
-                        ['value' => 'all', 'label' => 'كل المنتجات'],
-                        ['value' => 'newest', 'label' => 'الأحدث'],
-                        ['value' => 'discounted', 'label' => 'عليها خصم'],
-                        ['value' => 'category', 'label' => 'قسم معيّن'],
+                    ['key' => 'title', 'type' => 'text', 'label' => 'الكلام اللي فوق', 'default' => 'كل المنتجات', 'max' => 80],
+                    ['key' => 'source', 'type' => 'select', 'label' => 'يعرض إيه؟', 'default' => 'all', 'options' => [
+                        ['value' => 'all', 'label' => 'كل منتجاتي'],
+                        ['value' => 'newest', 'label' => 'أحدث المنتجات'],
+                        ['value' => 'discounted', 'label' => 'اللي عليه خصم بس'],
+                        ['value' => 'category', 'label' => 'قسم واحد أختاره'],
                     ]],
-                    ['key' => 'category', 'type' => 'categories', 'label' => 'القسم', 'default' => [], 'max' => 1,
+                    ['key' => 'category', 'type' => 'categories', 'label' => 'أنهي قسم؟', 'default' => [], 'max' => 1,
                         'when' => ['source' => 'category']],
-                    ['key' => 'columns', 'type' => 'select', 'label' => 'عدد الأعمدة', 'default' => '4', 'options' => [
-                        ['value' => '2', 'label' => 'عمودين'],
-                        ['value' => '3', 'label' => '٣ أعمدة'],
-                        ['value' => '4', 'label' => '٤ أعمدة'],
-                    ]],
-                    ['key' => 'limit', 'type' => 'number', 'label' => 'عدد المنتجات في الصفحة', 'default' => 24, 'min' => 4, 'max' => 48],
-                    ['key' => 'paginate', 'type' => 'toggle', 'label' => 'صفحات للباقي', 'default' => true,
-                        'hint' => 'اقفلها لو عايز عدد ثابت من المنتجات وخلاص.'],
+                    $this->columnsField(),
+                    ['key' => 'limit', 'type' => 'number', 'label' => 'كام منتج في الصفحة؟', 'default' => 24, 'min' => 4, 'max' => 48],
+                    ['key' => 'paginate', 'type' => 'toggle', 'label' => 'باقي المنتجات في صفحات تانية', 'default' => true,
+                        'hint' => 'اقفلها لو عايز عدد ثابت يظهر وخلاص من غير صفحة ٢ و٣.'],
                 ],
             ],
 
             'banner' => [
-                'name' => 'بانر صورة',
-                'description' => 'صورة عريضة أو صورتين جنب بعض، كل واحدة برابط.',
+                'name' => 'صورة إعلانية',
+                'description' => 'صورة عريضة أو صورتين جنب بعض، كل واحدة بتودّي لمكان.',
                 'icon' => 'Image',
                 'pages' => ['home', 'product', 'category'],
                 'limit' => 4,
                 'fields' => [
-                    ['key' => 'layout', 'type' => 'select', 'label' => 'الشكل', 'default' => 'full', 'options' => [
+                    ['key' => 'layout', 'type' => 'select', 'label' => 'صورة واحدة ولا اتنين؟', 'default' => 'full', 'options' => [
                         ['value' => 'full', 'label' => 'صورة واحدة عريضة'],
                         ['value' => 'split', 'label' => 'صورتين جنب بعض'],
                     ]],
                     ['key' => 'items', 'type' => 'repeater', 'label' => 'الصور', 'default' => [], 'max' => 2,
                         'item_label' => 'headline', 'fields' => [
                             ['key' => 'image', 'type' => 'image', 'label' => 'الصورة', 'default' => null],
-                            ['key' => 'headline', 'type' => 'text', 'label' => 'العنوان فوق الصورة', 'default' => '', 'max' => 100],
-                            ['key' => 'sub', 'type' => 'text', 'label' => 'سطر تحته', 'default' => '', 'max' => 160],
-                            ['key' => 'button_text', 'type' => 'text', 'label' => 'نص الزر', 'default' => '', 'max' => 40],
-                            ['key' => 'link', 'type' => 'link', 'label' => 'الرابط', 'default' => ''],
+                            ['key' => 'headline', 'type' => 'text', 'label' => 'الكلام الكبير على الصورة', 'default' => '', 'max' => 100],
+                            ['key' => 'sub', 'type' => 'text', 'label' => 'سطر صغير تحته', 'default' => '', 'max' => 160],
+                            ['key' => 'button_text', 'type' => 'text', 'label' => 'الكلام المكتوب على الزرار', 'default' => '', 'max' => 40],
+                            ['key' => 'link', 'type' => 'link', 'label' => 'الصورة تودّي فين؟', 'default' => ''],
                         ]],
                 ],
             ],
 
             'rich_text' => [
-                'name' => 'نص',
-                'description' => 'قصة المتجر، سياسة الاستبدال، أي كلام منسّق.',
+                'name' => 'كلام ومعلومات',
+                'description' => 'قصة المتجر، سياسة الاستبدال، أي كلام عايز تقوله للزبون.',
                 'icon' => 'Type',
                 'pages' => ['home', 'product', 'category', 'footer'],
                 'limit' => 4,
                 'fields' => [
-                    ['key' => 'heading', 'type' => 'text', 'label' => 'العنوان', 'default' => '', 'max' => 100],
-                    ['key' => 'body', 'type' => 'richtext', 'label' => 'النص', 'default' => ''],
-                    ['key' => 'align', 'type' => 'select', 'label' => 'المحاذاة', 'default' => 'right', 'options' => [
-                        ['value' => 'right', 'label' => 'يمين'],
-                        ['value' => 'center', 'label' => 'وسط'],
+                    ['key' => 'heading', 'type' => 'text', 'label' => 'الكلام اللي فوق', 'default' => '', 'max' => 100],
+                    ['key' => 'body', 'type' => 'richtext', 'label' => 'الكلام', 'default' => ''],
+                    ['key' => 'align', 'type' => 'select', 'label' => 'الكلام يبدأ منين؟', 'default' => 'right', 'options' => [
+                        ['value' => 'right', 'label' => 'من اليمين'],
+                        ['value' => 'center', 'label' => 'في النص'],
                     ]],
-                    ['key' => 'width', 'type' => 'select', 'label' => 'العرض', 'default' => 'narrow', 'options' => [
-                        ['value' => 'narrow', 'label' => 'ضيّق (أسهل في القراية)'],
-                        ['value' => 'wide', 'label' => 'عريض'],
+                    ['key' => 'width', 'type' => 'select', 'label' => 'عرض الكلام', 'default' => 'narrow', 'options' => [
+                        ['value' => 'narrow', 'label' => 'ضيّق — أسهل في القراية'],
+                        ['value' => 'wide', 'label' => 'عريض على الشاشة كلها'],
                     ]],
                 ],
             ],
 
             'faq' => [
-                'name' => 'أسئلة شائعة',
-                'description' => 'أسئلة وأجوبة بتتفتح بالضغط. بتقلل مكالمات التأكيد.',
+                'name' => 'أسئلة وأجوبة',
+                'description' => 'أسئلة الزبون بتتفتح بالضغط. بتقلل مكالمات التأكيد.',
                 'icon' => 'MessageCircleQuestion',
                 'pages' => ['home', 'product', 'category'],
                 'limit' => 2,
                 'fields' => [
-                    ['key' => 'title', 'type' => 'text', 'label' => 'العنوان', 'default' => 'أسئلة شائعة', 'max' => 80],
+                    ['key' => 'title', 'type' => 'text', 'label' => 'الكلام اللي فوق', 'default' => 'أسئلة شائعة', 'max' => 80],
                     ['key' => 'items', 'type' => 'repeater', 'label' => 'الأسئلة', 'default' => [], 'max' => 15,
                         'item_label' => 'question', 'fields' => [
                             ['key' => 'question', 'type' => 'text', 'label' => 'السؤال', 'default' => '', 'max' => 200],
@@ -235,78 +245,79 @@ class SectionRegistry
 
             'video' => [
                 'name' => 'فيديو',
-                'description' => 'فيديو يوتيوب. بيتحمّل لما الزبون يوصله مش قبل كده.',
+                'description' => 'فيديو من يوتيوب. مش بيتحمّل غير لما الزبون يدوس عليه.',
                 'icon' => 'Youtube',
                 'pages' => ['home', 'product', 'category'],
                 'limit' => 2,
                 'fields' => [
-                    ['key' => 'title', 'type' => 'text', 'label' => 'العنوان', 'default' => '', 'max' => 100],
-                    ['key' => 'url', 'type' => 'text', 'label' => 'رابط الفيديو', 'default' => '', 'max' => 300,
-                        'hint' => 'الصق رابط يوتيوب عادي — هنستخرج الفيديو منه.'],
-                    ['key' => 'caption', 'type' => 'text', 'label' => 'سطر تحت الفيديو', 'default' => '', 'max' => 200],
+                    ['key' => 'title', 'type' => 'text', 'label' => 'الكلام اللي فوق', 'default' => '', 'max' => 100],
+                    ['key' => 'url', 'type' => 'text', 'label' => 'لينك الفيديو', 'default' => '', 'max' => 300,
+                        'hint' => 'افتح الفيديو على يوتيوب وانسخ اللينك من فوق والصقه هنا.'],
+                    ['key' => 'caption', 'type' => 'text', 'label' => 'سطر صغير تحت الفيديو', 'default' => '', 'max' => 200],
                 ],
             ],
 
             'testimonials' => [
                 'name' => 'آراء العملاء',
-                'description' => 'رأي باسم وصورة وتقييم. أقوى من أي كلام عن نفسك.',
+                'description' => 'رأي زبون باسمه وتقييمه. أقوى بكتير من أي كلام عن نفسك.',
                 'icon' => 'Quote',
                 'pages' => ['home', 'product', 'category'],
                 'limit' => 2,
                 'fields' => [
-                    ['key' => 'title', 'type' => 'text', 'label' => 'العنوان', 'default' => 'عملاؤنا بيقولوا', 'max' => 80],
+                    ['key' => 'title', 'type' => 'text', 'label' => 'الكلام اللي فوق', 'default' => 'عملاؤنا بيقولوا', 'max' => 80],
                     ['key' => 'items', 'type' => 'repeater', 'label' => 'الآراء', 'default' => [], 'max' => 12,
                         'item_label' => 'name', 'fields' => [
-                            ['key' => 'name', 'type' => 'text', 'label' => 'الاسم', 'default' => '', 'max' => 80],
+                            ['key' => 'name', 'type' => 'text', 'label' => 'اسم الزبون', 'default' => '', 'max' => 80],
                             ['key' => 'city', 'type' => 'text', 'label' => 'المدينة', 'default' => '', 'max' => 60],
-                            ['key' => 'rating', 'type' => 'number', 'label' => 'التقييم', 'default' => 5, 'min' => 1, 'max' => 5],
-                            ['key' => 'text', 'type' => 'textarea', 'label' => 'الرأي', 'default' => '', 'max' => 500],
-                            ['key' => 'image', 'type' => 'image', 'label' => 'صورة (اختياري)', 'default' => null],
+                            ['key' => 'rating', 'type' => 'number', 'label' => 'كام نجمة من ٥؟', 'default' => 5, 'min' => 1, 'max' => 5],
+                            ['key' => 'text', 'type' => 'textarea', 'label' => 'كلام الزبون', 'default' => '', 'max' => 500],
+                            ['key' => 'image', 'type' => 'image', 'label' => 'صورته (لو موجودة)', 'default' => null],
                         ]],
                 ],
             ],
 
             'countdown' => [
-                'name' => 'عدّاد تنازلي',
-                'description' => 'عرض بينتهي في وقت محدد. العدّاد بيختفي لوحده لما يخلص.',
+                'name' => 'عدّاد الوقت الفاضل للعرض',
+                'description' => 'ساعة بتعدّ لحد ما العرض يخلص، وبتختفي لوحدها بعد كده.',
                 'icon' => 'Timer',
                 'pages' => ['home', 'product', 'category'],
                 'limit' => 1,
                 'fields' => [
-                    ['key' => 'title', 'type' => 'text', 'label' => 'العنوان', 'default' => 'العرض ينتهي خلال', 'max' => 100],
-                    ['key' => 'subtitle', 'type' => 'text', 'label' => 'سطر تحته', 'default' => '', 'max' => 160],
-                    ['key' => 'ends_at', 'type' => 'datetime', 'label' => 'ينتهي إمتى', 'default' => null],
-                    ['key' => 'button_text', 'type' => 'text', 'label' => 'نص الزر', 'default' => 'اطلب قبل ما يخلص', 'max' => 40],
-                    ['key' => 'link', 'type' => 'link', 'label' => 'الزر يروح فين', 'default' => ''],
-                    ['key' => 'style', 'type' => 'select', 'label' => 'الشكل', 'default' => 'solid', 'options' => [
-                        ['value' => 'solid', 'label' => 'خلفية ملونة'],
-                        ['value' => 'soft', 'label' => 'خفيف'],
+                    ['key' => 'title', 'type' => 'text', 'label' => 'الكلام اللي فوق', 'default' => 'العرض ينتهي خلال', 'max' => 100],
+                    ['key' => 'subtitle', 'type' => 'text', 'label' => 'سطر صغير تحته', 'default' => '', 'max' => 160],
+                    ['key' => 'ends_at', 'type' => 'datetime', 'label' => 'العرض بيخلص إمتى؟', 'default' => null],
+                    ['key' => 'button_text', 'type' => 'text', 'label' => 'الكلام المكتوب على الزرار', 'default' => 'اطلب قبل ما يخلص', 'max' => 40],
+                    ['key' => 'link', 'type' => 'link', 'label' => 'الزرار يودّي فين؟', 'default' => ''],
+                    ['key' => 'style', 'type' => 'select', 'label' => 'شكل الخلفية', 'default' => 'solid', 'options' => [
+                        ['value' => 'solid', 'label' => 'ملوّنة بلون متجرك'],
+                        ['value' => 'soft', 'label' => 'فاتحة وهادية'],
                     ]],
                 ],
             ],
 
             'brands' => [
-                'name' => 'ماركات',
-                'description' => 'شريط لوجوهات — ماركات بتبيعها أو جهات بتتعامل معاها.',
+                'name' => 'لوجوهات ماركات',
+                'description' => 'صف لوجوهات — ماركات بتبيعها أو جهات بتتعامل معاها.',
                 'icon' => 'Sparkles',
                 'pages' => ['home', 'product'],
                 'limit' => 1,
                 'fields' => [
-                    ['key' => 'title', 'type' => 'text', 'label' => 'العنوان', 'default' => '', 'max' => 80],
+                    ['key' => 'title', 'type' => 'text', 'label' => 'الكلام اللي فوق', 'default' => '', 'max' => 80],
                     ['key' => 'items', 'type' => 'repeater', 'label' => 'اللوجوهات', 'default' => [], 'max' => 12,
                         'item_label' => 'name', 'fields' => [
-                            ['key' => 'image', 'type' => 'image', 'label' => 'اللوجو', 'default' => null],
-                            ['key' => 'name', 'type' => 'text', 'label' => 'الاسم', 'default' => '', 'max' => 60],
-                            ['key' => 'link', 'type' => 'link', 'label' => 'رابط (اختياري)', 'default' => ''],
+                            ['key' => 'image', 'type' => 'image', 'label' => 'صورة اللوجو', 'default' => null],
+                            ['key' => 'name', 'type' => 'text', 'label' => 'اسم الماركة', 'default' => '', 'max' => 60],
+                            ['key' => 'link', 'type' => 'link', 'label' => 'لينك (لو عايز)', 'default' => ''],
                         ]],
-                    ['key' => 'grayscale', 'type' => 'toggle', 'label' => 'أبيض وأسود', 'default' => true],
+                    ['key' => 'grayscale', 'type' => 'toggle', 'label' => 'اعرضهم أبيض وأسود', 'default' => true,
+                        'hint' => 'بيخلي لوجوهات غيرك ما تسرقش النظر من منتجاتك.'],
                 ],
             ],
 
             // ── Product page ──────────────────────────────────────────────
             'product_main' => [
-                'name' => 'المنتج وفورم الطلب',
-                'description' => 'الصور والسعر وفورم الطلب. مينفعش يتشال.',
+                'name' => 'صور المنتج وفورم الطلب',
+                'description' => 'الصور والسعر والفورم اللي الزبون بيطلب منه. ده الجزء الأساسي ومايتشالش.',
                 'icon' => 'ShoppingCart',
                 'pages' => ['product'],
                 'limit' => 1,
@@ -322,38 +333,38 @@ class SectionRegistry
                  | behaviour and no way to tell which one won.
                  */
                 'fields' => [
-                    ['key' => 'badge', 'type' => 'text', 'label' => 'شارة فوق الاسم', 'default' => '', 'max' => 40,
-                        'hint' => 'زي «الأكثر مبيعاً». سيبها فاضية تختفي.'],
+                    ['key' => 'badge', 'type' => 'text', 'label' => 'كلمة صغيرة فوق اسم المنتج', 'default' => '', 'max' => 40,
+                        'hint' => 'زي «الأكثر مبيعاً». سيبها فاضية وهتختفي.'],
                 ],
             ],
 
             'product_description' => [
-                'name' => 'وصف المنتج',
+                'name' => 'تفاصيل المنتج',
                 'description' => 'الوصف اللي كاتبه في صفحة المنتج نفسه.',
                 'icon' => 'AlignRight',
                 'pages' => ['product'],
                 'limit' => 1,
                 'fields' => [
-                    ['key' => 'heading', 'type' => 'text', 'label' => 'العنوان', 'default' => 'تفاصيل المنتج', 'max' => 80],
+                    ['key' => 'heading', 'type' => 'text', 'label' => 'الكلام اللي فوق', 'default' => 'تفاصيل المنتج', 'max' => 80],
                 ],
             ],
 
             'related_products' => [
-                'name' => 'منتجات مشابهة',
-                'description' => 'منتجات من نفس القسم، عشان الزبون ميخرجش من غير ما يشوف حاجة تانية.',
+                'name' => 'منتجات تانية ممكن تعجبه',
+                'description' => 'منتجات من نفس القسم، عشان الزبون ما يخرجش من غير ما يشوف حاجة تانية.',
                 'icon' => 'Shuffle',
                 'pages' => ['product'],
                 'limit' => 1,
                 'fields' => [
-                    ['key' => 'title', 'type' => 'text', 'label' => 'العنوان', 'default' => 'ممكن يعجبك كمان', 'max' => 80],
-                    ['key' => 'limit', 'type' => 'number', 'label' => 'العدد', 'default' => 4, 'min' => 2, 'max' => 12],
+                    ['key' => 'title', 'type' => 'text', 'label' => 'الكلام اللي فوق', 'default' => 'ممكن يعجبك كمان', 'max' => 80],
+                    ['key' => 'limit', 'type' => 'number', 'label' => 'كام منتج يتعرض؟', 'default' => 4, 'min' => 2, 'max' => 12],
                 ],
             ],
 
             // ── Category page ─────────────────────────────────────────────
             'category_header' => [
-                'name' => 'عنوان القسم',
-                'description' => 'اسم القسم ووصفه وعدد المنتجات.',
+                'name' => 'اسم القسم',
+                'description' => 'اسم القسم ووصفه وعدد منتجاته. ده الجزء الأساسي ومايتشالش.',
                 'icon' => 'Heading',
                 'pages' => ['category'],
                 'limit' => 1,
@@ -366,116 +377,112 @@ class SectionRegistry
 
             'category_products' => [
                 'name' => 'منتجات القسم',
-                'description' => 'منتجات القسم نفسه. مينفعش يتشال.',
+                'description' => 'منتجات القسم اللي الزبون فاتحه. ده الجزء الأساسي ومايتشالش.',
                 'icon' => 'Grid3x3',
                 'pages' => ['category'],
                 'limit' => 1,
                 'locked' => true,
                 'fields' => [
-                    ['key' => 'columns', 'type' => 'select', 'label' => 'عدد الأعمدة', 'default' => '4', 'options' => [
-                        ['value' => '2', 'label' => 'عمودين'],
-                        ['value' => '3', 'label' => '٣ أعمدة'],
-                        ['value' => '4', 'label' => '٤ أعمدة'],
-                    ]],
+                    $this->columnsField(),
                 ],
             ],
 
             // ── Header ────────────────────────────────────────────────────
             'announcement_bar' => [
-                'name' => 'شريط الإعلان',
-                'description' => 'السطر الملوّن فوق خالص.',
+                'name' => 'الشريط الملوّن فوق خالص',
+                'description' => 'سطر واحد فوق اللوجو — مكان كويس لأهم عرض عندك.',
                 'icon' => 'Megaphone',
                 'pages' => ['header'],
                 'limit' => 1,
                 'fields' => [
-                    ['key' => 'text', 'type' => 'text', 'label' => 'النص', 'max' => 160,
+                    ['key' => 'text', 'type' => 'text', 'label' => 'الكلام', 'max' => 160,
                         'default' => 'الدفع عند الاستلام · شحن لكل المحافظات · استبدال خلال ١٤ يوم'],
-                    ['key' => 'link', 'type' => 'link', 'label' => 'رابط (اختياري)', 'default' => ''],
-                    ['key' => 'style', 'type' => 'select', 'label' => 'اللون', 'default' => 'primary', 'options' => [
-                        ['value' => 'primary', 'label' => 'لون المتجر'],
+                    ['key' => 'link', 'type' => 'link', 'label' => 'يودّي فين لو داس عليه؟', 'default' => ''],
+                    ['key' => 'style', 'type' => 'select', 'label' => 'لون الشريط', 'default' => 'primary', 'options' => [
+                        ['value' => 'primary', 'label' => 'لون متجرك الأساسي'],
                         ['value' => 'dark', 'label' => 'غامق'],
-                        ['value' => 'accent', 'label' => 'اللون المساعد'],
+                        ['value' => 'accent', 'label' => 'لون متجرك التاني'],
                     ]],
                 ],
             ],
 
             'header_nav' => [
-                'name' => 'الهيدر',
-                'description' => 'اللوجو والقوايم والبحث.',
+                'name' => 'اللوجو والقوايم',
+                'description' => 'الشريط اللي فيه لوجو متجرك وروابطه والبحث. ده الجزء الأساسي ومايتشالش.',
                 'icon' => 'PanelTop',
                 'pages' => ['header'],
                 'limit' => 1,
                 'locked' => true,
                 'fields' => [
-                    ['key' => 'sticky', 'type' => 'toggle', 'label' => 'يفضل ثابت مع النزول', 'default' => true],
-                    ['key' => 'show_search', 'type' => 'toggle', 'label' => 'خانة البحث', 'default' => true],
-                    ['key' => 'links_source', 'type' => 'select', 'label' => 'القوايم', 'default' => 'categories', 'options' => [
-                        ['value' => 'categories', 'label' => 'أقسام المتجر تلقائي'],
+                    ['key' => 'sticky', 'type' => 'toggle', 'label' => 'يفضل ظاهر وانت بتنزل في الصفحة', 'default' => true],
+                    ['key' => 'show_search', 'type' => 'toggle', 'label' => 'اعرض خانة البحث', 'default' => true],
+                    ['key' => 'links_source', 'type' => 'select', 'label' => 'الروابط اللي جنب اللوجو', 'default' => 'categories', 'options' => [
+                        ['value' => 'categories', 'label' => 'أقسام منتجاتي تلقائي'],
                         ['value' => 'manual', 'label' => 'روابط أكتبها بنفسي'],
-                        ['value' => 'none', 'label' => 'من غير قوايم'],
+                        ['value' => 'none', 'label' => 'من غير روابط'],
                     ]],
                     ['key' => 'links', 'type' => 'repeater', 'label' => 'الروابط', 'default' => [], 'max' => 6,
                         'when' => ['links_source' => 'manual'], 'item_label' => 'label', 'fields' => [
-                            ['key' => 'label', 'type' => 'text', 'label' => 'الاسم', 'default' => '', 'max' => 40],
-                            ['key' => 'url', 'type' => 'link', 'label' => 'الرابط', 'default' => ''],
+                            ['key' => 'label', 'type' => 'text', 'label' => 'الكلام الظاهر', 'default' => '', 'max' => 40],
+                            ['key' => 'url', 'type' => 'link', 'label' => 'يودّي فين؟', 'default' => ''],
                         ]],
                 ],
             ],
 
             // ── Footer ────────────────────────────────────────────────────
             'footer_main' => [
-                'name' => 'الفوتر',
-                'description' => 'الأعمدة والروابط تحت.',
+                'name' => 'روابط ومعلومات آخر الصفحة',
+                'description' => 'الأعمدة اللي تحت خالص. ده الجزء الأساسي ومايتشالش.',
                 'icon' => 'PanelBottom',
                 'pages' => ['footer'],
                 'limit' => 1,
                 'locked' => true,
                 'fields' => [
-                    ['key' => 'about', 'type' => 'textarea', 'label' => 'نبذة عن المتجر', 'default' => '', 'max' => 400,
-                        'hint' => 'سيبها فاضية وهياخد وصف المتجر من الإعدادات.'],
-                    ['key' => 'show_categories', 'type' => 'toggle', 'label' => 'عمود الأقسام', 'default' => true],
-                    ['key' => 'columns', 'type' => 'repeater', 'label' => 'أعمدة إضافية', 'default' => [], 'max' => 3,
+                    ['key' => 'about', 'type' => 'textarea', 'label' => 'نبذة عن متجرك', 'default' => '', 'max' => 400,
+                        'hint' => 'سيبها فاضية وهياخد الوصف من إعدادات المتجر.'],
+                    ['key' => 'show_categories', 'type' => 'toggle', 'label' => 'اعرض أقسام منتجاتي', 'default' => true],
+                    ['key' => 'columns', 'type' => 'repeater', 'label' => 'مجموعات روابط زيادة', 'default' => [], 'max' => 3,
                         'item_label' => 'title', 'fields' => [
-                            ['key' => 'title', 'type' => 'text', 'label' => 'عنوان العمود', 'default' => '', 'max' => 60],
+                            ['key' => 'title', 'type' => 'text', 'label' => 'عنوان المجموعة', 'default' => '', 'max' => 60],
                             ['key' => 'links', 'type' => 'repeater', 'label' => 'الروابط', 'default' => [], 'max' => 6,
                                 'item_label' => 'label', 'fields' => [
-                                    ['key' => 'label', 'type' => 'text', 'label' => 'الاسم', 'default' => '', 'max' => 60],
-                                    ['key' => 'url', 'type' => 'link', 'label' => 'الرابط', 'default' => ''],
+                                    ['key' => 'label', 'type' => 'text', 'label' => 'الكلام الظاهر', 'default' => '', 'max' => 60],
+                                    ['key' => 'url', 'type' => 'link', 'label' => 'يودّي فين؟', 'default' => ''],
                                 ]],
                         ]],
                 ],
             ],
 
             'footer_social' => [
-                'name' => 'السوشيال',
-                'description' => 'أيقونات فيسبوك وإنستجرام وواتساب.',
+                'name' => 'حساباتك على السوشيال',
+                'description' => 'أيقونات فيسبوك وإنستجرام وواتساب وتيك توك.',
                 'icon' => 'Share2',
                 'pages' => ['footer'],
                 'limit' => 1,
                 'fields' => [
                     ['key' => 'items', 'type' => 'repeater', 'label' => 'الحسابات', 'default' => [], 'max' => 6,
                         'item_label' => 'platform', 'fields' => [
-                            ['key' => 'platform', 'type' => 'select', 'label' => 'المنصة', 'default' => 'facebook', 'options' => [
+                            ['key' => 'platform', 'type' => 'select', 'label' => 'الموقع', 'default' => 'facebook', 'options' => [
                                 ['value' => 'facebook', 'label' => 'فيسبوك'],
                                 ['value' => 'instagram', 'label' => 'إنستجرام'],
                                 ['value' => 'tiktok', 'label' => 'تيك توك'],
                                 ['value' => 'whatsapp', 'label' => 'واتساب'],
                                 ['value' => 'youtube', 'label' => 'يوتيوب'],
                             ]],
-                            ['key' => 'url', 'type' => 'link', 'label' => 'الرابط', 'default' => ''],
+                            ['key' => 'url', 'type' => 'link', 'label' => 'لينك الحساب', 'default' => ''],
                         ]],
                 ],
             ],
 
             'footer_note' => [
-                'name' => 'سطر الحقوق',
-                'description' => 'آخر سطر في الصفحة.',
+                'name' => 'آخر سطر في الصفحة',
+                'description' => 'سطر الحقوق تحت خالص.',
                 'icon' => 'Copyright',
                 'pages' => ['footer'],
                 'limit' => 1,
                 'fields' => [
-                    ['key' => 'text', 'type' => 'text', 'label' => 'النص', 'default' => '', 'max' => 200,
-                        'hint' => 'سيبها فاضية وهيكتب © والسنة واسم المتجر.'],
+                    ['key' => 'text', 'type' => 'text', 'label' => 'الكلام', 'default' => '', 'max' => 200,
+                        'hint' => 'سيبها فاضية وهيكتب © والسنة واسم متجرك.'],
                 ],
             ],
         ];
@@ -493,7 +500,7 @@ class SectionRegistry
     }
 
     /**
-     * The sections offerable on a page, in catalogue order.
+     * The parts offerable on a page, in catalogue order.
      *
      * @return array<int,array<string,mixed>>
      */
@@ -517,7 +524,7 @@ class SectionRegistry
     }
 
     /**
-     * A fresh section's settings, straight from the field defaults.
+     * A fresh part's settings, straight from the field defaults.
      *
      * @return array<string,mixed>
      */

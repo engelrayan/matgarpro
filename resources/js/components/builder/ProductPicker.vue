@@ -104,7 +104,7 @@ const toggleSearch = () => {
         </div>
 
         <p v-if="selected.length === 0" class="rounded-xl bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
-            مفيش منتجات مختارة — القسم ده مش هيظهر في المتجر.
+            لسه ما اخترتش منتجات — الجزء ده مش هيظهر في متجرك.
         </p>
 
         <button

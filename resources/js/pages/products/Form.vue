@@ -17,7 +17,7 @@ interface ExistingImage { id: number; url: string }
 
 interface ProductPayload {
     id: number;
-    name: string; slug: string; description: string | null;
+    name: string; slug: string; description: string | null; video_url: string | null;
     price: string; compare_at_price: string | null; cost: string | null;
     sku: string | null; track_stock: boolean; stock: number;
     status: 'draft' | 'active';
@@ -48,6 +48,7 @@ const form = useForm({
     name: props.product?.name ?? '',
     slug: props.product?.slug ?? '',
     description: props.product?.description ?? '',
+    video_url: props.product?.video_url ?? '',
     price: props.product?.price ?? '',
     compare_at_price: props.product?.compare_at_price ?? '',
     cost: props.product?.cost ?? '',
@@ -234,6 +235,25 @@ const submit = () => {
                         <label class="field-label">الوصف</label>
                         <RichTextEditor v-model="form.description" />
                         <InputError :message="form.errors.description" />
+                    </div>
+
+                    <div>
+                        <label class="field-label" for="video">
+                            لينك فيديو للمنتج
+                            <span class="font-normal text-muted-foreground">— اختياري</span>
+                        </label>
+                        <input
+                            id="video"
+                            v-model="form.video_url"
+                            class="field"
+                            dir="ltr"
+                            placeholder="https://www.youtube.com/watch?v=..."
+                        />
+                        <p class="field-hint">
+                            افتح الفيديو على يوتيوب وانسخ اللينك من فوق. هيظهر للعميل تحت صور المنتج،
+                            ومش بيتحمّل غير لما يدوس عليه.
+                        </p>
+                        <InputError :message="form.errors.video_url" />
                     </div>
                 </section>
 

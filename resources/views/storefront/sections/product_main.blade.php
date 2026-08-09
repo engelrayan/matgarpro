@@ -42,6 +42,20 @@
             @else
                 <div class="aspect-square rounded-2xl bg-muted"></div>
             @endif
+
+            {{-- The product's own video, when the merchant added one.
+
+                 Under the gallery rather than as a slide inside it: a customer
+                 flicking through photos is comparing angles, and a frame that
+                 suddenly plays sound is not the same kind of thing. Here it is
+                 a deliberate second look, right where somebody who is still
+                 deciding will scroll to. --}}
+            @if ($videoId = $product->videoId())
+                <div class="mt-3">
+                    @include('storefront.partials.youtube', ['videoId' => $videoId])
+                    <p class="mt-2 text-center text-xs text-muted-foreground">شوف المنتج بالفيديو</p>
+                </div>
+            @endif
         </div>
 
         {{-- ── Details + order form ─────────────────────────────────────── --}}
