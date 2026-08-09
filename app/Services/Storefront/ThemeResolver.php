@@ -69,6 +69,44 @@ class ThemeResolver
 
         $lines[] = "--radius:{$theme['radius']};";
 
+        /*
+         | The theme's typeface.
+         |
+         | This key sat in the config for months and nothing read it: every
+         | store, whatever theme it picked, rendered in the platform's own
+         | font. Type is the single biggest reason two shops look like two
+         | shops rather than one shop in two colours — a watch boutique and a
+         | toy store cannot share a typeface and both look right.
+         |
+         | Emitted as a variable rather than a hard font-family so the whole
+         | Tailwind scale (`font-sans`, and everything composed from it) picks
+         | it up in one place.
+         */
+        $lines[] = '--font-sans:' . $this->fontFamily($theme) . ';';
+
         return ':root{' . implode('', $lines) . '}';
+    }
+
+    /**
+     * The CSS family name for a theme's font, quoted and with fallbacks.
+     *
+     * Looked up rather than derived from the slug: "ibm-plex-sans-arabic"
+     * title-cases to "Ibm Plex Sans Arabic", which matches no font on any
+     * machine and silently falls through to the system stack.
+     */
+    public function fontFamily(array $theme): string
+    {
+        $family = config('themes.fonts.' . $theme['font']) ?? 'IBM Plex Sans Arabic';
+
+        return "'{$family}',ui-sans-serif,system-ui,sans-serif";
+    }
+
+    /** The stylesheet URL that actually delivers the theme's font. */
+    public function fontUrl(array $theme): string
+    {
+        // Weights are fixed across themes: anything a storefront needs is
+        // covered, and letting each theme pick its own would mean a theme that
+        // asks for a weight it never uses paying for the download anyway.
+        return 'https://fonts.bunny.net/css?family=' . $theme['font'] . ':400,500,600,700';
     }
 }

@@ -111,6 +111,16 @@
         --sidebar-ring: 43 64% 46%;
 
         --radius: 0.75rem;
+
+        /*
+         | The platform's own typeface, and the fallback for every surface that
+         | has no theme — the dashboard, the marketing site, the admin panel.
+         |
+         | A storefront overrides this from its theme (ThemeResolver emits it
+         | inline in the <head>), which is what lets a watch boutique and a toy
+         | shop stop looking like the same website.
+         */
+        --font-sans: 'IBM Plex Sans Arabic', ui-sans-serif, system-ui, sans-serif;
     }
 
     .dark {

@@ -93,7 +93,13 @@ class SectionRegistry
                             ['key' => 'link', 'type' => 'link', 'label' => 'الزرار يودّي فين؟', 'default' => ''],
                         ]],
                     ['key' => 'autoplay', 'type' => 'toggle', 'label' => 'الصور تتبدّل لوحدها', 'default' => true],
-                    ['key' => 'interval', 'type' => 'number', 'label' => 'تتبدّل كل كام ثانية؟', 'default' => 6, 'min' => 2, 'max' => 30,
+                    /*
+                     | Four seconds, not six. At six a visitor who lands, reads
+                     | the headline and starts scrolling never sees slide two —
+                     | so the merchant assumes the slider is broken, which is
+                     | exactly the report that produced this change.
+                     */
+                    ['key' => 'interval', 'type' => 'number', 'label' => 'تتبدّل كل كام ثانية؟', 'default' => 4, 'min' => 2, 'max' => 30,
                         'when' => ['autoplay' => true]],
                 ],
             ],

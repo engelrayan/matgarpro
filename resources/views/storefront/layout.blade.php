@@ -22,7 +22,8 @@
     <link rel="icon" href="/logo.svg" type="image/svg+xml">
 
     <link rel="preconnect" href="https://fonts.bunny.net" crossorigin>
-    <link href="https://fonts.bunny.net/css?family=ibm-plex-sans-arabic:400,500,600,700" rel="stylesheet">
+    {{-- The theme's own typeface, not the platform's. --}}
+    <link href="{{ app(\App\Services\Storefront\ThemeResolver::class)->fontUrl($theme) }}" rel="stylesheet">
 
     @vite('resources/css/app.css')
 

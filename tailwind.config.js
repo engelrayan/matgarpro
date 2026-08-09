@@ -29,7 +29,17 @@ export default {
             fontFamily: {
                 // One family for Arabic and Latin keeps mixed strings ("12 طلب")
                 // on a single baseline — the usual giveaway of a cheap RTL UI.
-                sans: ['IBM Plex Sans Arabic', ...defaultTheme.fontFamily.sans],
+                /*
+                 | `--font-sans` is set by the storefront theme, and defaults
+                 | to IBM Plex Sans Arabic in app.css for the dashboard and
+                 | every other surface that has no theme.
+                 |
+                 | The default MUST live in CSS, not as a second entry here: an
+                 | undefined custom property makes the whole `font-family`
+                 | declaration invalid, so the browser drops it entirely rather
+                 | than falling through to the next name in the list.
+                 */
+                sans: ['var(--font-sans)', ...defaultTheme.fontFamily.sans],
                 mono: ['IBM Plex Mono', ...defaultTheme.fontFamily.mono],
             },
             borderRadius: {
