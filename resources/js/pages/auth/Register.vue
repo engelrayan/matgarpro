@@ -58,7 +58,6 @@ const submit = () => {
                     autofocus
                     tabindex="1"
                     autocomplete="name"
-                    placeholder="محمود ممدوح"
                 />
                 <InputError :message="form.errors.name" />
             </div>
@@ -71,7 +70,6 @@ const submit = () => {
                     class="field"
                     required
                     tabindex="2"
-                    placeholder="متجر محمود"
                 />
                 <p class="field-hint">
                     عنوان متجرك:
