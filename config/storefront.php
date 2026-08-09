@@ -125,6 +125,13 @@ return [
 
         'certbot' => env('STOREFRONT_CERTBOT_BIN', '/usr/bin/certbot'),
 
+        /*
+        | certbot must run as root — it owns /etc/letsencrypt and its own log
+        | directory, and the web user owns neither. Switchable only so a test
+        | or a container that already runs as root can turn it off.
+        */
+        'sudo' => (bool) env('STOREFRONT_SSL_SUDO', true),
+
         // The directory certbot answers the HTTP-01 challenge from. Must be
         // the storefront's public root — the same one nginx serves.
         'webroot' => env('STOREFRONT_SSL_WEBROOT', '/var/www/matgarpro/public'),
@@ -148,7 +155,7 @@ return [
         // domain at the same time.
         'vhost_include' => env('STOREFRONT_SSL_VHOST_INCLUDE', '/etc/nginx/snippets/matgarpro-storefront.conf'),
 
-        'reload_command' => env('STOREFRONT_SSL_RELOAD', 'sudo /usr/sbin/nginx -s reload'),
+        'reload_command' => env('STOREFRONT_SSL_RELOAD', 'sudo -n /usr/sbin/nginx -s reload'),
 
         /*
         | Let's Encrypt allows 5 failed validations per hostname per hour. A

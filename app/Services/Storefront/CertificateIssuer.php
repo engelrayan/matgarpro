@@ -148,6 +148,17 @@ class CertificateIssuer
     private function runCertbot(string $domain): array
     {
         $process = new Process([
+            /*
+             | certbot has to be root: it writes to /etc/letsencrypt and
+             | /var/log/letsencrypt, and the web user owns neither. The sudoers
+             | rule that permits exactly this one binary is part of the install.
+             |
+             | `-n` is not optional. Without it, a missing sudoers rule makes
+             | sudo sit waiting for a password that no queue worker will ever
+             | type, and the job hangs until its timeout instead of failing with
+             | a message somebody can act on.
+             */
+            ...(config('storefront.ssl.sudo') ? ['sudo', '-n'] : []),
             config('storefront.ssl.certbot'),
             'certonly',
             '--non-interactive',
