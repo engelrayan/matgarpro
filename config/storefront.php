@@ -135,7 +135,13 @@ return [
         | so nothing this code writes can ever land inside the hand-maintained
         | vhost.
         */
-        'vhost_dir' => env('STOREFRONT_SSL_VHOST_DIR', '/etc/nginx/sites-enabled/matgarpro-domains'),
+        /*
+        | Outside `sites-enabled`, not inside it. Debian's nginx.conf carries
+        | `include /etc/nginx/sites-enabled/*;` — a sub-directory there is
+        | matched by that glob and nginx refuses to start, taking every site on
+        | the box down with it. Its own directory, included by its own line.
+        */
+        'vhost_dir' => env('STOREFRONT_SSL_VHOST_DIR', '/etc/nginx/matgarpro-domains'),
 
         // The shared server body every generated vhost includes: root, PHP,
         // headers. Written once by hand so a change reaches every merchant
