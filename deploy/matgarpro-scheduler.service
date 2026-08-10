@@ -1,0 +1,28 @@
+# متجر برو — scheduler tick
+#
+# Paired with matgarpro-scheduler.timer, this is the systemd equivalent of the
+# usual `* * * * * php artisan schedule:run` crontab line. It drives:
+#
+#   domains:verify   — checks whether a merchant's DNS has pointed at us yet
+#   domains:certify  — issues the Let's Encrypt certificate once it has
+#
+# Without it a merchant adds their domain, points it correctly, and the panel
+# tells them it is still waiting — forever.
+#
+# Install:
+#   sudo cp deploy/matgarpro-scheduler.{service,timer} /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now matgarpro-scheduler.timer
+
+[Unit]
+Description=matgarpro scheduler tick
+
+[Service]
+Type=oneshot
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/matgarpro
+ExecStart=/usr/bin/php /var/www/matgarpro/artisan schedule:run
+
+StandardOutput=append:/var/log/matgarpro-scheduler.log
+StandardError=append:/var/log/matgarpro-scheduler.log

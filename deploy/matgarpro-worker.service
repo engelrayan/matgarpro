@@ -1,0 +1,52 @@
+# متجر برو — queue worker
+#
+# Nothing that is queued runs without this. Certificate issuance, WhatsApp
+# confirmations and order notifications are all jobs, so with no worker they do
+# not fail — they sit in the `jobs` table forever, which looks exactly like a
+# feature that was never built.
+#
+# Install:
+#   sudo cp deploy/matgarpro-worker.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now matgarpro-worker
+#
+# Two things this file is deliberate about:
+#
+#   User=www-data — the same user php-fpm runs as. A worker running as anyone
+#   else writes storage/ and bootstrap/cache/ files the web request cannot then
+#   read, and the symptom is a permission error hours later in an unrelated
+#   place.
+#
+#   --queue=default is spelled out. This server also runs daman-backend, whose
+#   own workers are already up under a different user; naming the connection and
+#   queue keeps the two from ever being confused for each other.
+
+[Unit]
+Description=matgarpro queue worker
+After=network.target mysql.service
+Requires=mysql.service
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/matgarpro
+ExecStart=/usr/bin/php /var/www/matgarpro/artisan queue:work database --queue=default --sleep=3 --tries=3 --max-time=3600 --timeout=120
+
+# --max-time above retires the process every hour and this restarts it. A PHP
+# worker is a long-lived process holding a booted framework in memory: it keeps
+# serving the code it started with, so a deploy is invisible to it until it is
+# replaced, and any slow leak accumulates for as long as it lives.
+Restart=always
+RestartSec=5
+
+# The certificate job shells out to certbot and can legitimately take a while.
+# Give a stopping worker time to finish the job in hand instead of killing it
+# halfway through writing an nginx vhost.
+KillSignal=SIGTERM
+TimeoutStopSec=90
+
+StandardOutput=append:/var/log/matgarpro-worker.log
+StandardError=append:/var/log/matgarpro-worker.log
+
+[Install]
+WantedBy=multi-user.target

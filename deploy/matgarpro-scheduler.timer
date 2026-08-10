@@ -1,0 +1,17 @@
+[Unit]
+Description=Run the matgarpro scheduler every minute
+
+[Timer]
+# Every minute, on the minute. Laravel's scheduler decides for itself what is
+# actually due on each tick, so this stays at one minute no matter how often
+# the individual tasks run.
+OnCalendar=*:0/1
+AccuracySec=1s
+
+# A tick missed while the server was down runs once on boot rather than being
+# skipped — a domain waiting on verification should not wait an extra minute
+# after a restart.
+Persistent=true
+
+[Install]
+WantedBy=timers.target
