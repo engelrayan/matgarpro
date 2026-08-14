@@ -15,8 +15,6 @@ class BillingPlan extends Model
         'name',
         'description',
         'price_per_order',
-        'monthly_fee',
-        'included_orders_monthly',
         'billable_event',
         'is_default',
         'is_public',
@@ -26,8 +24,6 @@ class BillingPlan extends Model
 
     protected $casts = [
         'price_per_order' => 'decimal:2',
-        'monthly_fee' => 'decimal:2',
-        'included_orders_monthly' => 'integer',
         'is_default' => 'boolean',
         'is_public' => 'boolean',
         'is_active' => 'boolean',
@@ -45,6 +41,6 @@ class BillingPlan extends Model
 
     public function isFree(): bool
     {
-        return (float) $this->price_per_order <= 0 && (float) $this->monthly_fee <= 0;
+        return (float) $this->price_per_order <= 0;
     }
 }

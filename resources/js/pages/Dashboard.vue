@@ -4,7 +4,7 @@ import FunnelBars from '@/components/charts/FunnelBars.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { AlertTriangle, ArrowLeft, Check, Copy, ExternalLink, Globe, ImagePlus, Package, Plus, ShoppingBag } from 'lucide-vue-next';
+import { AlertTriangle, ArrowLeft, Check, Copy, ExternalLink, Gift, Globe, ImagePlus, Package, Plus, ShoppingBag } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface SeriesPoint {
@@ -36,6 +36,13 @@ const props = defineProps<{
         top_products: { name: string; qty: number; revenue: number }[];
         low_stock: { id: number; name: string; stock: number }[];
     };
+    billing: {
+        on_trial: boolean;
+        trial_days_left: number | null;
+        trial_ends_at: string | null;
+        price_per_order: number;
+        balance: number;
+    };
     setup: { has_product: boolean; has_domain: boolean; has_logo: boolean; has_order: boolean };
     recent: { id: number; number: number; customer_name: string; total: string; status: string; status_label: string; created_at: string }[];
     products_active: number;
@@ -55,6 +62,15 @@ const RANGES = [
 
 const setRange = (key: string) =>
     router.get('/dashboard', { range: key }, { preserveState: true, preserveScroll: true, replace: true });
+
+/*
+ * The trial only becomes urgent near the end. Shown as a calm line for most of
+ * the three months and as a warning in the last two weeks — a banner that
+ * shouts from day one is one the merchant stops seeing by week two.
+ */
+const trialEnding = computed(
+    () => props.billing.on_trial && (props.billing.trial_days_left ?? 0) <= 14,
+);
 
 const STATUS_BADGE: Record<string, string> = {
     pending: 'badge-warning',
@@ -139,6 +155,31 @@ const copyUrl = async () => {
                         افتح المتجر
                     </a>
                 </div>
+            </section>
+
+            <!--
+                The free months, counted down.
+
+                The merchant was promised three months and then half a pound an
+                order. Both halves of that sentence live here, so the first
+                charge is a number they have already read rather than a
+                surprise on the day it lands.
+            -->
+            <section v-if="billing.on_trial"
+                     class="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border p-4 text-sm"
+                     :class="trialEnding
+                         ? 'border-warning/30 bg-warning/5 text-warning'
+                         : 'border-border bg-card text-muted-foreground'">
+                <component :is="trialEnding ? AlertTriangle : Gift" class="size-4 shrink-0" />
+
+                <p class="min-w-0 flex-1 leading-relaxed">
+                    <span :class="trialEnding ? 'font-semibold' : 'font-semibold text-foreground'">
+                        باقي <span class="tabular">{{ num(billing.trial_days_left ?? 0) }}</span> يوم مجاني
+                    </span>
+                    — بعد <span class="tabular">{{ billing.trial_ends_at }}</span> هتدفع
+                    <span class="tabular font-medium text-foreground">{{ money(billing.price_per_order) }} {{ store.currency }}</span>
+                    على الطلب. مافيش اشتراك شهري ولا نسبة من مبيعاتك.
+                </p>
             </section>
 
             <!-- ── Setup ─────────────────────────────────────────────────── -->

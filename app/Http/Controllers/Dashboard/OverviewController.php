@@ -42,6 +42,22 @@ class OverviewController extends Controller
                 'host' => $store->canonicalHost(),
                 'logo_url' => $store->logoUrl(),
             ],
+            /*
+             | The three free months, counted down where the merchant will
+             | actually see it.
+             |
+             | A trial that ends silently and turns into the first charge is
+             | how a platform loses someone it already won — so the number is
+             | on the front page from day one, not buried in a settings tab
+             | nobody opens.
+             */
+            'billing' => [
+                'on_trial' => $store->onTrial(),
+                'trial_days_left' => $store->trialDaysLeft(),
+                'trial_ends_at' => $store->trial_ends_at?->translatedFormat('j F Y'),
+                'price_per_order' => $store->loadMissing('plan')->priceAfterTrial(),
+                'balance' => (float) $store->balance,
+            ],
             'range' => $range,
             'insights' => $insights->all(),
             // The setup list disappears once done rather than sitting there

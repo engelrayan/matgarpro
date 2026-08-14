@@ -82,7 +82,7 @@ class DomainSettingsTest extends TestCase
         $this->assertDatabaseHas('store_domains', ['id' => $domain->id]);
     }
 
-    public function test_registration_creates_a_store_on_the_free_plan(): void
+    public function test_registration_creates_a_store_on_the_default_plan(): void
     {
         $this->seed(\Database\Seeders\BillingPlanSeeder::class);
 
@@ -97,8 +97,13 @@ class DomainSettingsTest extends TestCase
         $store = Store::firstOrFail();
 
         $this->assertSame('متجر محمود', $store->name);
+        // Free today because of the trial, not because the store is on a free
+        // plan — the plan must still be attached, or a usage row would record
+        // no plan and nothing would explain a historical charge.
         $this->assertSame(0.0, $store->pricePerOrder());
-        $this->assertSame('plan', $store->priceSource(), 'the free plan must be attached explicitly');
+        $this->assertSame('trial', $store->priceSource());
+        $this->assertNotNull($store->billing_plan_id, 'the plan must be attached explicitly');
+        $this->assertSame(0.50, $store->priceAfterTrial());
     }
 
     /**

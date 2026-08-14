@@ -33,6 +33,7 @@ class Store extends Model
         'billing_plan_id',
         'price_per_order_override',
         'billing_status',
+        'trial_ends_at',
         'settings',
         'is_demo',
     ];
@@ -44,6 +45,7 @@ class Store extends Model
     protected $casts = [
         'price_per_order_override' => 'decimal:2',
         'balance' => 'decimal:2',
+        'trial_ends_at' => 'datetime',
         'settings' => 'array',
         'is_demo' => 'boolean',
     ];
@@ -59,6 +61,22 @@ class Store extends Model
     {
         static::creating(function (self $store) {
             $store->billing_plan_id ??= BillingPlan::default()?->id;
+
+            /*
+             | The free months start the moment the store exists, and the end
+             | date is written down rather than worked out later — see the note
+             | on `billing.trial_months`.
+             |
+             | A showroom never gets one: it cannot take a real order, so a
+             | trial on it is a countdown that means nothing.
+             */
+            $given = array_key_exists('trial_ends_at', $store->getAttributes());
+
+            if (! $store->is_demo && ! $given) {
+                $months = (int) config('billing.trial_months', 0);
+
+                $store->trial_ends_at = $months > 0 ? now()->addMonths($months) : null;
+            }
         });
     }
 
@@ -246,8 +264,36 @@ class Store extends Model
         return $this->status === self::STATUS_ACTIVE;
     }
 
-    /** Price this store pays per billable order: override → plan → config. */
+    /** Is this store still inside its free months? */
+    public function onTrial(): bool
+    {
+        return $this->trial_ends_at !== null && $this->trial_ends_at->isFuture();
+    }
+
+    /** Whole days left in the trial, or null once it is over or absent. */
+    public function trialDaysLeft(): ?int
+    {
+        return $this->onTrial()
+            ? (int) ceil(now()->diffInDays($this->trial_ends_at, absolute: true))
+            : null;
+    }
+
+    /** Price this store pays per billable order: trial → override → plan → config. */
     public function pricePerOrder(): float
+    {
+        // The trial wins over everything, including an operator's override. It
+        // is a promise made at signup; ending it early is an explicit act, not
+        // a side effect of repricing a store.
+        return $this->onTrial() ? 0.0 : $this->priceAfterTrial();
+    }
+
+    /**
+     * What an order will cost once the free months are over.
+     *
+     * Shown to the merchant during the trial so the first charge is a number
+     * they have already seen, and used as the real price the moment it ends.
+     */
+    public function priceAfterTrial(): float
     {
         if ($this->price_per_order_override !== null) {
             return (float) $this->price_per_order_override;
@@ -260,9 +306,13 @@ class Store extends Model
         return (float) config('billing.default_price_per_order');
     }
 
-    /** Which of the three pricing sources produced pricePerOrder(). */
+    /** Which of the four pricing sources produced pricePerOrder(). */
     public function priceSource(): string
     {
+        if ($this->onTrial()) {
+            return 'trial';
+        }
+
         if ($this->price_per_order_override !== null) {
             return 'override';
         }

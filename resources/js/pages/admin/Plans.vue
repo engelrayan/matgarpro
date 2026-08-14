@@ -12,8 +12,6 @@ interface Plan {
     name: string;
     description: string | null;
     price_per_order: number;
-    monthly_fee: number;
-    included_orders_monthly: number;
     billable_event: string;
     is_default: boolean;
     is_public: boolean;
@@ -29,8 +27,6 @@ const blank = {
     name: '',
     description: '',
     price_per_order: 0,
-    monthly_fee: 0,
-    included_orders_monthly: 0,
     billable_event: 'created',
     is_default: false,
     is_public: true,
@@ -56,8 +52,6 @@ const startEdit = (plan: Plan) => {
         name: plan.name,
         description: plan.description ?? '',
         price_per_order: Number(plan.price_per_order),
-        monthly_fee: Number(plan.monthly_fee),
-        included_orders_monthly: plan.included_orders_monthly,
         billable_event: plan.billable_event,
         is_default: plan.is_default,
         is_public: plan.is_public,
@@ -143,18 +137,10 @@ const editingPlan = () => props.plans.find((p) => p.id === editingId.value);
                             </div>
                         </div>
 
-                        <dl class="mt-4 grid grid-cols-2 gap-4 border-t border-border pt-4 text-sm sm:grid-cols-4">
+                        <dl class="mt-4 grid grid-cols-2 gap-4 border-t border-border pt-4 text-sm">
                             <div>
                                 <dt class="text-xs text-muted-foreground">سعر الطلب</dt>
                                 <dd class="tabular font-medium">{{ money(plan.price_per_order) }}</dd>
-                            </div>
-                            <div>
-                                <dt class="text-xs text-muted-foreground">اشتراك شهري</dt>
-                                <dd class="tabular font-medium">{{ money(plan.monthly_fee) }}</dd>
-                            </div>
-                            <div>
-                                <dt class="text-xs text-muted-foreground">طلبات مجانية</dt>
-                                <dd class="tabular font-medium">{{ num(plan.included_orders_monthly) }}</dd>
                             </div>
                             <div>
                                 <dt class="text-xs text-muted-foreground">متاجر عليها</dt>
@@ -206,16 +192,6 @@ const editingPlan = () => props.plans.find((p) => p.id === editingId.value);
                                 <label class="field-label" for="price">سعر الطلب</label>
                                 <input id="price" v-model="form.price_per_order" type="number" step="0.01" min="0" class="field" />
                                 <InputError :message="form.errors.price_per_order" />
-                            </div>
-                            <div>
-                                <label class="field-label" for="monthly">اشتراك شهري</label>
-                                <input id="monthly" v-model="form.monthly_fee" type="number" step="0.01" min="0" class="field" />
-                                <InputError :message="form.errors.monthly_fee" />
-                            </div>
-                            <div>
-                                <label class="field-label" for="included">طلبات مجانية</label>
-                                <input id="included" v-model="form.included_orders_monthly" type="number" min="0" class="field" />
-                                <InputError :message="form.errors.included_orders_monthly" />
                             </div>
                             <div>
                                 <label class="field-label" for="sort">الترتيب</label>
