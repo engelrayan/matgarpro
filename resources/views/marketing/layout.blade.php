@@ -60,10 +60,49 @@
     @yield('content')
 </main>
 
+{{-- Apple-style footer: quiet columns of plain links over a hairline, the
+     legal line last. Every link goes somewhere real on this page or into
+     the app — no dead "About / Careers" filler. --}}
 <footer class="hairline-t bg-card pb-safe">
-    <div class="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-8 text-sm text-muted-foreground sm:flex-row">
-        <p>© {{ date('Y') }} متجر برو</p>
-        <p>صُنع في مصر</p>
+    <div class="mx-auto max-w-6xl px-4 pb-8 pt-12 md:px-6">
+        <div class="grid grid-cols-2 gap-8 md:grid-cols-4">
+            <div class="col-span-2">
+                <a href="{{ route('home') }}" class="flex items-center gap-2">
+                    @include('partials.logo', ['class' => 'size-8 text-primary'])
+                    <span class="text-[17px] font-bold">متجر برو</span>
+                </a>
+                <p class="mt-3 max-w-xs text-[14px] leading-relaxed text-muted-foreground">
+                    احكي عن مشروعك في سطرين، والمتجر يتجهّز لوحده. الدفع عند الاستلام، شحن مع +٣٠٠ شركة، وتحصيل يومي.
+                </p>
+            </div>
+
+            <div>
+                <p class="text-[13px] font-semibold">المنصة</p>
+                <ul class="mt-3 space-y-2 text-[14px] text-muted-foreground">
+                    <li><a href="#ai" class="hover:text-foreground">الذكاء الاصطناعي</a></li>
+                    <li><a href="#builder" class="hover:text-foreground">تصميم المتجر</a></li>
+                    <li><a href="#shipping" class="hover:text-foreground">الشحن والتحصيل</a></li>
+                    <li><a href="#pricing" class="hover:text-foreground">الأسعار</a></li>
+                </ul>
+            </div>
+
+            <div>
+                <p class="text-[13px] font-semibold">حسابك</p>
+                <ul class="mt-3 space-y-2 text-[14px] text-muted-foreground">
+                    @auth
+                        <li><a href="{{ route('dashboard') }}" class="hover:text-foreground">لوحة التحكم</a></li>
+                    @else
+                        <li><a href="{{ route('register') }}" class="hover:text-foreground">ابدأ مجانًا</a></li>
+                        <li><a href="{{ route('login') }}" class="hover:text-foreground">دخول</a></li>
+                    @endauth
+                </ul>
+            </div>
+        </div>
+
+        <div class="hairline-t mt-10 flex flex-col items-center justify-between gap-2 pt-6 text-[12px] text-muted-foreground sm:flex-row">
+            <p>© {{ date('Y') }} متجر برو</p>
+            <p>صُنع في مصر</p>
+        </div>
     </div>
 </footer>
 

@@ -356,6 +356,44 @@
             </div>
         </div>
 
+        {{-- What it would cost THEM. A merchant does this sum in their head
+             anyway; doing it here, with their own order count, is the moment
+             "half a pound" stops being a slogan. The figures are the page's
+             own: 0.50 an order, against the ~2/order + ~5000/month and the
+             ~1450/month in the table below. Renders the 500-order answer, so
+             it is complete with no script. --}}
+        <div class="reveal surface mt-5 p-6 md:p-8" data-calc>
+            <div class="flex flex-wrap items-end justify-between gap-4">
+                <div>
+                    <label for="calc-orders" class="text-[15px] font-semibold">بتعمل كام طلب في الشهر؟</label>
+                    <p class="mt-1 text-[13px] text-muted-foreground">حرّك وشوف هتدفع كام بعد الشهور المجانية.</p>
+                </div>
+                <p class="tabular text-[28px] font-bold leading-none md:text-[34px]">
+                    <span data-calc-orders>٥٠٠</span>
+                    <span class="text-[15px] font-medium text-muted-foreground">طلب</span>
+                </p>
+            </div>
+
+            <input id="calc-orders" type="range" min="50" max="5000" step="50" value="500"
+                   class="mt-5 h-2 w-full cursor-pointer appearance-none rounded-full bg-foreground/[0.08] accent-primary"
+                   aria-describedby="calc-result">
+
+            <div id="calc-result" class="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3" aria-live="polite">
+                <div class="rounded-[14px] bg-primary/[0.07] p-4">
+                    <p class="text-[13px] font-semibold text-primary">متجر برو</p>
+                    <p class="tabular mt-1 text-[26px] font-bold leading-tight text-primary"><span data-calc-us>٢٥٠</span> <span class="text-[13px] font-medium">ج.م</span></p>
+                </div>
+                <div class="rounded-[14px] bg-foreground/[0.04] p-4">
+                    <p class="text-[13px] text-muted-foreground">منصة ١</p>
+                    <p class="tabular mt-1 text-[22px] font-semibold leading-tight text-muted-foreground">~<span data-calc-a>٦٬٠٠٠</span> <span class="text-[13px] font-medium">ج.م</span></p>
+                </div>
+                <div class="rounded-[14px] bg-foreground/[0.04] p-4">
+                    <p class="text-[13px] text-muted-foreground">منصة ٢</p>
+                    <p class="tabular mt-1 text-[22px] font-semibold leading-tight text-muted-foreground">~<span data-calc-b>١٬٤٥٠</span> <span class="text-[13px] font-medium">ج.م</span></p>
+                </div>
+            </div>
+        </div>
+
         {{-- Our own number is a real number now, and it still wins by a margin
              wide enough that we do not need to round it in our favour. --}}
         <div class="reveal surface mt-8 overflow-x-auto">
@@ -393,90 +431,148 @@
     </div>
 </section>
 
-{{-- ══ 7. Features — a bento, not a uniform grid ════════════════════════ --}}
-<section class="border-y border-border bg-card py-20 md:py-28">
+{{-- ══ 7. Features — a bento of small, working screens ══════════════════
+     Each tile shows the feature instead of naming it: the orders table with
+     rows in it, the WhatsApp message as a chat bubble, the domain as an
+     address bar. A merchant recognises their own day in these faster than in
+     a sentence, and every one is a screen that exists in the dashboard.
+
+     Icon tiles are iOS app icons — a filled, softly lit square in the
+     feature's own colour — rather than a pale glyph on a pale circle.
+--}}
+<section class="hairline-t hairline-b bg-card py-20 md:py-28">
     <div class="mx-auto max-w-6xl px-4 md:px-6">
         <div class="mx-auto max-w-2xl text-center">
-            <h2 class="reveal text-balance text-3xl font-bold tracking-tight md:text-4xl">
+            <h2 class="reveal text-balance text-3xl font-bold md:text-5xl">
                 كل اللي محتاجه في مكان واحد
             </h2>
-            <p class="reveal mt-4 text-muted-foreground">
-                مش قايمة وعود — دي حاجات مبنية وشغّالة دلوقتي.
+            <p class="reveal mt-4 text-[17px] text-muted-foreground">
+                مش قايمة وعود — دي شاشات شغّالة دلوقتي في لوحة التحكم.
             </p>
         </div>
 
-        <div class="mt-14 grid gap-4 md:grid-cols-3">
-            {{-- Lead tile, double width: the feature that decides the sale. --}}
-            <div class="reveal surface md:col-span-2 md:row-span-2 flex flex-col justify-between overflow-hidden p-8">
-                <div>
-                    <span class="badge-gold">الأهم</span>
-                    <h3 class="mt-4 text-2xl font-bold tracking-tight">جدول طلبات زي الإكسل</h3>
-                    <p class="mt-3 max-w-md leading-relaxed text-muted-foreground">
-                        عدّل أي خانة بضغطة، حدّد طلبات وغيّر حالتها دفعة واحدة، اطبع البوالص،
-                        وصدّر إكسل. وكل طلب بيوريك سجل العميل: كام مرة استلم وكام مرة رفض.
-                    </p>
+        @php
+            // One lit square per feature, like a home-screen icon.
+            $appIcon = fn (string $from, string $to) => "flex size-12 shrink-0 items-center justify-center rounded-[14px] bg-gradient-to-b text-white shadow-[inset_0_1px_0_hsl(0_0%_100%/0.25),0_4px_12px_-4px_hsl(0_0%_0%/0.35)] {$from} {$to}";
+        @endphp
+
+        <div class="mt-14 grid grid-cols-1 gap-4 md:grid-cols-6 md:gap-5">
+            {{-- Orders table: the one that decides the sale, widest tile. --}}
+            <div class="reveal surface overflow-hidden p-6 md:col-span-4 md:p-8">
+                <div class="flex items-start gap-4">
+                    <span class="{{ $appIcon('from-[hsl(160_60%_40%)]', 'to-[hsl(165_75%_26%)]') }}">
+                        <svg class="size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>
+                    </span>
+                    <div class="min-w-0">
+                        <h3 class="text-title-3">جدول طلبات زي الإكسل</h3>
+                        <p class="mt-1 text-[15px] leading-relaxed text-muted-foreground">
+                            عدّل أي خانة بضغطة، غيّر حالة طلبات كتير دفعة واحدة، اطبع البوالص، وصدّر إكسل.
+                            وكل طلب بيوريك العميل استلم كام مرة ورفض كام مرة.
+                        </p>
+                    </div>
                 </div>
 
-                <div class="mt-7 overflow-hidden rounded-xl border border-border">
-                    <div class="grid grid-cols-[auto_1fr_auto_auto] gap-x-4 bg-muted/50 px-4 py-2 text-[11px] font-medium text-muted-foreground">
-                        <span>#</span><span>العميل</span><span>الإجمالي</span><span>الحالة</span>
+                <div class="relative mt-6 overflow-hidden rounded-[14px] bg-background shadow-[0_0_0_0.5px_hsl(var(--foreground)/0.1)]">
+                    <div class="grid grid-cols-[1.5rem_1fr_auto_auto] gap-x-4 px-4 py-2.5 text-[11px] font-semibold text-muted-foreground">
+                        <span></span><span>العميل</span><span>الإجمالي</span><span>الحالة</span>
                     </div>
                     @foreach ([
-                        ['١٢', 'سارة عبد الله', '٧٩٨', 'قيد المراجعة', 'badge-warning'],
-                        ['١١', 'أحمد مصطفى', '١٬٢٥٠', 'تم الشحن', 'badge-info'],
-                        ['١٠', 'منى إبراهيم', '٣٩٩', 'تم التوصيل', 'badge-success'],
-                    ] as $row)
-                        <div class="grid grid-cols-[auto_1fr_auto_auto] items-center gap-x-4 border-t border-border px-4 py-2.5 text-xs">
-                            <span class="tabular font-semibold">{{ $row[0] }}</span>
-                            <span class="truncate">{{ $row[1] }}</span>
-                            <span class="tabular">{{ $row[2] }}</span>
-                            <span class="{{ $row[4] }} !text-[10px]">{{ $row[3] }}</span>
+                        ['سارة عبد الله', 'القاهرة', '٧٩٨', 'قيد المراجعة', 'badge-warning', true],
+                        ['أحمد مصطفى', 'الجيزة', '١٬٢٥٠', 'تم التأكيد', 'badge-info', true],
+                        ['منى إبراهيم', 'الإسكندرية', '٣٩٩', 'تم الشحن', 'badge-info', false],
+                        ['كريم حسن', 'المنصورة', '٨٥٥', 'تم التوصيل', 'badge-success', false],
+                    ] as [$name, $city, $total, $status, $badge, $picked])
+                        <div @class(['grid grid-cols-[1.5rem_1fr_auto_auto] items-center gap-x-4 border-t-[0.5px] border-foreground/10 px-4 py-2.5 text-[13px]', 'bg-primary/[0.06]' => $picked])>
+                            <span @class(['flex size-4 items-center justify-center rounded-[5px]', 'bg-primary text-white' => $picked, 'shadow-[inset_0_0_0_1.5px_hsl(var(--foreground)/0.25)]' => ! $picked])>
+                                @if ($picked)<svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>@endif
+                            </span>
+                            <span class="min-w-0 truncate"><b class="font-semibold">{{ $name }}</b> <span class="text-muted-foreground">· {{ $city }}</span></span>
+                            <span class="tabular font-semibold">{{ $total }}</span>
+                            <span class="{{ $badge }} !text-[10px]">{{ $status }}</span>
+                        </div>
+                    @endforeach
+
+                    {{-- The bulk bar, as it appears once rows are ticked. --}}
+                    <div class="material hairline-t flex flex-wrap items-center gap-2 px-4 py-2.5 text-[12px]">
+                        <span class="font-semibold"><span class="tabular">٢</span> متحدد</span>
+                        <span class="rounded-full bg-primary px-3 py-1 font-semibold text-primary-foreground">تم الشحن</span>
+                        <span class="rounded-full bg-foreground/[0.07] px-3 py-1 font-medium">اطبع البوالص</span>
+                        <span class="ms-auto text-muted-foreground">Excel ⤓</span>
+                    </div>
+                </div>
+            </div>
+
+            {{-- WhatsApp: the message as it lands on the customer's phone. --}}
+            <div class="reveal surface flex flex-col overflow-hidden p-6 md:col-span-2">
+                <span class="{{ $appIcon('from-[hsl(142_70%_48%)]', 'to-[hsl(150_75%_34%)]') }}">
+                    <svg class="size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                </span>
+                <h3 class="mt-4 text-[19px] font-semibold">تأكيد واتساب</h3>
+                <p class="mt-1 text-[15px] leading-relaxed text-muted-foreground">رسالة جاهزة بكل تفاصيل الطلب، بضغطة.</p>
+
+                <div class="mt-5 space-y-2 rounded-[16px] bg-[hsl(40_30%_92%)] p-3 text-[12px] leading-relaxed dark:bg-foreground/10">
+                    <div class="me-6 rounded-[14px] rounded-se-[4px] bg-[hsl(110_55%_86%)] px-3 py-2 text-[hsl(160_30%_12%)] shadow-sm">
+                        أهلاً سارة 👋 طلبك رقم <span class="tabular">#١٢</span> وصلنا:<br>
+                        • ٢× قميص قطن (أبيض · L)<br>
+                        الإجمالي: ٧٩٨ ج.م — الدفع عند الاستلام. نأكّد الطلب؟
+                        <span class="mt-0.5 block text-left text-[10px] text-[hsl(160_20%_35%)]" dir="ltr">10:42 ✓✓</span>
+                    </div>
+                    <div class="ms-10 w-fit rounded-[14px] rounded-ss-[4px] bg-white px-3 py-2 text-[hsl(160_30%_12%)] shadow-sm">
+                        أيوه أكّد 🙏
+                    </div>
+                </div>
+            </div>
+
+            {{-- Domain + certificate, one address bar. --}}
+            <div class="reveal surface p-6 md:col-span-2">
+                <span class="{{ $appIcon('from-[hsl(210_85%_58%)]', 'to-[hsl(220_80%_44%)]') }}">
+                    <svg class="size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
+                </span>
+                <h3 class="mt-4 text-[19px] font-semibold">دومينك وشهادة الأمان</h3>
+                <p class="mt-1 text-[15px] leading-relaxed text-muted-foreground">
+                    نقولك تحط إيه في لوحة الدومين، والقفل الأخضر بيتظبط ويتجدد لوحده.
+                </p>
+                <div class="mt-5 flex items-center gap-2 rounded-full bg-foreground/[0.05] px-3 py-2 text-[13px]" dir="ltr">
+                    <svg class="size-3.5 text-success" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 10V8a5 5 0 0 1 10 0v2h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zm2 0h6V8a3 3 0 0 0-6 0z"/></svg>
+                    <span class="font-medium">mahmoud.com</span>
+                    <span class="ms-auto rounded-full bg-success/15 px-2 py-0.5 text-[10.5px] font-semibold text-success">SSL</span>
+                </div>
+            </div>
+
+            {{-- Pixels: the events, counted. --}}
+            <div class="reveal surface p-6 md:col-span-2">
+                <span class="{{ $appIcon('from-[hsl(265_70%_62%)]', 'to-[hsl(270_60%_46%)]') }}">
+                    <svg class="size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>
+                </span>
+                <h3 class="mt-4 text-[19px] font-semibold">بيكسل و CAPI</h3>
+                <p class="mt-1 text-[15px] leading-relaxed text-muted-foreground">فيسبوك وتيك توك وسناب، والشراء بيتبعت من السيرفر كمان.</p>
+                <div class="mt-5 space-y-2 text-[12px]">
+                    @foreach ([['شاف المنتج', 100], ['بدأ الطلب', 46], ['اشترى', 21]] as [$label, $w])
+                        <div class="flex items-center gap-2">
+                            <span class="w-16 shrink-0 text-muted-foreground">{{ $label }}</span>
+                            <span class="h-2 flex-1 overflow-hidden rounded-full bg-foreground/[0.06]">
+                                <span class="block h-full rounded-full bg-gradient-to-l from-[hsl(265_70%_62%)] to-[hsl(205_80%_60%)]" style="width: {{ $w }}%"></span>
+                            </span>
                         </div>
                     @endforeach
                 </div>
             </div>
 
-            {{-- WhatsApp confirmation gets a wide tile with the actual message:
-                 it is the step that decides whether a COD parcel is worth
-                 shipping, and merchants recognise it instantly. --}}
-            <div class="reveal surface md:col-span-1 overflow-hidden p-6">
-                <span class="flex size-11 items-center justify-center rounded-xl bg-success/10 text-success">
-                    <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                    </svg>
+            {{-- Themes: the swatches themselves. --}}
+            <div class="reveal surface p-6 md:col-span-2">
+                <span class="{{ $appIcon('from-[hsl(25_90%_60%)]', 'to-[hsl(10_80%_50%)]') }}">
+                    <svg class="size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1 0 1.5-.8 1.5-1.6 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5c0-4-4-7.4-9-7.4z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7.5" r="1"/></svg>
                 </span>
-                <h3 class="mt-4 font-semibold">تأكيد واتساب</h3>
-                <p class="mt-2 text-sm leading-relaxed text-muted-foreground">
-                    رسالة جاهزة بكل تفاصيل الطلب — بضغطة بدل ما تكتبها ٤٠ مرة في اليوم.
-                </p>
-
-                <div class="mt-4 rounded-xl rounded-bl-sm bg-success/10 p-3 text-[11px] leading-relaxed">
-                    أهلاً سارة 👋<br>
-                    طلبك رقم <span class="tabular">#١٢</span> وصلنا:<br>
-                    • ٢× قميص قطن (أبيض · L)<br>
-                    الإجمالي: ٧٩٨ ج.م — الدفع عند الاستلام<br>
-                    نأكّد الطلب؟
+                <h3 class="mt-4 text-[19px] font-semibold">تسع ثيمات جاهزة</h3>
+                <p class="mt-1 text-[15px] leading-relaxed text-muted-foreground">كل ثيم بخطه وشكل كروته — ولكل واحد متجر معرض حي.</p>
+                <div class="mt-5 flex -space-x-2 space-x-reverse">
+                    @foreach (config('themes.themes') as $swatch)
+                        <span class="flex size-9 items-center justify-center rounded-full text-[13px] font-bold ring-2 ring-card"
+                              style="background: hsl({{ $swatch['palette']['primary'] }}); color: hsl({{ $swatch['palette']['primary-foreground'] }})"
+                              title="{{ $swatch['name'] }}">أ</span>
+                    @endforeach
                 </div>
             </div>
-
-            @foreach ([
-                ['M3 9 12 2l9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z', 'دومينك الخاص', 'اكتب دومينك، نقولك تحط إيه في لوحة الدومين بتاعتك، وخلاص.'],
-                // Its own card now, not a half-sentence inside the domain one.
-                // The padlock is the single most common reason a cash-on-delivery
-                // buyer closes the tab, and it is the part merchants assume
-                // costs money and needs a technician.
-                ['M6 11V8a6 6 0 1 1 12 0v3M5 11h14v10H5z', 'شهادة أمان مجانية', 'القفل الأخضر بيتظبط لوحده أول ما الدومين يشتغل، وبيتجدد لوحده. مفيش شراء ولا مبرمج.'],
-                ['M12 20V10M18 20V4M6 20v-4', 'بيكسل و CAPI', 'فيسبوك وتيك توك وسناب، والشراء بيتبعت من السيرفر كمان.'],
-                ['M4 4h16v6H4zM4 14h16v6H4z', 'تسع ثيمات', 'كل ثيم بخطه وشكل هيدره وكروته — مش لون مختلف بس. ولكل واحد معرض حي بمنتجات.'],
-            ] as [$icon, $title, $body])
-                <div class="reveal surface p-6">
-                    <span class="flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                        <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{ $icon }}"/></svg>
-                    </span>
-                    <h3 class="mt-4 font-semibold">{{ $title }}</h3>
-                    <p class="mt-2 text-sm leading-relaxed text-muted-foreground">{{ $body }}</p>
-                </div>
-            @endforeach
         </div>
     </div>
 </section>
@@ -486,79 +582,146 @@
      screen walks a merchant through each platform. The label says so, because
      an unmarked "coming soon" next to features they can verify in five
      minutes is what makes them doubt the rest of the page.
+
+     Drawn as what it is: one list of products, synced out to four places.
 --}}
-<section class="relative py-20 md:py-28">
+<section class="relative overflow-hidden py-20 md:py-28">
     <div class="mx-auto max-w-6xl px-4 md:px-6">
         <div class="grid items-center gap-12 lg:grid-cols-2">
             <div>
                 <span class="reveal badge-success mb-5">شغّال دلوقتي</span>
-                <h2 class="reveal text-balance text-3xl font-bold leading-tight tracking-tight md:text-4xl">
+                <h2 class="reveal text-balance text-3xl font-bold leading-tight md:text-5xl">
                     منتجاتك تعرض نفسها في
                     <span class="text-jade-gradient">كل مكان</span>
                 </h2>
-                <p class="reveal mt-5 leading-relaxed text-muted-foreground">
+                <p class="reveal mt-5 text-[17px] leading-relaxed text-muted-foreground">
                     ارفع منتجاتك مرة واحدة، وإحنا نطلّعها كاتالوج جاهز لجوجل وفيسبوك
                     وإنستجرام وتيك توك — من غير ما ترفعها من الأول في كل منصة.
                 </p>
 
-                <ul class="reveal mt-7 space-y-3.5 text-sm">
+                <ul class="reveal mt-7 space-y-3.5 text-[15px]">
                     @foreach ([
                         'ملف منتجات (Feed) بيتحدّث لوحده مع كل تعديل في السعر أو المخزون',
                         'المنتج اللي خلص من المخزون بيتشال من الكاتالوج أوتوماتيك',
                         'إعلانات الكتالوج الديناميكية تشتغل من غير رفع يدوي',
                     ] as $point)
                         <li class="flex items-start gap-3">
-                            <span class="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                                <svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"><path d="M20 6 9 17l-5-5"/></svg>
-                            </span>
+                            <svg class="mt-1 size-4 shrink-0 text-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
                             <span>{{ $point }}</span>
                         </li>
                     @endforeach
                 </ul>
             </div>
 
-            <div class="reveal grid gap-4 sm:grid-cols-2">
-                @foreach ([
-                    ['Google Shopping', 'منتجاتك في نتايج تسوّق جوجل', 'M12 2a10 10 0 1 0 10 10h-10z'],
-                    ['فيسبوك وإنستجرام', 'كاتالوج ميتا وإعلانات ديناميكية', 'M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z'],
-                    ['تيك توك', 'كاتالوج تيك توك للتسوّق', 'M21 8a5 5 0 0 1-5-5h-4v13a3 3 0 1 1-3-3'],
-                    ['متجرك', 'نفس الكتالوج اللي شغّال عندك', 'M3 9 12 2l9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'],
-                ] as [$title, $body, $icon])
-                    <div class="surface p-6">
-                        <span class="flex size-11 items-center justify-center rounded-xl bg-muted text-foreground">
-                            <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="{{ $icon }}"/></svg>
+            <div class="reveal relative">
+                {{-- The feed: real products, each marked as synced. --}}
+                <div class="surface mx-auto max-w-md overflow-hidden">
+                    <div class="flex items-center justify-between px-4 pb-2 pt-4">
+                        <p class="text-[15px] font-semibold">ملف المنتجات</p>
+                        <span class="flex items-center gap-1.5 text-[12px] font-medium text-success">
+                            <span class="relative flex size-2"><span class="absolute inline-flex size-full animate-ping rounded-full bg-success/60 motion-reduce:animate-none"></span><span class="relative inline-flex size-2 rounded-full bg-success"></span></span>
+                            بيتحدّث لوحده
                         </span>
-                        <h3 class="mt-4 font-semibold">{{ $title }}</h3>
-                        <p class="mt-1.5 text-sm leading-relaxed text-muted-foreground">{{ $body }}</p>
                     </div>
-                @endforeach
+                    <div class="ios-group !rounded-none !shadow-none">
+                        @foreach ([['shirt', 'قميص قطن مصري', '٣٩٩', true], ['watch', 'ساعة جلد كلاسيك', '١٬٢٥٠', true], ['shoe', 'حذاء رياضي أبيض', '٨٩٠', true], ['bag', 'شنطة جلد', '٦٥٠', false]] as [$kind, $name, $price, $inStock])
+                            <div class="ios-row">
+                                <img src="/images/landing/{{ $kind }}.jpg" alt="" loading="lazy" decoding="async" width="400" height="400" class="size-11 shrink-0 rounded-[10px] object-cover">
+                                <div class="min-w-0 flex-1">
+                                    <p class="truncate text-[15px] font-medium">{{ $name }}</p>
+                                    <p class="text-[12px] text-muted-foreground"><span class="tabular">{{ $price }}</span> ج.م</p>
+                                </div>
+                                @if ($inStock)
+                                    <span class="rounded-full bg-success/10 px-2 py-0.5 text-[11px] font-semibold text-success">متزامن</span>
+                                @else
+                                    <span class="rounded-full bg-foreground/[0.06] px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">خلص — اتشال</span>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+
+                {{-- Where it goes: four app icons under it. --}}
+                <div class="mx-auto mt-5 grid max-w-md grid-cols-4 gap-3 text-center text-[11px] font-medium text-muted-foreground">
+                    @foreach ([
+                        ['Google', 'bg-white text-[hsl(217_89%_51%)] shadow-[0_0_0_0.5px_hsl(var(--foreground)/0.12)]', 'M12 2a10 10 0 1 0 10 10h-10z'],
+                        ['فيسبوك', 'bg-gradient-to-b from-[hsl(214_89%_58%)] to-[hsl(220_85%_46%)] text-white', 'M15 3h-2.5A4.5 4.5 0 0 0 8 7.5V10H6v3.5h2V21h3.5v-7.5H14l.5-3.5h-3V8a1 1 0 0 1 1-1H15z'],
+                        ['إنستجرام', 'bg-gradient-to-tr from-[hsl(40_95%_60%)] via-[hsl(340_80%_55%)] to-[hsl(275_70%_55%)] text-white', 'M7 3h10a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4zm5 5a4 4 0 1 0 0 8 4 4 0 0 0 0-8z'],
+                        ['تيك توك', 'bg-[hsl(0_0%_8%)] text-white', 'M21 8a5 5 0 0 1-5-5h-4v13a3 3 0 1 1-3-3'],
+                    ] as [$label, $tile, $icon])
+                        <div class="flex flex-col items-center gap-1.5">
+                            <span class="flex size-12 items-center justify-center rounded-[14px] {{ $tile }}">
+                                <svg class="size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{ $icon }}"/></svg>
+                            </span>
+                            {{ $label }}
+                        </div>
+                    @endforeach
+                </div>
             </div>
         </div>
     </div>
 </section>
 
-
-{{-- ══ 9. How it works ══════════════════════════════════════════════════ --}}
+{{-- ══ 9. How it works ══════════════════════════════════════════════════
+     Three steps on one line joined by a rule, each with the screen it ends
+     on — so "two lines to a first order" is something you can see, not take
+     on trust.
+--}}
 <section class="py-20 md:py-28">
     <div class="mx-auto max-w-5xl px-4 md:px-6">
-        <h2 class="reveal text-center text-balance text-3xl font-bold md:text-4xl">
+        <h2 class="reveal text-center text-balance text-3xl font-bold md:text-5xl">
             من سطرين لأول طلب
         </h2>
 
-        <div class="mt-12 grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-5">
-            @foreach ([
-                ['احكي عن مشروعك', 'بتبيع إيه، ولمين، وعايز الشكل إزاي. الذكاء الاصطناعي يجهّز المتجر في أقل من دقيقة.'],
-                ['ضيف منتجاتك', 'ارفع الصور، وسيب الاسم والوصف والمقاسات علينا. راجع ودوس حفظ.'],
-                ['انشر وشارك اللينك', 'حطه في إعلان فيسبوك أو تيك توك، والطلبات تبدأ توصلك على طول.'],
-            ] as $i => [$title, $body])
-                <div class="reveal surface p-6">
-                    <span class="flex size-10 items-center justify-center rounded-full bg-primary text-[15px] font-bold text-primary-foreground">
-                        <span class="tabular">{{ $i + 1 }}</span>
-                    </span>
-                    <h3 class="mt-4 text-[19px] font-semibold">{{ $title }}</h3>
-                    <p class="mt-1.5 text-[15px] leading-relaxed text-muted-foreground">{{ $body }}</p>
+        <div class="relative mt-14 grid grid-cols-1 gap-5 md:grid-cols-3">
+            <div class="pointer-events-none absolute inset-x-[16%] top-5 hidden h-px bg-gradient-to-l from-transparent via-foreground/15 to-transparent md:block"></div>
+
+            {{-- 1. Describe --}}
+            <div class="reveal relative flex flex-col items-center text-center">
+                <span class="relative z-10 flex size-10 items-center justify-center rounded-full bg-primary text-[15px] font-bold text-primary-foreground ring-8 ring-background"><span class="tabular">١</span></span>
+                <h3 class="mt-4 text-[19px] font-semibold">احكي عن مشروعك</h3>
+                <p class="mt-1.5 text-[15px] leading-relaxed text-muted-foreground">بتبيع إيه، ولمين، وعايز الشكل إزاي.</p>
+                <div class="ai-ring mt-5 w-full max-w-[16rem] rounded-[18px]">
+                    <div class="rounded-[16.5px] bg-card px-3.5 py-3 text-start text-[12px] leading-relaxed">
+                        <span class="text-muted-foreground">بتبيع إيه؟</span><br>
+                        عطور شرقية وبخور، وعايز الشكل فخم وهادي.
+                    </div>
                 </div>
-            @endforeach
+            </div>
+
+            {{-- 2. Products --}}
+            <div class="reveal relative flex flex-col items-center text-center">
+                <span class="relative z-10 flex size-10 items-center justify-center rounded-full bg-primary text-[15px] font-bold text-primary-foreground ring-8 ring-background"><span class="tabular">٢</span></span>
+                <h3 class="mt-4 text-[19px] font-semibold">ضيف منتجاتك</h3>
+                <p class="mt-1.5 text-[15px] leading-relaxed text-muted-foreground">ارفع الصور، وسيب الاسم والوصف علينا.</p>
+                <div class="surface mt-5 flex w-full max-w-[16rem] items-center gap-3 p-2.5 text-start">
+                    <img src="/images/landing/watch.jpg" alt="" loading="lazy" decoding="async" width="400" height="400" class="size-12 shrink-0 rounded-[10px] object-cover">
+                    <div class="min-w-0 flex-1 space-y-1.5">
+                        <p class="truncate text-[12px] font-semibold">ساعة جلد كلاسيك</p>
+                        <span class="ai-shimmer block h-2 w-full rounded-full"></span>
+                        <span class="ai-shimmer block h-2 w-2/3 rounded-full"></span>
+                    </div>
+                </div>
+            </div>
+
+            {{-- 3. Share --}}
+            <div class="reveal relative flex flex-col items-center text-center">
+                <span class="relative z-10 flex size-10 items-center justify-center rounded-full bg-primary text-[15px] font-bold text-primary-foreground ring-8 ring-background"><span class="tabular">٣</span></span>
+                <h3 class="mt-4 text-[19px] font-semibold">انشر وشارك اللينك</h3>
+                <p class="mt-1.5 text-[15px] leading-relaxed text-muted-foreground">في إعلان فيسبوك أو تيك توك، والطلبات تبدأ.</p>
+                <div class="surface mt-5 w-full max-w-[16rem] p-3 text-start">
+                    <div class="flex items-center gap-2.5">
+                        <span class="flex size-8 items-center justify-center rounded-full bg-success/15 text-success">
+                            <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                        </span>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-[12px] font-semibold">طلب جديد <span class="tabular">#١</span></p>
+                            <p class="text-[11px] text-muted-foreground">سارة · القاهرة · <span class="tabular">٧٩٨</span> ج.م</p>
+                        </div>
+                        <span class="text-[10px] text-muted-foreground">دلوقتي</span>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </section>
@@ -678,6 +841,30 @@
             play();
         }, { threshold: 0.4 }).observe(demo);
     }
+})();
+
+/*
+ * Pricing calculator. Same three formulas as the table under it, in Arabic
+ * digits like the rest of the page.
+ */
+(function () {
+    const calc = document.querySelector('[data-calc]');
+    if (!calc) return;
+
+    const input = calc.querySelector('input[type=range]');
+    const fmt = (n) => Math.round(n).toLocaleString('ar-EG');
+    const set = (key, value) => (calc.querySelector(`[data-calc-${key}]`).textContent = fmt(value));
+
+    const update = () => {
+        const orders = Number(input.value);
+        set('orders', orders);
+        set('us', orders * 0.5);
+        set('a', orders * 2 + 5000);
+        set('b', 1450);
+    };
+
+    input.addEventListener('input', update);
+    update();
 })();
 </script>
 @endpush
