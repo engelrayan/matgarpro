@@ -1,134 +1,232 @@
 @extends('marketing.layout')
 
-@section('title', 'متجر برو — متجرك الإلكتروني جاهز في ٥ دقائق')
-@section('description', 'أنشئ متجرك الإلكتروني بالعربي من غير أكواد. ٣ شهور مجانية وبعدها ٥٠ قرش على الطلب. شحن مع أكتر من ٣٠٠ شركة عبر شبكة سندباد، وفلوس التحصيل توصلك كل يوم مع ضمان.')
+@section('title', 'متجر برو — احكي عن مشروعك، والذكاء الاصطناعي يجهّز متجرك')
+@section('description', 'اكتب سطرين عن اللي بتبيعه، والذكاء الاصطناعي يقترح شكل متجرك ويعمل الأقسام ويكتب الصفحة الرئيسية ووصف منتجاتك — وإنت بتراجع وتنشر. ٣ شهور مجانية وبعدها ٥٠ قرش على الطلب. شحن مع أكتر من ٣٠٠ شركة عبر شبكة سندباد، وتحصيل يومي مع ضمان.')
 
 @section('content')
 
 {{-- ══ 1. Hero ══════════════════════════════════════════════════════════
-     A framed panel rather than a full-bleed band. The frame is what makes the
-     top of the page read as a designed surface instead of a page that simply
-     starts — and it gives the floating pills an edge to hang off.
+     The product is "describe your business and the store is set up for you",
+     so the hero shows exactly that happening: a merchant's two lines being
+     typed, then a store assembling under them.
+
+     It shows only what the AI actually does — picks the look, makes the
+     categories, writes the home page — and nothing it does not: no invented
+     products, no invented prices. A demo that over-promises is the first
+     thing a merchant catches after signing up.
+
+     Everything is visible without JavaScript; the script only replays it.
 --}}
-<section class="px-4 pt-4 md:px-6 md:pt-6">
-    <div class="mesh relative mx-auto max-w-[88rem] overflow-hidden rounded-[2rem] border border-gold-200/50 shadow-e2">
-        <div class="checks pointer-events-none absolute inset-0"></div>
+<section class="relative overflow-hidden">
+    <div class="mesh pointer-events-none absolute inset-0 opacity-80"></div>
 
-        <div class="relative px-6 pb-16 pt-14 md:pb-20 md:pt-20">
-            <div class="relative mx-auto max-w-3xl text-center">
+    <div class="relative mx-auto grid max-w-6xl items-center gap-12 px-4 pb-16 pt-10 md:px-6 md:pb-24 md:pt-16 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
+        {{-- ── Copy ─────────────────────────────────────────────────── --}}
+        <div class="text-center lg:text-start">
+            <span class="reveal inline-flex items-center gap-1.5 rounded-full bg-card/80 px-3 py-1.5 text-[13px] font-semibold shadow-[0_0_0_0.5px_hsl(var(--foreground)/0.1)] backdrop-blur">
+                <svg class="size-4 text-primary" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.9 5.6L19.5 9.5l-5.6 1.9L12 17l-1.9-5.6L4.5 9.5l5.6-1.9zM19 14l.9 2.6 2.6.9-2.6.9L19 21l-.9-2.6-2.6-.9 2.6-.9z"/></svg>
+                <span class="ai-text">متجرك بالذكاء الاصطناعي</span>
+            </span>
 
-                {{-- Pills, both flanks. Icons rather than bare text: a merchant
-                     scans these before they read the sentence. --}}
-                <div class="pointer-events-none absolute inset-0 hidden xl:block">
-                    @foreach ([
-                        ['top-4 -right-52', 'M5 12h14M12 5l7 7-7 7', 'شحن مع +٣٠٠ شركة', '0s'],
-                        ['top-36 -right-64', 'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6', 'تحصيل يومي', '-1.5s'],
-                        ['bottom-8 -right-48', 'M3 3h18v18H3zM3 9h18M9 21V9', 'جدول طلبات', '-3s'],
-                        ['top-4 -left-52', 'M3 9 12 2l9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z', 'دومينك الخاص', '-0.8s'],
-                        ['top-36 -left-64', 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z', 'تأكيد واتساب', '-2.2s'],
-                        ['bottom-8 -left-48', 'M12 20V10M18 20V4M6 20v-4', 'بيكسل و CAPI', '-3.8s'],
-                    ] as [$pos, $icon, $label, $delay])
-                        <span
-                            class="floaty absolute {{ $pos }} flex items-center gap-2 whitespace-nowrap rounded-full border border-gold-200/70 bg-card/90 px-4 py-2 text-xs font-medium shadow-e2 backdrop-blur"
-                            style="animation-delay: {{ $delay }}"
-                        >
-                            <svg class="size-3.5 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{ $icon }}"/></svg>
-                            {{ $label }}
-                        </span>
-                    @endforeach
-                </div>
+            <h1 class="reveal mt-5 text-balance text-[2.5rem] font-bold leading-[1.15] md:text-6xl md:leading-[1.12]">
+                احكي عن مشروعك في سطرين.
+                <span class="ai-text">والمتجر يتجهّز لوحده.</span>
+            </h1>
 
-                <div class="reveal mx-auto mb-7 w-fit">
-                    @include('partials.logo', ['class' => 'size-14 text-primary drop-shadow-lg'])
-                </div>
+            <p class="reveal mx-auto mt-5 max-w-xl text-balance text-[17px] leading-relaxed text-muted-foreground md:text-xl lg:mx-0">
+                متجرك الإلكتروني جاهز في دقايق: الذكاء الاصطناعي بيقترح الشكل، ويعمل الأقسام،
+                ويكتب الصفحة الرئيسية ووصف منتجاتك من صورها — وإنت بتراجع وتنشر.
+            </p>
 
-                <span class="badge-gold reveal mb-6">٣ شهور مجانية بالكامل</span>
-
-                <h1 class="reveal text-balance text-[2.6rem] font-bold leading-[1.12] tracking-tight md:text-6xl lg:text-7xl">
-                    متجرك الإلكتروني جاهز في
-                    <span class="text-jade-gradient">٥ دقائق</span>
-                </h1>
-
-                <p class="reveal mx-auto mt-6 max-w-xl text-balance text-lg leading-relaxed text-muted-foreground md:text-xl">
-                    من غير أكواد ولا مبرمج. اكتب اسم متجرك وضيف منتجاتك،
-                    وإحنا نتكفّل بالشحن والتحصيل.
-                </p>
-
-                <div class="reveal mt-9 flex flex-wrap items-center justify-center gap-3">
-                    <a href="{{ route('register') }}" class="btn-primary sheen px-8 py-4 text-base shadow-e3">
-                        ابدأ متجرك دلوقتي
-                    </a>
-                    <a href="#shipping" class="btn-outline bg-card/80 px-8 py-4 text-base backdrop-blur">
-                        شوف الشحن والتحصيل
-                    </a>
-                </div>
-
-                <p class="reveal mt-5 text-sm text-muted-foreground">
-                    من غير كارت ائتمان · متجرك يفضل ليك · تلغي في أي وقت
-                </p>
+            <div class="reveal mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:justify-start">
+                <a href="{{ route('register') }}" class="btn-primary w-full !min-h-[52px] !rounded-full !px-8 !text-[17px] shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.7)] sm:w-auto">
+                    جهّز متجرك مجانًا
+                </a>
+                <a href="#ai" class="btn-outline w-full !min-h-[52px] !rounded-full !px-7 !text-[17px] sm:w-auto">
+                    شوف بيعمل إيه
+                </a>
             </div>
 
-            <div class="reveal mx-auto mt-16 max-w-4xl md:mt-20">
-                @include('marketing.partials.mockup')
-            </div>
+            <p class="reveal mt-4 text-[13px] text-muted-foreground">
+                ٣ شهور مجانية · من غير كارت ائتمان · متجرك يفضل ليك
+            </p>
         </div>
 
-        {{-- Feature ticker along the panel's floor. Rendered twice so the loop
-             is seamless; the copy is duplicated in markup rather than cloned in
-             JS so it is there on first paint. --}}
-        <div class="ticker relative overflow-hidden border-t border-gold-200/50 bg-card/60 py-4 backdrop-blur">
-            <div class="ticker-track flex w-max gap-10">
-                @for ($pass = 0; $pass < 2; $pass++)
-                    @foreach ([
-                        ['M3 3h18v18H3zM3 9h18M9 21V9', 'جدول طلبات زي الإكسل'],
-                        ['M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z', 'تأكيد واتساب'],
-                        ['M12 20V10M18 20V4M6 20v-4', 'بيكسل و Conversions API'],
-                        ['M5 12h14M12 5l7 7-7 7', 'شحن مع +٣٠٠ شركة'],
-                        ['M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6', 'تحصيل يومي مع ضمان'],
-                        ['M3 9 12 2l9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z', 'دومينك الخاص بـ SSL'],
-                        ['M4 4h16v6H4zM4 14h16v6H4z', 'تسع ثيمات جاهزة'],
-                        ['M20 6 9 17l-5-5', 'الدفع عند الاستلام'],
-                        ['M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18', 'بوليصة شحن للطباعة'],
-                        ['M12 2v20M2 12h20', 'كاتالوج ميتا وجوجل وتيك توك'],
-                    ] as [$icon, $label])
-                        <span class="flex shrink-0 items-center gap-2 text-sm text-muted-foreground" @if ($pass) aria-hidden="true" @endif>
-                            <svg class="size-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{ $icon }}"/></svg>
-                            {{ $label }}
-                        </span>
-                    @endforeach
-                @endfor
+        {{-- ── The demo ─────────────────────────────────────────────── --}}
+        <div class="reveal mx-auto w-full max-w-[26rem]" data-ai-demo>
+            <div class="ai-ring rounded-[30px] shadow-e4">
+                <div class="rounded-[28.5px] bg-card p-4 md:p-5">
+                    {{-- What the merchant typed. --}}
+                    <div class="rounded-[18px] bg-foreground/[0.04] p-3.5">
+                        <p class="text-[12px] font-medium text-muted-foreground">بتبيع إيه؟</p>
+                        <p class="mt-1 min-h-[3.25rem] text-[15px] leading-relaxed" data-ai-typed>عطور شرقية وبخور ومباخر. زبايني ستات ورجالة من ٢٥ لـ ٤٥، وعايز الشكل فخم وهادي.</p>
+                    </div>
+
+                    <div class="mt-3 flex items-center gap-2 px-1 text-[13px] font-medium" aria-live="polite">
+                        <svg class="size-4 shrink-0 text-primary" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.9 5.6L19.5 9.5l-5.6 1.9L12 17l-1.9-5.6L4.5 9.5l5.6-1.9z"/></svg>
+                        <span class="text-muted-foreground" data-ai-status>جاهز — مسودة مستنية مراجعتك</span>
+                    </div>
+
+                    {{-- What came out. Each block is one thing the generator
+                         really writes, labelled with the builder's own name
+                         for it. --}}
+                    <div class="mt-3 overflow-hidden rounded-[18px] shadow-[0_0_0_0.5px_hsl(var(--foreground)/0.1)]">
+                        <div data-ai-step class="flex items-center justify-between bg-[hsl(30_8%_12%)] px-3 py-1.5 text-[10.5px] text-[hsl(40_30%_92%)]">
+                            <span>الدفع عند الاستلام · شحن لكل المحافظات</span>
+                            <span class="opacity-60">الشريط اللي فوق</span>
+                        </div>
+
+                        <div data-ai-step class="flex items-center gap-2 border-b-[0.5px] border-foreground/10 bg-card px-3 py-2.5">
+                            <span class="flex size-7 items-center justify-center rounded-md bg-[hsl(30_8%_12%)] text-[13px] font-bold text-[hsl(28_60%_62%)]">ع</span>
+                            <span class="text-[14px] font-bold">بيت العود</span>
+                            <span class="ms-auto rounded-full bg-[hsl(28_60%_52%/0.15)] px-2 py-0.5 text-[10.5px] font-semibold text-[hsl(28_55%_38%)]">الشكل: نوار</span>
+                        </div>
+
+                        <div data-ai-step class="relative bg-gradient-to-l from-[hsl(30_10%_16%)] to-[hsl(28_30%_26%)] px-4 py-5 text-[hsl(40_30%_96%)]">
+                            <p class="text-[11px] opacity-60">عن المتجر</p>
+                            <p class="mt-0.5 text-[17px] font-bold leading-snug">ريحة بتفضل معاك طول اليوم</p>
+                            <p class="mt-1 text-[12px] leading-relaxed opacity-75">في بيت العود بنختار العطور الشرقية والبخور بإيدينا، علشان كل هدية تبان غالية.</p>
+                        </div>
+
+                        <div data-ai-step class="flex gap-1.5 overflow-hidden bg-card px-3 py-2.5">
+                            @foreach (['عطور رجالي', 'عطور حريمي', 'بخور ومباخر', 'هدايا'] as $category)
+                                <span class="shrink-0 rounded-full bg-foreground/[0.06] px-2.5 py-1 text-[11px] font-medium">{{ $category }}</span>
+                            @endforeach
+                        </div>
+
+                        <div data-ai-step class="grid grid-cols-3 gap-px bg-foreground/[0.06]">
+                            @foreach (['الدفع عند الاستلام', 'شحن ٢–٤ أيام', 'استبدال ١٤ يوم'] as $point)
+                                <span class="bg-card px-1.5 py-2 text-center text-[10.5px] font-medium text-muted-foreground">{{ $point }}</span>
+                            @endforeach
+                        </div>
+
+                        <div data-ai-step class="bg-card px-3 py-2.5">
+                            <p class="text-[11px] font-semibold">أسئلة وأجوبة</p>
+                            <p class="mt-1 text-[11px] text-muted-foreground">العطور أصلية؟ · الشحن بياخد قد إيه؟ · أقدر أبدّل؟</p>
+                        </div>
+                    </div>
+
+                    <div class="mt-3 flex items-center justify-between gap-3 px-1">
+                        <span class="text-[12px] text-muted-foreground">مش هيظهر لحد غير لما تنشر</span>
+                        <button type="button" class="ios-btn-tinted rounded-full px-3 py-1.5 text-[12px] font-semibold" data-ai-replay hidden>
+                            شغّلها تاني
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </section>
 
 {{-- ══ 2. Proof strip ═══════════════════════════════════════════════════ --}}
-<section class="border-y border-border bg-card">
-    <div class="mx-auto grid max-w-6xl grid-cols-2 divide-x divide-x-reverse divide-border px-6 md:grid-cols-4">
+<section class="hairline-t hairline-b bg-card">
+    <div class="mx-auto grid max-w-6xl grid-cols-2 px-4 md:grid-cols-4 md:px-6">
         @foreach ([
+            ['أقل من دقيقة', 'والذكاء الاصطناعي يجهّز متجرك'],
             ['+٣٠٠', 'شركة شحن'],
             ['كل يوم', 'تحصيل فلوسك'],
             ['٥٠ قرش', 'على الطلب — بعد ٣ شهور'],
-            ['٥ دقائق', 'من التسجيل لأول منتج'],
         ] as $stat)
-            <div class="reveal px-4 py-7 text-center">
-                <p class="text-foil text-2xl font-bold tracking-tight md:text-3xl">{{ $stat[0] }}</p>
-                <p class="mt-1.5 text-xs text-muted-foreground md:text-sm">{{ $stat[1] }}</p>
+            <div class="reveal px-3 py-6 text-center">
+                <p class="text-foil text-[22px] font-bold md:text-3xl">{{ $stat[0] }}</p>
+                <p class="mt-1 text-[13px] text-muted-foreground md:text-sm">{{ $stat[1] }}</p>
             </div>
         @endforeach
     </div>
 </section>
 
-{{-- ══ 3. The store builder ═════════════════════════════════════════════ --}}
-{{-- Placed straight after the proof strip: "أنت اللي بتبني شكل متجرك" is the
-     answer to the first objection a merchant has after the numbers — whether
-     their shop will look like everybody else's. Self-contained, so it can be
-     moved or removed by touching this one line. --}}
+{{-- ══ 3. What the AI does ══════════════════════════════════════════════
+     The two jobs it really does today, and the rule both follow. Worded in the
+     same terms the dashboard uses ("جهّزلي المتجر", "اكتبلي البيانات"), so the
+     first screen after sign-up is something the merchant already recognises.
+--}}
+<section id="ai" class="py-20 md:py-28">
+    <div class="mx-auto max-w-6xl px-4 md:px-6">
+        <div class="mx-auto max-w-2xl text-center">
+            <h2 class="reveal text-balance text-3xl font-bold leading-tight md:text-5xl">
+                الشغل التقيل <span class="ai-text">علينا</span>، والقرار ليك
+            </h2>
+            <p class="reveal mt-4 text-balance text-[17px] text-muted-foreground">
+                الذكاء الاصطناعي بيعمل المسودة في ثواني. إنت بتبص، تعدّل اللي محتاجه، وتنشر.
+            </p>
+        </div>
+
+        <div class="mt-12 grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-5">
+            {{-- Store generator --}}
+            <div class="reveal surface flex flex-col overflow-hidden p-6 md:p-8">
+                <span class="ai-ring flex size-12 items-center justify-center rounded-[14px] !p-0">
+                    <span class="flex size-[45px] items-center justify-center rounded-[12.5px] bg-card text-primary">
+                        <svg class="size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9 12 2l9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>
+                    </span>
+                </span>
+                <h3 class="mt-5 text-title-2">جهّزلي المتجر</h3>
+                <p class="mt-2 text-callout text-muted-foreground">
+                    قول بتبيع إيه، ومين زباينك، وعايز الشكل يبان إزاي. في أقل من دقيقة بيقترح
+                    الشكل، ويعمل الأقسام، ويكتب الصفحة الرئيسية: الشريط اللي فوق، مميزات متجرك،
+                    «عن المتجر»، الأسئلة والأجوبة، وآخر الصفحة.
+                </p>
+
+                <ul class="mt-6 space-y-2.5 text-[15px]">
+                    @foreach ([
+                        'كلام الشحن والاستبدال بياخده منك إنت — مش بيألّف مواعيد ولا وعود',
+                        'الأقسام بتتعمل فاضية، ومش بتظهر للزبون غير لما تحط فيها منتجات',
+                        'كله بيتحط مسودة في «تصميم المتجر» لحد ما تدوس نشر',
+                    ] as $point)
+                        <li class="flex items-start gap-2.5">
+                            <svg class="mt-1 size-4 shrink-0 text-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                            {{ $point }}
+                        </li>
+                    @endforeach
+                </ul>
+            </div>
+
+            {{-- Product writer --}}
+            <div class="reveal surface flex flex-col overflow-hidden p-6 md:p-8">
+                <span class="ai-ring flex size-12 items-center justify-center rounded-[14px] !p-0">
+                    <span class="flex size-[45px] items-center justify-center rounded-[12.5px] bg-card text-primary">
+                        <svg class="size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.5-3.5L9 20"/></svg>
+                    </span>
+                </span>
+                <h3 class="mt-5 text-title-2">اكتبلي المنتج</h3>
+                <p class="mt-2 text-callout text-muted-foreground">
+                    ارفع صور المنتج، وزوّد كلمتين لو حابب. في حوالي نص دقيقة بيكتب الاسم، ووصف
+                    بيبيع، والمقاسات والألوان، ويختار القسم، ويكتب اللي هيظهر في جوجل.
+                </p>
+
+                {{-- A preview of the card it fills, not a screenshot. --}}
+                <div class="mt-6 flex gap-3 rounded-[16px] bg-foreground/[0.035] p-3">
+                    <div class="flex size-20 shrink-0 items-end justify-center overflow-hidden rounded-[12px] bg-gradient-to-b from-[hsl(205_45%_88%)] to-[hsl(205_35%_78%)]">
+                        <svg class="mb-1 h-16 w-14" viewBox="0 0 56 64" aria-hidden="true"><path d="M14 8 22 4h12l8 4 10 10-8 7-4-4v39H16V21l-4 4-8-7z" fill="hsl(205 45% 42%)"/><path d="M22 4h12l-6 7z" fill="hsl(205 40% 70%)"/></svg>
+                    </div>
+                    <div class="min-w-0 flex-1 space-y-1.5 pt-0.5">
+                        <p class="text-[14px] font-semibold">قميص قطن مصري — قصّة مريحة</p>
+                        <p class="text-[12px] leading-relaxed text-muted-foreground">قطن ١٠٠٪ بيتنفّس في الحر، وزراير متخيّطة كويس…</p>
+                        <div class="flex flex-wrap gap-1">
+                            @foreach (['المقاس: M، L، XL', 'اللون: أزرق، أبيض', 'القسم: رجالي'] as $chip)
+                                <span class="rounded-full bg-card px-2 py-0.5 text-[10.5px] font-medium shadow-[0_0_0_0.5px_hsl(var(--foreground)/0.1)]">{{ $chip }}</span>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+
+                <p class="mt-auto pt-6 text-[13px] text-muted-foreground">
+                    الكلام بيتحط في خانات المنتج، ومفيش حاجة بتتحفظ غير لما تدوس «حفظ».
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
+{{-- ══ 4. The store builder ═════════════════════════════════════════════ --}}
+{{-- Straight after the AI section: "أنت اللي بتبني شكل متجرك" answers the
+     objection that follows "it builds the store for you" — whether the merchant
+     can still change what it made. Self-contained, so it can be moved or
+     removed by touching this one line. --}}
 @include('marketing.partials.builder-showcase')
 
-{{-- ══ 4. Shipping & Daman — the reason to pick us ══════════════════════ --}}
+{{-- ══ 5. Shipping & Daman — the reason to pick us ══════════════════════ --}}
 <section id="shipping" class="mesh-ink relative overflow-hidden py-20 text-jade-50 md:py-28">
-    <div class="relative mx-auto max-w-6xl px-6">
+    <div class="relative mx-auto max-w-6xl px-4 md:px-6">
         <div class="mx-auto max-w-2xl text-center">
             <span class="reveal badge-gold mb-5">الشحن والتحصيل</span>
             <h2 class="reveal text-balance text-3xl font-bold leading-tight tracking-tight md:text-5xl">
@@ -215,9 +313,9 @@
     </div>
 </section>
 
-{{-- ══ 4. Pricing ═══════════════════════════════════════════════════════ --}}
+{{-- ══ 6. Pricing ═══════════════════════════════════════════════════════ --}}
 <section id="pricing" class="relative py-20 md:py-28">
-    <div class="mx-auto max-w-5xl px-6">
+    <div class="mx-auto max-w-5xl px-4 md:px-6">
         <div class="mx-auto max-w-2xl text-center">
             <h2 class="reveal text-balance text-3xl font-bold leading-tight tracking-tight md:text-4xl">
                 <span class="text-jade-gradient">٣ شهور مجانية</span>، وبعدها نص جنيه على الطلب
@@ -295,9 +393,9 @@
     </div>
 </section>
 
-{{-- ══ 5. Features — a bento, not a uniform grid ════════════════════════ --}}
+{{-- ══ 7. Features — a bento, not a uniform grid ════════════════════════ --}}
 <section class="border-y border-border bg-card py-20 md:py-28">
-    <div class="mx-auto max-w-6xl px-6">
+    <div class="mx-auto max-w-6xl px-4 md:px-6">
         <div class="mx-auto max-w-2xl text-center">
             <h2 class="reveal text-balance text-3xl font-bold tracking-tight md:text-4xl">
                 كل اللي محتاجه في مكان واحد
@@ -383,14 +481,14 @@
     </div>
 </section>
 
-{{-- ══ 6. Catalogue everywhere ══════════════════════════════════════════
+{{-- ══ 8. Catalogue everywhere ══════════════════════════════════════════
      Shipped: the feed is live on every store's own domain and the settings
      screen walks a merchant through each platform. The label says so, because
      an unmarked "coming soon" next to features they can verify in five
      minutes is what makes them doubt the rest of the page.
 --}}
 <section class="relative py-20 md:py-28">
-    <div class="mx-auto max-w-6xl px-6">
+    <div class="mx-auto max-w-6xl px-4 md:px-6">
         <div class="grid items-center gap-12 lg:grid-cols-2">
             <div>
                 <span class="reveal badge-success mb-5">شغّال دلوقتي</span>
@@ -439,47 +537,44 @@
     </div>
 </section>
 
-{{-- ══ 7. How it works ══════════════════════════════════════════════════ --}}
+
+{{-- ══ 9. How it works ══════════════════════════════════════════════════ --}}
 <section class="py-20 md:py-28">
-    <div class="mx-auto max-w-5xl px-6">
-        <h2 class="reveal text-center text-balance text-3xl font-bold tracking-tight md:text-4xl">
-            من التسجيل لأول طلب
+    <div class="mx-auto max-w-5xl px-4 md:px-6">
+        <h2 class="reveal text-center text-balance text-3xl font-bold md:text-4xl">
+            من سطرين لأول طلب
         </h2>
 
-        <div class="relative mt-14 grid gap-8 md:grid-cols-3">
-            {{-- Connector, drawn behind the numbers on desktop only. --}}
-            <div class="pointer-events-none absolute inset-x-12 top-6 hidden h-px bg-gradient-to-l from-transparent via-border to-transparent md:block"></div>
-
+        <div class="mt-12 grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-5">
             @foreach ([
-                ['اكتب اسم متجرك', 'دقيقة واحدة ومن غير كارت ائتمان. المتجر بيتعمل وإنت بتسجّل.'],
-                ['ضيف منتجاتك', 'اسم وسعر وصورة. الأقسام والمقاسات والعروض لو محتاجها.'],
-                ['شارك اللينك', 'حطه في إعلان فيسبوك أو تيك توك، والطلبات تبدأ توصلك على طول.'],
+                ['احكي عن مشروعك', 'بتبيع إيه، ولمين، وعايز الشكل إزاي. الذكاء الاصطناعي يجهّز المتجر في أقل من دقيقة.'],
+                ['ضيف منتجاتك', 'ارفع الصور، وسيب الاسم والوصف والمقاسات علينا. راجع ودوس حفظ.'],
+                ['انشر وشارك اللينك', 'حطه في إعلان فيسبوك أو تيك توك، والطلبات تبدأ توصلك على طول.'],
             ] as $i => [$title, $body])
-                <div class="reveal relative text-center md:text-right">
-                    <span class="relative z-10 mx-auto flex size-12 items-center justify-center rounded-2xl border border-gold-200/70 bg-card shadow-e1 md:mx-0">
-                        <span class="text-foil tabular text-lg font-bold">٠{{ $i + 1 }}</span>
+                <div class="reveal surface p-6">
+                    <span class="flex size-10 items-center justify-center rounded-full bg-primary text-[15px] font-bold text-primary-foreground">
+                        <span class="tabular">{{ $i + 1 }}</span>
                     </span>
-                    <h3 class="mt-4 text-lg font-semibold">{{ $title }}</h3>
-                    <p class="mt-2 text-sm leading-relaxed text-muted-foreground">{{ $body }}</p>
+                    <h3 class="mt-4 text-[19px] font-semibold">{{ $title }}</h3>
+                    <p class="mt-1.5 text-[15px] leading-relaxed text-muted-foreground">{{ $body }}</p>
                 </div>
             @endforeach
         </div>
     </div>
 </section>
 
-{{-- ══ 7. Close ═════════════════════════════════════════════════════════ --}}
-<section class="mesh relative overflow-hidden border-t border-border py-24 md:py-32">
-    <div class="grid-lines pointer-events-none absolute inset-0"></div>
-
-    <div class="relative mx-auto max-w-2xl px-6 text-center">
-        <h2 class="reveal text-balance text-3xl font-bold leading-tight tracking-tight md:text-5xl">
-            اكتب اسم متجرك، والباقي علينا
+{{-- ══ 10. Close ═════════════════════════════════════════════════════════ --}}
+<section class="px-4 pb-20 md:px-6 md:pb-28">
+    <div class="mesh-ink relative mx-auto max-w-5xl overflow-hidden rounded-[2rem] px-6 py-16 text-center text-jade-50 md:py-24">
+        <h2 class="reveal text-balance text-3xl font-bold leading-tight md:text-5xl">
+            احكي عن مشروعك،
+            <span class="text-foil">والباقي علينا</span>
         </h2>
-        <p class="reveal mt-5 text-muted-foreground">
+        <p class="reveal mt-4 text-[17px] text-jade-200/85">
             ٣ شهور مجانية بالكامل. من غير كارت ائتمان.
         </p>
-        <a href="{{ route('register') }}" class="btn-primary sheen reveal mt-9 px-9 py-4 text-base">
-            ابدأ متجرك دلوقتي
+        <a href="{{ route('register') }}" class="reveal btn mt-8 !min-h-[52px] !rounded-full bg-white !px-9 !text-[17px] text-jade-900 hover:bg-jade-50">
+            جهّز متجرك مجانًا
         </a>
     </div>
 </section>
@@ -512,6 +607,77 @@
     }, { rootMargin: '0px 0px -8% 0px', threshold: 0.05 });
 
     items.forEach((el) => observer.observe(el));
+})();
+
+/*
+ * The hero demo: type the merchant's two lines, then let the store assemble.
+ *
+ * The HTML already holds the finished state, so a failed or blocked script
+ * shows a complete demo, not an empty card. This only hides the pieces and
+ * plays them back in, once, when the card is on screen.
+ */
+(function () {
+    const demo = document.querySelector('[data-ai-demo]');
+    if (!demo || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const typed = demo.querySelector('[data-ai-typed]');
+    const status = demo.querySelector('[data-ai-status]');
+    const steps = [...demo.querySelectorAll('[data-ai-step]')];
+    const replay = demo.querySelector('[data-ai-replay]');
+    const text = typed.textContent;
+    const finalStatus = status.textContent;
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    steps.forEach((s) => {
+        s.style.transition = 'opacity .5s var(--ease-ios), transform .5s var(--ease-ios)';
+    });
+
+    const hideAll = () => steps.forEach((s) => {
+        s.style.opacity = '0';
+        s.style.transform = 'translateY(6px)';
+    });
+
+    let running = false;
+
+    async function play() {
+        if (running) return;
+        running = true;
+        replay.hidden = true;
+        hideAll();
+
+        typed.textContent = '';
+        status.textContent = 'بيكتب…';
+        for (let i = 1; i <= text.length; i++) {
+            typed.textContent = text.slice(0, i);
+            await wait(26);
+        }
+
+        for (const line of ['بيختار الشكل…', 'بيعمل الأقسام…', 'بيكتب الصفحة الرئيسية…']) {
+            status.textContent = line;
+            await wait(650);
+        }
+
+        for (const step of steps) {
+            step.style.opacity = '1';
+            step.style.transform = 'none';
+            await wait(220);
+        }
+
+        status.textContent = finalStatus;
+        replay.hidden = false;
+        running = false;
+    }
+
+    replay.addEventListener('click', play);
+
+    if ('IntersectionObserver' in window) {
+        hideAll();
+        new IntersectionObserver(([entry], observer) => {
+            if (!entry.isIntersecting) return;
+            observer.disconnect();
+            play();
+        }, { threshold: 0.4 }).observe(demo);
+    }
 })();
 </script>
 @endpush

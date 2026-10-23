@@ -1064,3 +1064,73 @@
         }
     }
 }
+
+/*
+|--------------------------------------------------------------------------
+| AI visual language
+|--------------------------------------------------------------------------
+| Used wherever the product does something on the merchant's behalf. One idea,
+| borrowed from the way iOS marks Apple Intelligence: a slowly turning ring of
+| colour around the thing being made. The brand's jade and gold lead it, with
+| a sky and a rose so it reads as "AI" at a glance rather than as one more
+| green button.
+|
+| Registered as a typed property so the angle can be animated; browsers that
+| cannot do that keep a still ring, which is the whole fallback.
+*/
+@property --ai-angle {
+    syntax: '<angle>';
+    initial-value: 0deg;
+    inherits: false;
+}
+
+@layer components {
+    .ai-ring {
+        --ai-colors: hsl(var(--jade-400)), hsl(var(--gold-300)), hsl(330 75% 72%), hsl(205 85% 66%), hsl(var(--jade-400));
+        @apply relative isolate;
+        padding: 1.5px;
+        background: conic-gradient(from var(--ai-angle), var(--ai-colors));
+        animation: ai-turn 6s linear infinite;
+    }
+
+    /* The glow: the same ring, blurred, sitting behind. */
+    .ai-ring::before {
+        content: '';
+        @apply pointer-events-none absolute -inset-3 -z-10 opacity-45 blur-2xl;
+        border-radius: inherit;
+        background: inherit;
+    }
+
+    .ai-text {
+        background: linear-gradient(100deg, hsl(var(--jade-600)), hsl(var(--jade-400)) 40%, hsl(205 75% 52%) 70%, hsl(330 65% 58%));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+
+    /* A line that is still being written. */
+    .ai-shimmer {
+        background: linear-gradient(90deg, hsl(var(--foreground) / 0.06) 25%, hsl(var(--foreground) / 0.13) 50%, hsl(var(--foreground) / 0.06) 75%);
+        background-size: 200% 100%;
+        animation: ai-shimmer 1.4s linear infinite;
+    }
+
+    @keyframes ai-turn {
+        to {
+            --ai-angle: 360deg;
+        }
+    }
+
+    @keyframes ai-shimmer {
+        to {
+            background-position: -200% 0;
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .ai-ring,
+        .ai-shimmer {
+            animation: none;
+        }
+    }
+}
