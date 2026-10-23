@@ -1,3 +1,4 @@
+import { csrfHeaders } from '@/lib/csrf';
 import { onBeforeUnmount } from 'vue';
 
 /*
@@ -24,25 +25,6 @@ const CONNECTION_PROBLEM = 'حصلت مشكلة في الاتصال. جرّب ت
 
 /** Thrown with words a merchant can act on; show `message` as-is. */
 export class AiGenerationError extends Error {}
-
-/*
- * The CSRF token from Laravel's XSRF-TOKEN cookie, not the page's <meta> tag.
- *
- * The meta tag is written once, when the HTML document loads. Signing in
- * through Inertia rotates the session's token without reloading the document,
- * so a merchant who logs in and clicks through to an AI screen carries a dead
- * token in the meta tag — and their first request fails with "CSRF token
- * mismatch". The cookie is refreshed on every response, so it is always current.
- */
-const csrfHeaders = (): Record<string, string> => {
-    const cookie = document.cookie.split('; ').find((c) => c.startsWith('XSRF-TOKEN='));
-
-    if (cookie) {
-        return { 'X-XSRF-TOKEN': decodeURIComponent(cookie.slice('XSRF-TOKEN='.length)) };
-    }
-
-    return { 'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '' };
-};
 
 /** The server's own words: "اكتب بتبيع إيه" tells the merchant what to do, "خطأ ٤٢٢" does not. */
 const messageFrom = (payload: { message?: string; errors?: Record<string, string[]> }) =>

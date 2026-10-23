@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import ProductPicker from '@/components/builder/ProductPicker.vue';
 import RichTextEditor from '@/components/products/RichTextEditor.vue';
+import { csrfHeaders } from '@/lib/csrf';
 import { ChevronDown, Plus, Trash2, Upload, X } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
@@ -94,7 +95,8 @@ const upload = async (event: Event) => {
             method: 'POST',
             body,
             headers: {
-                'X-CSRF-TOKEN': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '',
+                // From the cookie, not the <meta> tag: see lib/csrf.ts.
+                ...csrfHeaders(),
                 Accept: 'application/json',
             },
         });
