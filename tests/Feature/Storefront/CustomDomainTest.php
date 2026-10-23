@@ -103,6 +103,7 @@ class CustomDomainTest extends TestCase
         $domain = $this->service->attach($store, 'mahmoud.com');
 
         $this->dns->pointA('mahmoud.com', '203.0.113.11');
+        $this->dns->pointTxt('_matgarpro.mahmoud.com', $domain->verification_token);
 
         $domain = $this->service->verify($domain);
 
@@ -117,8 +118,61 @@ class CustomDomainTest extends TestCase
         $domain = $this->service->attach($store, 'shop.mahmoud.com');
 
         $this->dns->pointCname('shop.mahmoud.com', 'connect.mataager.test');
+        $this->dns->pointTxt('_matgarpro.shop.mahmoud.com', $domain->verification_token);
 
         $this->assertSame(StoreDomain::STATUS_ACTIVE, $this->service->verify($domain)->status);
+    }
+
+    /**
+     * The takeover. A merchant moving over from another platform points DNS
+     * here; the store that typed their name in first must not inherit it.
+     */
+    public function test_pointing_at_us_without_the_txt_proof_does_not_go_live(): void
+    {
+        $squatter = Store::factory()->create();
+        $domain = $this->service->attach($squatter, 'mahmoud.com');
+
+        $this->dns->pointA('mahmoud.com', '203.0.113.11');
+
+        $domain = $this->service->verify($domain);
+
+        $this->assertSame(StoreDomain::STATUS_PENDING, $domain->status);
+        $this->assertStringContainsString('TXT', $domain->last_error);
+    }
+
+    public function test_another_stores_token_does_not_prove_ownership(): void
+    {
+        $domain = $this->service->attach(Store::factory()->create(), 'mahmoud.com');
+
+        $this->dns->pointA('mahmoud.com', '203.0.113.11');
+        $this->dns->pointTxt('_matgarpro.mahmoud.com', StoreDomain::mintToken());
+
+        $this->assertSame(StoreDomain::STATUS_PENDING, $this->service->verify($domain)->status);
+    }
+
+    public function test_an_unproven_claim_is_released_after_the_verification_window(): void
+    {
+        $squatter = Store::factory()->create();
+        $claim = $this->service->attach($squatter, 'mahmoud.com');
+        $claim->forceFill(['created_at' => now()->subHours(72)])->save();
+
+        $owner = Store::factory()->create();
+        $domain = $this->service->attach($owner, 'mahmoud.com');
+
+        $this->assertSame($owner->id, $domain->store_id);
+        $this->assertNull(StoreDomain::find($claim->id));
+    }
+
+    public function test_a_live_domain_is_never_released_to_another_store(): void
+    {
+        StoreDomain::factory()->for(Store::factory())->active()->create([
+            'domain' => 'mahmoud.com',
+            'created_at' => now()->subYear(),
+        ]);
+
+        $this->expectException(DomainException::class);
+
+        $this->service->attach(Store::factory()->create(), 'mahmoud.com');
     }
 
     public function test_a_domain_pointing_elsewhere_stays_pending_with_a_readable_reason(): void
@@ -188,9 +242,13 @@ class CustomDomainTest extends TestCase
         $sub = StoreDomain::factory()->make(['domain' => 'shop.mahmoud.com']);
 
         $this->assertTrue($apex->isApex());
-        $this->assertSame('A', $apex->dnsInstructions()[0]['type']);
+        $this->assertSame('TXT', $apex->dnsInstructions()[0]['type']);
+        $this->assertSame('_matgarpro', $apex->dnsInstructions()[0]['name']);
+        $this->assertSame($apex->verification_token, $apex->dnsInstructions()[0]['value']);
+        $this->assertSame('A', $apex->dnsInstructions()[1]['type']);
 
         $this->assertFalse($sub->isApex());
-        $this->assertSame('CNAME', $sub->dnsInstructions()[0]['type']);
+        $this->assertSame('_matgarpro.shop', $sub->dnsInstructions()[0]['name']);
+        $this->assertSame('CNAME', $sub->dnsInstructions()[1]['type']);
     }
 }
