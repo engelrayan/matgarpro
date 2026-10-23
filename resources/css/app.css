@@ -100,15 +100,21 @@
         --chart-5: 15 63% 52%;
         --chart-6: 262 45% 52%;
 
-        /* ---- Sidebar: deep jade, dark in both themes --------------------- */
-        --sidebar-background: 166 84% 8%;
-        --sidebar-foreground: 156 30% 82%;
-        --sidebar-primary: 43 64% 46%;
-        --sidebar-primary-foreground: 33 58% 13%;
-        --sidebar-accent: 166 79% 14%;
-        --sidebar-accent-foreground: 158 60% 96%;
-        --sidebar-border: 166 60% 14%;
-        --sidebar-ring: 43 64% 46%;
+        /*
+         | ---- Sidebar: iPadOS, not a dark admin rail ------------------------
+         | A light grey column, a shade under the canvas, with the selected row
+         | filled in the brand colour — the Settings / Mail sidebar. The old
+         | near-black jade rail was the heaviest thing on every screen and the
+         | first thing that read "dashboard template".
+         */
+        --sidebar-background: 40 12% 93%;
+        --sidebar-foreground: 160 18% 10%;
+        --sidebar-primary: 167 83% 28%;
+        --sidebar-primary-foreground: 0 0% 100%;
+        --sidebar-accent: 40 9% 87.5%;
+        --sidebar-accent-foreground: 160 18% 6%;
+        --sidebar-border: 40 9% 86%;
+        --sidebar-ring: 167 83% 28%;
 
         --radius: 0.75rem;
 
@@ -186,10 +192,14 @@
         --input: 165 12% 19%;
         --ring: 161 54% 48%;
 
-        --sidebar-background: 166 40% 6%;
-        --sidebar-foreground: 156 22% 78%;
-        --sidebar-accent: 165 30% 11%;
-        --sidebar-border: 165 25% 12%;
+        --sidebar-background: 165 14% 7%;
+        --sidebar-foreground: 150 14% 90%;
+        --sidebar-primary: 161 54% 42%;
+        --sidebar-primary-foreground: 0 0% 100%;
+        --sidebar-accent: 165 9% 13%;
+        --sidebar-accent-foreground: 150 14% 96%;
+        --sidebar-border: 165 9% 14%;
+        --sidebar-ring: 161 54% 48%;
 
         --grouped: 160 22% 3%;
     }
@@ -250,12 +260,29 @@
     | is reserved for money-bearing panels (payouts, revenue, plan) — if every
     | card is special, none of them are.
     */
+    /*
+     | Cards are iOS grouped-list cards: no border, a half-point ring so the
+     | edge survives on a canvas that is nearly white itself, and the faintest
+     | lift. A border on every card is the one detail that most reads "admin
+     | template" — Apple draws edges with light, not lines.
+     */
     .surface {
-        @apply rounded-2xl border border-border bg-card shadow-e1;
+        @apply rounded-[14px] bg-card;
+        box-shadow:
+            0 0 0 0.5px hsl(var(--foreground) / 0.06),
+            0 1px 3px hsl(var(--foreground) / 0.04);
+    }
+
+    .dark .surface,
+    .dark .surface-lux {
+        box-shadow: 0 0 0 0.5px hsl(var(--foreground) / 0.08);
     }
 
     .surface-lux {
-        @apply relative rounded-2xl border border-gold-200/70 bg-card shadow-e2;
+        @apply relative rounded-[14px] bg-card;
+        box-shadow:
+            0 0 0 0.5px hsl(var(--gold-400) / 0.35),
+            0 4px 16px -6px hsl(var(--gold-500) / 0.18);
     }
 
     .surface-lux::before {
@@ -302,7 +329,7 @@
     }
 
     .badge {
-        @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium leading-none;
+        @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-none;
     }
 
     .badge-success {
@@ -334,40 +361,53 @@
     }
 
     /* ---- Buttons ------------------------------------------------------- */
+    /*
+     | Buttons press like iOS buttons — they dim and settle, they never flash a
+     | darker colour. 40px tall on a phone (44 with the hit slop of the row
+     | around them), the "outline" style is Apple's grey-filled button rather
+     | than a ruled box.
+     */
     .btn {
-        @apply inline-flex select-none items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200 disabled:pointer-events-none disabled:opacity-50;
+        @apply inline-flex min-h-[40px] select-none items-center justify-center gap-2 rounded-[10px] px-4 py-2 text-[15px] font-semibold transition-[opacity,transform,background-color,filter] duration-150 active:scale-[0.98] active:opacity-75 disabled:pointer-events-none disabled:opacity-40 md:min-h-[36px] md:text-sm;
+        -webkit-tap-highlight-color: transparent;
     }
 
     .btn-primary {
-        @apply btn bg-primary text-primary-foreground shadow-e1 hover:brightness-110 active:scale-[0.98];
+        @apply btn bg-primary text-primary-foreground hover:brightness-110;
     }
 
     .btn-gold {
-        @apply btn bg-gold-500 text-gold-950 shadow-e1 hover:bg-gold-400 active:scale-[0.98];
+        @apply btn bg-gold-500 text-gold-950 hover:bg-gold-400;
     }
 
     .btn-outline {
-        @apply btn border border-border bg-transparent hover:bg-muted;
+        @apply btn bg-foreground/[0.06] text-foreground hover:bg-foreground/[0.09];
     }
 
     .btn-ghost {
-        @apply btn bg-transparent hover:bg-muted;
+        @apply btn bg-transparent text-primary hover:bg-primary/[0.08];
     }
 
     .btn-danger {
-        @apply btn bg-destructive text-destructive-foreground hover:brightness-110 active:scale-[0.98];
+        @apply btn bg-destructive text-destructive-foreground hover:brightness-110;
     }
 
     /* ---- Form controls -------------------------------------------------- */
     /* 16px on phones, not 14: iOS Safari zooms the whole page into any
        focused input smaller than that, and the merchant then has to pinch
        back out after every field. */
+    /* Filled, not ruled: the field is a soft grey well that turns white with
+       a tinted ring when it has the caret, as in iOS 17's forms. */
     .field {
-        @apply w-full rounded-xl border border-input bg-card px-3.5 py-2.5 text-base placeholder:text-muted-foreground/70 focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/25 focus:ring-offset-0 md:text-sm;
+        @apply w-full rounded-[10px] border border-transparent bg-foreground/[0.045] px-3.5 py-2.5 text-base transition-[background-color,box-shadow,border-color] duration-150 placeholder:text-muted-foreground/70 hover:bg-foreground/[0.06] focus:border-ring/60 focus:bg-card focus:outline-none focus:ring-4 focus:ring-ring/15 focus:ring-offset-0 md:text-sm;
+    }
+
+    .dark .field {
+        @apply bg-foreground/[0.07] focus:bg-foreground/[0.04];
     }
 
     .field-label {
-        @apply mb-1.5 block text-sm font-medium text-foreground;
+        @apply mb-1.5 block text-[13px] font-medium text-muted-foreground;
     }
 
     .field-hint {

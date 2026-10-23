@@ -2,8 +2,8 @@
 import EditableCell from '@/components/orders/EditableCell.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
-import { Head, router, usePage } from '@inertiajs/vue3';
-import { AlertTriangle, ArrowDown, ArrowUp, Check, Download, LoaderCircle, Printer, Search, Truck, X } from 'lucide-vue-next';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { AlertTriangle, ArrowDown, ArrowUp, Check, ChevronLeft, Download, LoaderCircle, Printer, Search, Truck, X } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 
 interface DamanCell {
@@ -197,46 +197,59 @@ const columns = computed(() => [
 ]);
 </script>
 
+
 <template>
     <AppLayout :breadcrumbs="breadcrumbItems">
         <Head title="الطلبات" />
 
-        <div class="space-y-4 p-4 md:p-6">
-            <div class="flex flex-wrap items-center justify-between gap-3">
-                <h1 class="text-2xl font-bold tracking-tight">الطلبات</h1>
+        <div class="space-y-4 px-4 pb-6 md:px-6">
+            <!-- ── Large title, search ──────────────────────────────────── -->
+            <div class="flex flex-wrap items-end justify-between gap-3">
+                <h1 class="text-large-title">الطلبات</h1>
 
-                <div class="flex flex-wrap items-center gap-2">
-                    <a :href="exportUrl" class="btn-outline shrink-0">
-                        <Download class="size-4" />
-                        تصدير Excel
-                    </a>
-
-                    <div class="relative w-full max-w-xs">
-                        <Search class="absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                        <input v-model="search" class="field pr-9" placeholder="اسم، تليفون، أو رقم طلب" />
-                    </div>
-                </div>
+                <a :href="exportUrl" class="btn-outline shrink-0 !min-h-[34px] !px-3 !text-[14px]">
+                    <Download class="size-4" />
+                    Excel
+                </a>
             </div>
 
-            <!-- ── Status tabs ────────────────────────────────────────── -->
-            <div class="flex flex-wrap items-center gap-1.5">
+            <!-- The iOS search field: filled, borderless, the glass on the
+                 reading edge. -->
+            <div class="relative md:max-w-sm">
+                <Search class="pointer-events-none absolute right-3 top-1/2 size-[18px] -translate-y-1/2 text-muted-foreground" />
+                <input
+                    v-model="search"
+                    type="search"
+                    class="field !rounded-[10px] !py-2 pr-10"
+                    placeholder="اسم، تليفون، أو رقم طلب"
+                    aria-label="دوّر في الطلبات"
+                />
+            </div>
+
+            <!-- ── Status filter ─────────────────────────────────────────
+                 One line that scrolls sideways on a phone instead of wrapping
+                 into three ragged rows that push the orders off the screen. -->
+            <div class="scrollbar-none -mx-4 flex items-center gap-2 overflow-x-auto px-4 md:mx-0 md:flex-wrap md:px-0">
                 <button
                     v-for="tab in tabs"
                     :key="tab.value"
-                    class="rounded-xl border px-3 py-1.5 text-sm transition-colors"
+                    type="button"
+                    class="flex min-h-[34px] shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[14px] font-medium transition-colors active:opacity-70"
                     :class="filters.status === tab.value
-                        ? 'border-primary bg-primary text-primary-foreground'
-                        : 'border-border bg-card text-muted-foreground hover:text-foreground'"
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-card text-foreground shadow-[0_0_0_0.5px_hsl(var(--foreground)/0.1)] hover:bg-foreground/[0.04]'"
+                    :aria-pressed="filters.status === tab.value"
                     @click="go({ status: tab.value })"
                 >
                     {{ tab.label }}
-                    <span class="tabular mr-1 opacity-70">{{ tab.count }}</span>
+                    <span class="tabular text-[12px] opacity-70">{{ tab.count }}</span>
                 </button>
 
                 <select
                     v-if="governorates.length"
-                    class="field w-auto py-1.5 text-sm"
+                    class="field !min-h-[34px] w-auto shrink-0 !rounded-full !py-1 !text-[14px]"
                     :value="filters.gov"
+                    aria-label="المحافظة"
                     @change="go({ gov: ($event.target as HTMLSelectElement).value })"
                 >
                     <option value="">كل المحافظات</option>
@@ -250,10 +263,8 @@ const columns = computed(() => [
             -->
             <div
                 v-if="damanResult"
-                class="rounded-xl border p-4 text-sm"
-                :class="damanResult.failed
-                    ? 'border-warning/30 bg-warning/5'
-                    : 'border-success/30 bg-success/5'"
+                class="surface p-4 text-sm"
+                :class="damanResult.failed ? 'bg-warning/[0.06]' : 'bg-success/[0.06]'"
             >
                 <p class="flex items-center gap-2 font-medium">
                     <Truck class="size-4 shrink-0" />
@@ -276,16 +287,24 @@ const columns = computed(() => [
                 </ul>
             </div>
 
-            <!-- ── Bulk bar ───────────────────────────────────────────── -->
-            <div v-if="selected.length" class="surface flex flex-wrap items-center gap-3 p-3">
-                <span class="text-sm font-medium">{{ selected.length }} طلب متحدد</span>
+            <!-- ── Bulk bar ───────────────────────────────────────────────
+                 On a phone it is a toolbar pinned over the tab bar, the way
+                 Mail shows its actions once messages are selected — reachable
+                 by the thumb without scrolling back to the top. -->
+            <div
+                v-if="selected.length"
+                class="material hairline-t fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+52px)] z-30 flex flex-wrap items-center gap-2 px-4 py-2.5 md:static md:z-auto md:rounded-[14px] md:border-0 md:bg-card md:p-3 md:shadow-[0_0_0_0.5px_hsl(var(--foreground)/0.06),0_1px_3px_hsl(var(--foreground)/0.04)] md:backdrop-blur-none"
+            >
+                <span class="text-[15px] font-semibold">
+                    <span class="tabular">{{ selected.length }}</span> متحدد
+                </span>
 
-                <select v-model="bulkStatus" class="field w-auto py-1.5 text-sm">
+                <select v-model="bulkStatus" class="field w-auto !py-1.5" aria-label="غيّر الحالة">
                     <option value="">غيّر الحالة إلى…</option>
                     <option v-for="s in statuses" :key="s.value" :value="s.value">{{ s.label }}</option>
                 </select>
 
-                <button class="btn-primary py-1.5" :disabled="!bulkStatus" @click="applyBulk">
+                <button class="btn-primary" :disabled="!bulkStatus" @click="applyBulk">
                     <Check class="size-4" />
                     نفّذ
                 </button>
@@ -295,7 +314,7 @@ const columns = computed(() => [
                      page should see that only twelve of the twenty will go. -->
                 <button
                     v-if="daman_enabled"
-                    class="btn-primary py-1.5"
+                    class="btn-primary"
                     :disabled="shipping || !shippableCount"
                     :title="shippableCount ? '' : 'الطلبات المتحددة إما مش متأكدة أو اتبعتت لضمان قبل كده'"
                     @click="shipViaDaman"
@@ -306,58 +325,95 @@ const columns = computed(() => [
                     <span v-if="shippableCount" class="tabular opacity-80">({{ shippableCount }})</span>
                 </button>
 
-                <a :href="`/orders/waybills?ids=${selected.join(',')}`" target="_blank" class="btn-outline py-1.5">
+                <a :href="`/orders/waybills?ids=${selected.join(',')}`" target="_blank" class="btn-outline">
                     <Printer class="size-4" />
-                    اطبع البوالص
+                    البوالص
                 </a>
 
-                <button class="btn-ghost py-1.5" @click="selected = []">
+                <button class="btn-ghost ms-auto" @click="selected = []">
                     <X class="size-4" />
-                    إلغاء التحديد
+                    إلغاء
                 </button>
             </div>
 
             <!-- ── Grid ───────────────────────────────────────────────── -->
             <div class="surface overflow-hidden">
                 <!--
-                    Phones get cards, not the table.
+                    Phones get an inset-grouped list, not the table.
 
                     The grid is twelve columns and 72rem wide — on a 390px
                     screen that is a horizontal scroll two-and-a-half screens
                     long, and the merchant loses the order number the moment
-                    they scroll far enough to read the address. Below `md` the
-                    same row is stacked into a card instead: nothing is cut off
-                    and nothing needs scrolling sideways.
+                    they scroll far enough to read the address. Below `md` each
+                    order is one row of a list, like a conversation in Messages:
+                    who, how much, when, and the status — and the whole row opens
+                    the order.
 
                     Inline cell editing stays desktop-only on purpose. Editing
                     a value in place needs a pointer and room for the input;
-                    on a phone the card links to the order's own page, which is
+                    on a phone the row links to the order's own page, which is
                     a better editor than a cramped cell.
                 -->
-                <ul class="divide-y divide-border md:hidden">
+                <ul class="md:hidden">
                     <li
-                        v-for="order in orders.data"
+                        v-for="(order, index) in orders.data"
                         :key="order.id"
-                        class="p-4 transition-colors"
-                        :class="selected.includes(order.id) ? 'bg-primary/5' : ''"
+                        class="relative flex items-stretch transition-colors"
+                        :class="selected.includes(order.id) ? 'bg-primary/[0.06]' : ''"
                     >
-                        <div class="flex items-start gap-3">
+                        <!-- Hairline from the content edge, not the screen edge. -->
+                        <span v-if="index > 0" class="pointer-events-none absolute inset-x-0 start-12 top-0 border-t-[0.5px] border-foreground/[0.12]" />
+
+                        <label class="flex w-12 shrink-0 cursor-pointer items-start justify-center pt-[18px]">
                             <input
                                 v-model="selected"
                                 type="checkbox"
                                 :value="order.id"
-                                class="mt-1 size-4 shrink-0 rounded border-input accent-primary"
+                                class="size-[22px] rounded-full border-foreground/25 text-primary accent-primary focus:ring-primary/30"
+                                :aria-label="`حدد طلب ${order.number}`"
                             />
+                        </label>
 
-                            <div class="min-w-0 flex-1">
-                                <div class="flex items-baseline justify-between gap-2">
-                                    <a :href="`/orders/${order.id}`" class="tabular font-semibold text-primary hover:underline">
-                                        #{{ order.number }}
-                                    </a>
-                                    <span class="tabular shrink-0 font-semibold" dir="ltr">{{ order.total }}</span>
+                        <div class="min-w-0 flex-1 py-3 pe-3">
+                            <Link :href="`/orders/${order.id}`" class="flex items-start gap-2 active:opacity-60">
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex items-baseline justify-between gap-2">
+                                        <p class="truncate text-[17px] font-semibold">{{ order.customer_name }}</p>
+                                        <span class="tabular shrink-0 text-[15px] font-semibold" dir="ltr">{{ order.total }}</span>
+                                    </div>
+
+                                    <p class="mt-0.5 truncate text-[13px] text-muted-foreground">
+                                        <span class="tabular">#{{ order.number }}</span>
+                                        <template v-if="order.governorate"> · {{ order.governorate }}</template>
+                                        · <span class="tabular" dir="ltr">{{ order.created_at }}</span>
+                                    </p>
+
+                                    <p v-if="order.items_summary" class="mt-0.5 truncate text-[15px] text-muted-foreground">
+                                        {{ order.items_summary }}
+                                    </p>
                                 </div>
+                                <ChevronLeft class="mt-1 size-5 shrink-0 text-muted-foreground/40" />
+                            </Link>
 
-                                <p class="mt-1 truncate font-medium">{{ order.customer_name }}</p>
+                            <div class="mt-2 flex flex-wrap items-center gap-2">
+                                <select
+                                    class="min-h-[30px] cursor-pointer rounded-full border-0 py-1 pl-7 pr-3 text-[12px] font-semibold focus:outline-none focus:ring-2 focus:ring-ring/30"
+                                    :class="STATUS_BADGE[order.status]"
+                                    :value="order.status"
+                                    aria-label="حالة الطلب"
+                                    @change="setStatus(order, ($event.target as HTMLSelectElement).value)"
+                                >
+                                    <option v-for="s in statuses" :key="s.value" :value="s.value">{{ s.label }}</option>
+                                </select>
+
+                                <span
+                                    v-if="showWhatsapp && order.whatsapp && WHATSAPP_MARK[order.whatsapp]"
+                                    class="text-xs font-bold"
+                                    :class="WHATSAPP_MARK[order.whatsapp].class"
+                                    :title="WHATSAPP_MARK[order.whatsapp].title"
+                                >
+                                    {{ WHATSAPP_MARK[order.whatsapp].icon }}
+                                </span>
 
                                 <!-- A phone number on a phone should be one tap
                                      away from a call — this is the number the
@@ -365,78 +421,45 @@ const columns = computed(() => [
                                 <a
                                     v-if="order.customer_phone"
                                     :href="`tel:${order.customer_phone}`"
-                                    class="tabular mt-0.5 block text-sm text-muted-foreground"
+                                    class="tabular ms-auto flex min-h-[30px] items-center rounded-full bg-primary/10 px-3 text-[13px] font-semibold text-primary active:opacity-60"
                                     dir="ltr"
                                 >
                                     {{ order.customer_phone }}
                                 </a>
+                            </div>
 
-                                <p class="mt-1 text-xs text-muted-foreground">
-                                    <span v-if="order.governorate">{{ order.governorate }}</span>
-                                    <span v-if="order.governorate && order.address"> · </span>
-                                    <span>{{ order.address }}</span>
-                                </p>
-
-                                <p v-if="order.items_summary" class="mt-1 truncate text-xs text-muted-foreground">
-                                    {{ order.items_summary }}
-                                </p>
-
-                                <div class="mt-2.5 flex flex-wrap items-center gap-2">
-                                    <select
-                                        class="cursor-pointer rounded-lg border-0 py-1 pr-1 text-xs focus:outline-none focus:ring-2 focus:ring-ring/30"
-                                        :class="STATUS_BADGE[order.status]"
-                                        :value="order.status"
-                                        @change="setStatus(order, ($event.target as HTMLSelectElement).value)"
-                                    >
-                                        <option v-for="s in statuses" :key="s.value" :value="s.value">{{ s.label }}</option>
-                                    </select>
-
-                                    <span
-                                        v-if="showWhatsapp && order.whatsapp && WHATSAPP_MARK[order.whatsapp]"
-                                        class="text-xs font-bold"
-                                        :class="WHATSAPP_MARK[order.whatsapp].class"
-                                        :title="WHATSAPP_MARK[order.whatsapp].title"
-                                    >
-                                        {{ WHATSAPP_MARK[order.whatsapp].icon }}
-                                    </span>
-
-                                    <span class="tabular mr-auto text-[11px] text-muted-foreground" dir="ltr">
-                                        {{ order.created_at }}
-                                    </span>
-                                </div>
-
-                                <div v-if="showDaman && order.daman" class="mt-2 border-t border-border pt-2 text-xs">
-                                    <template v-if="order.daman.tracking_number">
-                                        <span class="tabular font-medium" dir="ltr">{{ order.daman.tracking_number }}</span>
-                                        <span class="text-muted-foreground"> · {{ order.daman.carrier ?? 'ضمان' }}</span>
-                                    </template>
-                                    <span v-else-if="order.daman.error" class="badge-danger">اترفض</span>
-                                </div>
+                            <div v-if="showDaman && order.daman" class="mt-2 text-xs">
+                                <template v-if="order.daman.tracking_number">
+                                    <span class="tabular font-medium" dir="ltr">{{ order.daman.tracking_number }}</span>
+                                    <span class="text-muted-foreground"> · {{ order.daman.carrier ?? 'ضمان' }}</span>
+                                </template>
+                                <span v-else-if="order.daman.error" class="badge-danger">اترفض</span>
                             </div>
                         </div>
                     </li>
 
-                    <li v-if="!orders.data.length" class="px-6 py-16 text-center text-muted-foreground">
+                    <li v-if="!orders.data.length" class="px-6 py-16 text-center text-[15px] text-muted-foreground">
                         مفيش طلبات هنا.
                     </li>
                 </ul>
 
                 <div class="hidden overflow-x-auto md:block">
                     <table class="w-full min-w-[72rem] border-collapse text-sm">
-                        <thead class="bg-muted/50">
+                        <thead>
                             <tr>
-                                <th class="w-10 border-b border-border px-3 py-2.5">
+                                <th class="w-10 border-b-[0.5px] border-foreground/[0.12] px-3 py-3">
                                     <input
                                         type="checkbox"
                                         class="size-4 rounded border-input accent-primary"
                                         :checked="allSelected"
+                                        aria-label="حدد الكل"
                                         @change="toggleAll"
                                     />
                                 </th>
                                 <th
                                     v-for="column in columns"
                                     :key="column.label"
-                                    class="whitespace-nowrap border-b border-border px-3 py-2.5 text-right font-medium text-muted-foreground"
+                                    class="whitespace-nowrap border-b-[0.5px] border-foreground/[0.12] px-3 py-3 text-right text-[12px] font-semibold text-muted-foreground"
                                 >
                                     <button
                                         v-if="column.key"
@@ -452,24 +475,25 @@ const columns = computed(() => [
                             </tr>
                         </thead>
 
-                        <tbody>
+                        <tbody class="[&_td]:border-b-[0.5px] [&_td]:border-foreground/[0.08]">
                             <tr
                                 v-for="order in orders.data"
                                 :key="order.id"
                                 class="transition-colors"
-                                :class="selected.includes(order.id) ? 'bg-primary/5' : 'hover:bg-muted/30'"
+                                :class="selected.includes(order.id) ? 'bg-primary/[0.06]' : 'hover:bg-foreground/[0.025]'"
                             >
-                                <td class="border-b border-border px-3 py-2">
+                                <td class="px-3 py-2">
                                     <input
                                         v-model="selected"
                                         type="checkbox"
                                         :value="order.id"
                                         class="size-4 rounded border-input accent-primary"
+                                        :aria-label="`حدد طلب ${order.number}`"
                                     />
                                 </td>
 
-                                <td class="tabular whitespace-nowrap border-b border-border px-3 py-2 font-semibold">
-                                    <a :href="`/orders/${order.id}`" class="text-primary hover:underline">#{{ order.number }}</a>
+                                <td class="tabular whitespace-nowrap px-3 py-2 font-semibold">
+                                    <Link :href="`/orders/${order.id}`" class="text-primary hover:underline">#{{ order.number }}</Link>
                                 </td>
 
                                 <EditableCell :order-id="order.id" field="customer_name" :model-value="order.customer_name" />
@@ -477,20 +501,21 @@ const columns = computed(() => [
                                 <EditableCell :order-id="order.id" field="governorate" :model-value="order.governorate" />
                                 <EditableCell :order-id="order.id" field="address" :model-value="order.address" />
 
-                                <td class="max-w-64 border-b border-border px-3 py-2 text-muted-foreground">
+                                <td class="max-w-64 px-3 py-2 text-muted-foreground">
                                     <span class="block truncate" :title="order.items_summary">{{ order.items_summary }}</span>
                                 </td>
 
-                                <td class="tabular whitespace-nowrap border-b border-border px-3 py-2 text-left font-semibold" dir="ltr">
+                                <td class="tabular whitespace-nowrap px-3 py-2 text-left font-semibold" dir="ltr">
                                     {{ order.total }}
                                 </td>
 
-                                <td class="border-b border-border px-3 py-2">
+                                <td class="px-3 py-2">
                                     <div class="flex items-center gap-1.5">
                                         <select
-                                            class="cursor-pointer rounded-lg border-0 py-1 pr-1 text-xs focus:outline-none focus:ring-2 focus:ring-ring/30"
+                                            class="cursor-pointer rounded-full border-0 py-1 pl-7 pr-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-ring/30"
                                             :class="STATUS_BADGE[order.status]"
                                             :value="order.status"
+                                            aria-label="حالة الطلب"
                                             @change="setStatus(order, ($event.target as HTMLSelectElement).value)"
                                         >
                                             <option v-for="s in statuses" :key="s.value" :value="s.value">{{ s.label }}</option>
@@ -511,7 +536,7 @@ const columns = computed(() => [
                                      ضمان's own order number is what support
                                      asks for, the tracking number is what the
                                      courier's call centre recognises. -->
-                                <td v-if="showDaman" class="whitespace-nowrap border-b border-border px-3 py-2">
+                                <td v-if="showDaman" class="whitespace-nowrap px-3 py-2">
                                     <template v-if="order.daman?.tracking_number">
                                         <span class="tabular block font-medium" dir="ltr">{{ order.daman.tracking_number }}</span>
                                         <span class="block text-[11px] text-muted-foreground">
@@ -533,7 +558,7 @@ const columns = computed(() => [
                                     <span v-else class="text-muted-foreground/40">—</span>
                                 </td>
 
-                                <td class="tabular whitespace-nowrap border-b border-border px-3 py-2 text-xs text-muted-foreground" dir="ltr">
+                                <td class="tabular whitespace-nowrap px-3 py-2 text-xs text-muted-foreground" dir="ltr">
                                     {{ order.created_at }}
                                 </td>
                             </tr>
@@ -547,8 +572,8 @@ const columns = computed(() => [
                     </table>
                 </div>
 
-                <div class="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3">
-                    <p class="text-xs text-muted-foreground">
+                <div class="flex flex-wrap items-center justify-between gap-3 border-t-[0.5px] border-foreground/[0.12] px-4 py-3">
+                    <p class="text-[13px] text-muted-foreground">
                         <span class="tabular">{{ orders.from ?? 0 }}–{{ orders.to ?? 0 }}</span>
                         من <span class="tabular">{{ orders.total }}</span>
                         <!-- Inline editing is desktop-only, so the hint is too:
@@ -566,10 +591,10 @@ const columns = computed(() => [
                     :key="i"
                     :is="link.url ? 'a' : 'span'"
                     :href="link.url ?? undefined"
-                    class="rounded-lg px-3 py-1.5 text-sm"
+                    class="flex min-h-[36px] min-w-[36px] items-center justify-center rounded-full px-3 text-[15px]"
                     :class="link.active
-                        ? 'bg-primary font-bold text-primary-foreground'
-                        : link.url ? 'text-muted-foreground hover:bg-muted' : 'text-muted-foreground/40'"
+                        ? 'bg-primary font-semibold text-primary-foreground'
+                        : link.url ? 'text-primary hover:bg-primary/[0.08]' : 'text-muted-foreground/40'"
                     v-html="link.label"
                 />
             </div>

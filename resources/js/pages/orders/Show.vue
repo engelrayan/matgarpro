@@ -4,7 +4,7 @@ import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/vue3';
 import {
     AlertTriangle, ChevronLeft, ChevronRight, Copy, Check, LoaderCircle, MapPin,
-    MessageCircle, Package, Phone, Printer, Send, ShieldAlert, ShieldCheck, Truck, User,
+    MessageCircle, Package, Phone, Printer, Send, ShieldAlert, ShieldCheck, Truck,
 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
@@ -141,166 +141,196 @@ const sendWhatsapp = () => {
 };
 </script>
 
+
 <template>
     <AppLayout :breadcrumbs="breadcrumbItems">
         <Head :title="`طلب #${order.number}`" />
 
-        <div class="mx-auto w-full max-w-6xl space-y-5 p-4 md:p-6">
-            <!-- ── Header ─────────────────────────────────────────────── -->
-            <div class="flex flex-wrap items-center gap-3">
-                <div class="flex items-center gap-1">
-                    <Link v-if="neighbours.next" :href="`/orders/${neighbours.next}`" class="btn-ghost px-2" title="الطلب اللي بعده">
-                        <ChevronRight class="size-4" />
-                    </Link>
-                    <Link v-if="neighbours.prev" :href="`/orders/${neighbours.prev}`" class="btn-ghost px-2" title="الطلب اللي قبله">
-                        <ChevronLeft class="size-4" />
-                    </Link>
-                </div>
-
-                <div class="min-w-0">
-                    <h1 class="tabular text-2xl font-bold tracking-tight">طلب #{{ order.number }}</h1>
-                    <p class="mt-0.5 text-sm text-muted-foreground">
+        <div class="mx-auto w-full max-w-6xl space-y-5 px-4 pb-6 md:px-6">
+            <!-- ── Header: large title, previous / next ─────────────────── -->
+            <div class="flex flex-wrap items-end gap-3">
+                <div class="min-w-0 flex-1">
+                    <!-- `<bdi>`: bare, "#38" in an RTL line is printed "38#". -->
+                    <h1 class="text-large-title">طلب <bdi class="tabular">#{{ order.number }}</bdi></h1>
+                    <p class="mt-0.5 text-[15px] text-muted-foreground">
                         {{ order.created_at }} · {{ order.created_ago }}
                     </p>
                 </div>
 
-                <div class="mr-auto flex flex-wrap items-center gap-2">
-                    <button v-if="canShipViaDaman" class="btn-primary" :disabled="shipping" @click="shipViaDaman">
-                        <LoaderCircle v-if="shipping" class="size-4 animate-spin" />
-                        <Truck v-else class="size-4" />
-                        شحن عبر ضمان
-                    </button>
-
-                    <a :href="whatsappUrl" target="_blank" rel="noopener" class="btn-primary">
-                        <MessageCircle class="size-4" />
-                        أكّد على واتساب
-                    </a>
-                    <a :href="`/orders/waybills?ids=${order.id}`" target="_blank" class="btn-outline">
-                        <Printer class="size-4" />
-                        بوليصة
-                    </a>
+                <!-- Up and down through the list, as in Mail. -->
+                <div class="ios-segmented shrink-0">
+                    <Link v-if="neighbours.next" :href="`/orders/${neighbours.next}`" class="ios-segment !px-2.5" title="الطلب اللي بعده" aria-label="الطلب اللي بعده">
+                        <ChevronRight class="size-5" />
+                    </Link>
+                    <span v-else class="ios-segment !px-2.5 opacity-30"><ChevronRight class="size-5" /></span>
+                    <Link v-if="neighbours.prev" :href="`/orders/${neighbours.prev}`" class="ios-segment !px-2.5" title="الطلب اللي قبله" aria-label="الطلب اللي قبله">
+                        <ChevronLeft class="size-5" />
+                    </Link>
+                    <span v-else class="ios-segment !px-2.5 opacity-30"><ChevronLeft class="size-5" /></span>
                 </div>
             </div>
 
-            <!-- ── Status rail ────────────────────────────────────────── -->
-            <div class="surface flex flex-wrap items-center gap-2 p-4">
-                <span class="text-sm text-muted-foreground">الحالة</span>
-                <button
-                    v-for="s in statuses"
-                    :key="s.value"
-                    class="rounded-xl border px-3 py-1.5 text-sm transition-colors"
-                    :class="s.value === order.status
-                        ? 'border-primary bg-primary text-primary-foreground'
-                        : 'border-border text-muted-foreground hover:text-foreground'"
-                    @click="setStatus(s.value)"
-                >{{ s.label }}</button>
-            </div>
+            <!-- ── Status ───────────────────────────────────────────────
+                 One line that scrolls on a phone. The current status is the
+                 filled pill; every other is one tap away. -->
+            <section>
+                <h2 class="ios-caption mb-1.5">الحالة</h2>
+                <div class="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 md:mx-0 md:flex-wrap md:px-0">
+                    <button
+                        v-for="s in statuses"
+                        :key="s.value"
+                        type="button"
+                        class="flex min-h-[36px] shrink-0 items-center rounded-full px-4 text-[14px] font-medium transition-colors active:opacity-70"
+                        :class="s.value === order.status
+                            ? 'bg-primary font-semibold text-primary-foreground'
+                            : 'bg-card text-foreground shadow-[0_0_0_0.5px_hsl(var(--foreground)/0.1)] hover:bg-foreground/[0.04]'"
+                        :aria-pressed="s.value === order.status"
+                        @click="setStatus(s.value)"
+                    >{{ s.label }}</button>
+                </div>
+            </section>
 
-            <div class="grid gap-5 lg:grid-cols-[1fr_20rem]">
-                <!-- ── Main ───────────────────────────────────────────── -->
-                <div class="space-y-5">
-                    <section class="surface overflow-hidden">
-                        <h2 class="border-b border-border px-5 py-3.5 font-semibold">
-                            <Package class="ml-2 inline size-4" />
-                            المنتجات
-                        </h2>
+            <!--
+                Three blocks: the customer, the order, and everything else.
+                On a desk the order fills the wide column and the other two
+                stack beside it. On a phone the customer comes first — the
+                merchant opened this order to call that person.
+            -->
+            <div class="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_21rem] lg:grid-rows-[auto_1fr]">
+                <!-- ── Customer: a contact card ─────────────────────────── -->
+                <section class="surface overflow-hidden lg:col-start-2 lg:row-start-1">
+                    <div class="flex items-center gap-3.5 px-4 pb-3 pt-4">
+                        <span class="flex size-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-b from-foreground/25 to-foreground/40 text-xl font-semibold text-white">
+                            {{ order.customer_name.trim().charAt(0) }}
+                        </span>
+                        <div class="min-w-0">
+                            <p class="truncate text-[20px] font-semibold leading-tight">{{ order.customer_name }}</p>
+                            <p class="text-[13px] text-muted-foreground">العميل</p>
+                        </div>
+                    </div>
 
-                        <div class="divide-y divide-border">
-                            <div v-for="(item, i) in order.items" :key="i" class="flex items-center gap-4 px-5 py-3.5">
-                                <span class="tabular flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-sm font-semibold">
+                    <!-- The Contacts app's action row: the three things a
+                         merchant does with this person, a thumb's width each. -->
+                    <div class="grid grid-cols-3 gap-2 px-4 pb-4">
+                        <a :href="`tel:${order.customer_phone}`"
+                           class="flex flex-col items-center gap-1 rounded-[12px] bg-primary/10 py-2.5 text-[12px] font-medium text-primary transition-opacity active:opacity-60">
+                            <Phone class="size-5" />
+                            اتصل
+                        </a>
+                        <a :href="whatsappUrl" target="_blank" rel="noopener"
+                           class="flex flex-col items-center gap-1 rounded-[12px] bg-primary/10 py-2.5 text-[12px] font-medium text-primary transition-opacity active:opacity-60">
+                            <MessageCircle class="size-5" />
+                            أكّد على واتساب
+                        </a>
+                        <a :href="`/orders/waybills?ids=${order.id}`" target="_blank"
+                           class="flex flex-col items-center gap-1 rounded-[12px] bg-primary/10 py-2.5 text-[12px] font-medium text-primary transition-opacity active:opacity-60">
+                            <Printer class="size-5" />
+                            بوليصة
+                        </a>
+                    </div>
+
+                    <div class="ios-group !rounded-none !shadow-none hairline-t">
+                        <button class="ios-row w-full text-right transition-colors hover:bg-foreground/[0.03] active:bg-foreground/[0.06]"
+                                @click="copy(order.customer_phone, 'phone')">
+                            <div class="min-w-0 flex-1">
+                                <p class="text-[13px] text-muted-foreground">الموبايل</p>
+                                <p class="tabular text-[17px] text-primary" dir="ltr" style="text-align: right">{{ order.customer_phone }}</p>
+                            </div>
+                            <Check v-if="copied === 'phone'" class="size-4 text-success" />
+                            <Copy v-else class="size-4 text-muted-foreground/60" />
+                        </button>
+
+                        <button v-if="order.customer_phone_alt"
+                                class="ios-row w-full text-right transition-colors hover:bg-foreground/[0.03] active:bg-foreground/[0.06]"
+                                @click="copy(order.customer_phone_alt!, 'alt')">
+                            <div class="min-w-0 flex-1">
+                                <p class="text-[13px] text-muted-foreground">رقم تاني</p>
+                                <p class="tabular text-[17px] text-primary" dir="ltr" style="text-align: right">{{ order.customer_phone_alt }}</p>
+                            </div>
+                            <Check v-if="copied === 'alt'" class="size-4 text-success" />
+                            <Copy v-else class="size-4 text-muted-foreground/60" />
+                        </button>
+
+                        <button class="ios-row w-full items-start text-right transition-colors hover:bg-foreground/[0.03] active:bg-foreground/[0.06]"
+                                @click="copy(addressLine, 'address')">
+                            <div class="min-w-0 flex-1">
+                                <p class="flex items-center gap-1 text-[13px] text-muted-foreground"><MapPin class="size-3.5" /> العنوان</p>
+                                <p class="text-[16px] leading-relaxed">{{ addressLine || '—' }}</p>
+                            </div>
+                            <Check v-if="copied === 'address'" class="mt-1 size-4 text-success" />
+                            <Copy v-else class="mt-1 size-4 text-muted-foreground/60" />
+                        </button>
+                    </div>
+                </section>
+
+                <!-- ── The order ─────────────────────────────────────────── -->
+                <div class="space-y-5 lg:col-start-1 lg:row-span-2 lg:row-start-1">
+                    <section>
+                        <h2 class="ios-caption mb-1.5 flex items-center gap-1.5"><Package class="size-3.5" /> المنتجات</h2>
+                        <div class="ios-group">
+                            <div v-for="(item, i) in order.items" :key="i" class="ios-row min-h-[60px]">
+                                <span class="tabular flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-foreground/[0.06] text-[15px] font-semibold">
                                     {{ item.quantity }}×
                                 </span>
                                 <div class="min-w-0 flex-1">
-                                    <p class="font-medium">{{ item.name }}</p>
-                                    <p v-if="item.variant_label" class="mt-0.5 text-xs text-muted-foreground">
-                                        {{ item.variant_label }}
+                                    <p class="text-[16px] font-medium leading-snug">{{ item.name }}</p>
+                                    <p class="mt-0.5 text-[13px] text-muted-foreground">
+                                        <template v-if="item.variant_label">{{ item.variant_label }} · </template>
+                                        <span class="tabular" dir="ltr">{{ money(item.unit_price) }}</span> للقطعة
                                     </p>
                                 </div>
-                                <span class="tabular shrink-0 text-sm text-muted-foreground" dir="ltr">
-                                    {{ money(item.unit_price) }}
-                                </span>
-                                <span class="tabular w-24 shrink-0 text-left font-semibold" dir="ltr">
+                                <span class="tabular shrink-0 text-[16px] font-semibold" dir="ltr">
                                     {{ money(item.total) }}
                                 </span>
                             </div>
-                        </div>
 
-                        <dl class="space-y-2 border-t border-border bg-muted/30 px-5 py-4 text-sm">
-                            <div class="flex justify-between">
-                                <dt class="text-muted-foreground">المنتجات</dt>
-                                <dd class="tabular" dir="ltr">{{ money(order.subtotal) }}</dd>
+                            <div class="ios-row justify-between text-[15px]">
+                                <span class="text-muted-foreground">المنتجات</span>
+                                <span class="tabular" dir="ltr">{{ money(order.subtotal) }}</span>
                             </div>
-                            <div v-if="Number(order.shipping_amount) > 0" class="flex justify-between">
-                                <dt class="text-muted-foreground">الشحن</dt>
-                                <dd class="tabular" dir="ltr">{{ money(order.shipping_amount) }}</dd>
+                            <div v-if="Number(order.shipping_amount) > 0" class="ios-row justify-between text-[15px]">
+                                <span class="text-muted-foreground">الشحن</span>
+                                <span class="tabular" dir="ltr">{{ money(order.shipping_amount) }}</span>
                             </div>
-                            <div v-if="Number(order.discount_amount) > 0" class="flex justify-between text-success">
-                                <dt>الخصم</dt>
-                                <dd class="tabular" dir="ltr">−{{ money(order.discount_amount) }}</dd>
+                            <div v-if="Number(order.discount_amount) > 0" class="ios-row justify-between text-[15px] text-success">
+                                <span>الخصم</span>
+                                <span class="tabular" dir="ltr">−{{ money(order.discount_amount) }}</span>
                             </div>
-                            <div class="flex items-baseline justify-between border-t border-border pt-2">
-                                <dt class="font-semibold">المطلوب تحصيله</dt>
-                                <dd class="tabular text-lg font-bold" dir="ltr">
-                                    {{ money(order.total) }} {{ currency }}
-                                </dd>
+                            <div class="ios-row min-h-[56px] justify-between">
+                                <span class="text-[17px] font-semibold">المطلوب تحصيله</span>
+                                <span class="tabular text-[22px] font-bold tracking-tight" dir="ltr">
+                                    {{ money(order.total) }} <span class="text-[13px] font-medium text-muted-foreground">{{ currency }}</span>
+                                </span>
                             </div>
-                        </dl>
+                        </div>
                     </section>
 
-                    <section v-if="order.note" class="surface p-5">
-                        <h2 class="font-semibold">ملاحظة العميل</h2>
-                        <p class="mt-2 text-sm leading-relaxed text-muted-foreground">{{ order.note }}</p>
+                    <section v-if="order.note">
+                        <h2 class="ios-caption mb-1.5">ملاحظة العميل</h2>
+                        <p class="surface px-4 py-3.5 text-[16px] leading-relaxed">{{ order.note }}</p>
                     </section>
 
                     <!-- Where the order came from. Recorded at checkout, and the
                          only way to tell which campaign actually paid off. -->
-                    <section v-if="order.tracking && Object.keys(order.tracking).length" class="surface p-5">
-                        <h2 class="font-semibold">مصدر الزيارة</h2>
-                        <dl class="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-                            <div v-for="(value, key) in order.tracking" :key="key" class="flex gap-2">
+                    <section v-if="order.tracking && Object.keys(order.tracking).length">
+                        <h2 class="ios-caption mb-1.5">مصدر الزيارة</h2>
+                        <dl class="ios-group">
+                            <div v-for="(value, key) in order.tracking" :key="key" class="ios-row min-h-[44px] justify-between">
                                 <dt class="font-mono text-xs text-muted-foreground" dir="ltr">{{ key }}</dt>
-                                <dd class="min-w-0 flex-1 truncate" :title="value">{{ value }}</dd>
+                                <dd class="min-w-0 truncate text-[15px]" :title="value">{{ value }}</dd>
                             </div>
                         </dl>
                     </section>
+
+                    <button v-if="canShipViaDaman" class="btn-primary w-full !min-h-[50px] !text-[17px]" :disabled="shipping" @click="shipViaDaman">
+                        <LoaderCircle v-if="shipping" class="size-5 animate-spin" />
+                        <Truck v-else class="size-5" />
+                        شحن عبر ضمان
+                    </button>
                 </div>
 
-                <!-- ── Side ───────────────────────────────────────────── -->
-                <aside class="space-y-5">
-                    <section class="surface p-5">
-                        <h2 class="font-semibold">
-                            <User class="ml-2 inline size-4" />
-                            العميل
-                        </h2>
-
-                        <p class="mt-3 font-medium">{{ order.customer_name }}</p>
-
-                        <button class="mt-2 flex w-full items-center gap-2 rounded-lg bg-muted/60 px-3 py-2 text-sm transition-colors hover:bg-muted"
-                                @click="copy(order.customer_phone, 'phone')">
-                            <Phone class="size-3.5 shrink-0 text-muted-foreground" />
-                            <span class="tabular flex-1 text-right" dir="ltr">{{ order.customer_phone }}</span>
-                            <Check v-if="copied === 'phone'" class="size-3.5 text-success" />
-                            <Copy v-else class="size-3.5 text-muted-foreground" />
-                        </button>
-
-                        <button v-if="order.customer_phone_alt"
-                                class="mt-1.5 flex w-full items-center gap-2 rounded-lg bg-muted/60 px-3 py-2 text-sm transition-colors hover:bg-muted"
-                                @click="copy(order.customer_phone_alt!, 'alt')">
-                            <Phone class="size-3.5 shrink-0 text-muted-foreground" />
-                            <span class="tabular flex-1 text-right" dir="ltr">{{ order.customer_phone_alt }}</span>
-                            <Check v-if="copied === 'alt'" class="size-3.5 text-success" />
-                            <Copy v-else class="size-3.5 text-muted-foreground" />
-                        </button>
-
-                        <button class="mt-3 flex w-full items-start gap-2 rounded-lg bg-muted/60 px-3 py-2 text-right text-sm transition-colors hover:bg-muted"
-                                @click="copy(addressLine, 'address')">
-                            <MapPin class="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-                            <span class="flex-1 leading-relaxed">{{ addressLine || '—' }}</span>
-                            <Check v-if="copied === 'address'" class="mt-0.5 size-3.5 text-success" />
-                            <Copy v-else class="mt-0.5 size-3.5 text-muted-foreground" />
-                        </button>
-                    </section>
-
+                <!-- ── Everything else ───────────────────────────────────── -->
+                <aside class="space-y-5 lg:col-start-2 lg:row-start-2">
                     <!-- ── Network record ──────────────────────────────────
                          Above the store's own history on purpose: a customer
                          who is new here but has refused four parcels elsewhere
@@ -310,43 +340,45 @@ const sendWhatsapp = () => {
                     -->
                     <section
                         v-if="network_reputation"
-                        class="surface p-5"
-                        :class="network_reputation.risky ? 'border-destructive/50 bg-destructive/[0.03]' : 'border-success/40'"
+                        class="surface p-4"
+                        :class="network_reputation.risky ? 'bg-destructive/[0.04] !shadow-[0_0_0_0.5px_hsl(var(--destructive)/0.45)]' : ''"
                     >
-                        <div class="flex items-start gap-2">
-                            <ShieldAlert v-if="network_reputation.risky" class="mt-0.5 size-4 shrink-0 text-destructive" />
-                            <ShieldCheck v-else class="mt-0.5 size-4 shrink-0 text-success" />
+                        <div class="flex items-start gap-3">
+                            <span class="ios-tile" :class="network_reputation.risky ? 'bg-destructive' : 'bg-success'">
+                                <ShieldAlert v-if="network_reputation.risky" class="size-[18px]" />
+                                <ShieldCheck v-else class="size-[18px]" />
+                            </span>
                             <div class="min-w-0">
-                                <h2 class="font-semibold">سجله على المنصة</h2>
-                                <p class="mt-0.5 text-xs text-muted-foreground">
+                                <h2 class="text-[17px] font-semibold leading-snug">سجله على المنصة</h2>
+                                <p class="text-[13px] text-muted-foreground">
                                     من {{ network_reputation.stores }} متجر على متجر برو
                                 </p>
                             </div>
                         </div>
 
                         <div class="mt-4 grid grid-cols-3 gap-2 text-center">
-                            <div>
-                                <p class="tabular text-lg font-bold text-success">{{ network_reputation.delivered }}</p>
-                                <p class="text-xs text-muted-foreground">استلم</p>
+                            <div class="rounded-[10px] bg-foreground/[0.04] py-2">
+                                <p class="tabular text-[20px] font-bold text-success">{{ network_reputation.delivered }}</p>
+                                <p class="text-[12px] text-muted-foreground">استلم</p>
                             </div>
-                            <div>
-                                <p class="tabular text-lg font-bold" :class="network_reputation.refused ? 'text-destructive' : ''">
+                            <div class="rounded-[10px] bg-foreground/[0.04] py-2">
+                                <p class="tabular text-[20px] font-bold" :class="network_reputation.refused ? 'text-destructive' : ''">
                                     {{ network_reputation.refused }}
                                 </p>
-                                <p class="text-xs text-muted-foreground">رفض</p>
+                                <p class="text-[12px] text-muted-foreground">رفض</p>
                             </div>
-                            <div>
-                                <p class="tabular text-lg font-bold">{{ network_reputation.delivery_rate }}%</p>
-                                <p class="text-xs text-muted-foreground">نسبة التسليم</p>
+                            <div class="rounded-[10px] bg-foreground/[0.04] py-2">
+                                <p class="tabular text-[20px] font-bold">{{ network_reputation.delivery_rate }}%</p>
+                                <p class="text-[12px] text-muted-foreground">نسبة التسليم</p>
                             </div>
                         </div>
 
                         <p
                             v-if="network_reputation.summary"
-                            class="mt-3 rounded-lg p-2.5 text-xs leading-relaxed"
+                            class="mt-3 rounded-[10px] p-2.5 text-[13px] leading-relaxed"
                             :class="network_reputation.risky
-                                ? 'bg-destructive/5 text-destructive'
-                                : 'bg-success/5 text-success'"
+                                ? 'bg-destructive/[0.08] text-destructive'
+                                : 'bg-success/[0.08] text-success'"
                         >
                             {{ network_reputation.summary }}
                         </p>
@@ -354,44 +386,44 @@ const sendWhatsapp = () => {
                         <!-- The boundary, said out loud. A merchant seeing
                              another shop's data would be a problem; they should
                              know this is not that. -->
-                        <p class="mt-3 text-[11px] leading-relaxed text-muted-foreground">
+                        <p class="mt-3 text-[12px] leading-relaxed text-muted-foreground">
                             أرقام مجمّعة عن الرقم ده بس — مافيش أي بيانات عن متاجر تانية أو مشترياته منها.
                         </p>
                     </section>
 
                     <!-- The number that decides whether this parcel is worth
                          shipping. Scoped to this store's own history. -->
-                    <section class="surface p-5" :class="{ 'border-destructive/40': isRisky }">
-                        <h2 class="font-semibold">سجل العميل</h2>
+                    <section class="surface p-4" :class="{ 'bg-destructive/[0.04] !shadow-[0_0_0_0.5px_hsl(var(--destructive)/0.4)]': isRisky }">
+                        <h2 class="text-[17px] font-semibold">سجل العميل</h2>
 
-                        <p v-if="customer_history.orders === 0" class="mt-2 text-sm text-muted-foreground">
+                        <p v-if="customer_history.orders === 0" class="mt-1.5 text-[15px] text-muted-foreground">
                             أول طلب ليه عندك.
                         </p>
 
                         <template v-else>
                             <div class="mt-3 grid grid-cols-3 gap-2 text-center">
-                                <div>
-                                    <p class="tabular text-lg font-bold">{{ customer_history.orders }}</p>
-                                    <p class="text-xs text-muted-foreground">طلب قبل كده</p>
+                                <div class="rounded-[10px] bg-foreground/[0.04] py-2">
+                                    <p class="tabular text-[20px] font-bold">{{ customer_history.orders }}</p>
+                                    <p class="text-[12px] text-muted-foreground">طلب قبل كده</p>
                                 </div>
-                                <div>
-                                    <p class="tabular text-lg font-bold text-success">{{ customer_history.delivered }}</p>
-                                    <p class="text-xs text-muted-foreground">اتسلّم</p>
+                                <div class="rounded-[10px] bg-foreground/[0.04] py-2">
+                                    <p class="tabular text-[20px] font-bold text-success">{{ customer_history.delivered }}</p>
+                                    <p class="text-[12px] text-muted-foreground">اتسلّم</p>
                                 </div>
-                                <div>
-                                    <p class="tabular text-lg font-bold" :class="customer_history.refused ? 'text-destructive' : ''">
+                                <div class="rounded-[10px] bg-foreground/[0.04] py-2">
+                                    <p class="tabular text-[20px] font-bold" :class="customer_history.refused ? 'text-destructive' : ''">
                                         {{ customer_history.refused }}
                                     </p>
-                                    <p class="text-xs text-muted-foreground">رفض</p>
+                                    <p class="text-[12px] text-muted-foreground">رفض</p>
                                 </div>
                             </div>
 
-                            <p v-if="customer_history.delivery_rate !== null" class="mt-3 text-center text-sm">
+                            <p v-if="customer_history.delivery_rate !== null" class="mt-3 text-center text-[15px]">
                                 نسبة التسليم
                                 <span class="tabular font-bold">{{ customer_history.delivery_rate }}%</span>
                             </p>
 
-                            <p v-if="isRisky" class="mt-3 flex items-start gap-1.5 rounded-lg bg-destructive/5 p-2.5 text-xs text-destructive">
+                            <p v-if="isRisky" class="mt-3 flex items-start gap-1.5 rounded-[10px] bg-destructive/[0.08] p-2.5 text-[13px] text-destructive">
                                 <AlertTriangle class="mt-0.5 size-3.5 shrink-0" />
                                 رفض {{ customer_history.refused }} طلبات قبل كده — أكّد معاه قبل ما تشحن.
                             </p>
@@ -402,8 +434,8 @@ const sendWhatsapp = () => {
                          Separate from the order status because "never answered"
                          and "not looked at yet" are different problems, and the
                          merchant's follow-up list is built from the difference. -->
-                    <section v-if="whatsapp_enabled || order.whatsapp.state" class="surface p-5">
-                        <h2 class="flex flex-wrap items-center gap-2 font-semibold">
+                    <section v-if="whatsapp_enabled || order.whatsapp.state" class="surface p-4">
+                        <h2 class="flex flex-wrap items-center gap-2 text-[17px] font-semibold">
                             <MessageCircle class="size-4" />
                             تأكيد واتساب
                             <span
@@ -415,7 +447,7 @@ const sendWhatsapp = () => {
                             <span v-else class="badge-neutral">ماتبعتش</span>
                         </h2>
 
-                        <dl v-if="order.whatsapp.sent_at" class="mt-3 space-y-2 text-sm text-muted-foreground">
+                        <dl v-if="order.whatsapp.sent_at" class="mt-3 space-y-2 text-[15px] text-muted-foreground">
                             <div class="flex justify-between gap-3">
                                 <dt>اتبعتت</dt>
                                 <dd class="tabular text-foreground" dir="ltr">{{ order.whatsapp.sent_at }}</dd>
@@ -426,7 +458,7 @@ const sendWhatsapp = () => {
                             </div>
                         </dl>
 
-                        <p v-if="order.whatsapp.error" class="mt-3 flex items-start gap-1.5 rounded-lg bg-destructive/5 p-2.5 text-xs leading-relaxed text-destructive">
+                        <p v-if="order.whatsapp.error" class="mt-3 flex items-start gap-1.5 rounded-[10px] bg-destructive/[0.08] p-2.5 text-[13px] leading-relaxed text-destructive">
                             <AlertTriangle class="mt-0.5 size-3.5 shrink-0" />
                             {{ order.whatsapp.error }}
                         </p>
@@ -447,61 +479,55 @@ const sendWhatsapp = () => {
                          the Daman order number is what their support asks for,
                          the tracking number is the carrier's own waybill and
                          the only one a courier hotline recognises. -->
-                    <section v-if="order.daman" class="surface p-5">
-                        <h2 class="flex items-center gap-2 font-semibold">
-                            <Truck class="size-4" />
-                            الشحن عبر ضمان
-                        </h2>
+                    <section v-if="order.daman">
+                        <h2 class="ios-caption mb-1.5 flex items-center gap-1.5"><Truck class="size-3.5" /> الشحن عبر ضمان</h2>
 
-                        <template v-if="order.daman.tracking_number">
-                            <button class="mt-3 flex w-full items-center gap-2 rounded-lg bg-muted/60 px-3 py-2 text-sm transition-colors hover:bg-muted"
+                        <div v-if="order.daman.tracking_number" class="ios-group">
+                            <button class="ios-row w-full transition-colors hover:bg-foreground/[0.03] active:bg-foreground/[0.06]"
                                     @click="copy(order.daman.tracking_number!, 'awb')">
-                                <span class="shrink-0 text-xs text-muted-foreground">البوليصة</span>
-                                <span class="tabular flex-1 text-left font-medium" dir="ltr">{{ order.daman.tracking_number }}</span>
-                                <Check v-if="copied === 'awb'" class="size-3.5 text-success" />
-                                <Copy v-else class="size-3.5 text-muted-foreground" />
+                                <span class="shrink-0 text-[15px] text-muted-foreground">البوليصة</span>
+                                <span class="tabular flex-1 text-left text-[15px] font-medium" dir="ltr">{{ order.daman.tracking_number }}</span>
+                                <Check v-if="copied === 'awb'" class="size-4 text-success" />
+                                <Copy v-else class="size-4 text-muted-foreground/60" />
                             </button>
+                            <div v-if="order.daman.order_number" class="ios-row justify-between text-[15px]">
+                                <span class="text-muted-foreground">رقم طلب ضمان</span>
+                                <span class="tabular" dir="ltr">{{ order.daman.order_number }}</span>
+                            </div>
+                            <div v-if="order.daman.carrier" class="ios-row justify-between text-[15px]">
+                                <span class="text-muted-foreground">شركة الشحن</span>
+                                <span>{{ order.daman.carrier }}</span>
+                            </div>
+                            <div v-if="order.daman.status_note" class="ios-row justify-between text-[15px]">
+                                <span class="text-muted-foreground">آخر حالة</span>
+                                <span>{{ order.daman.status_note }}</span>
+                            </div>
+                            <div v-if="order.daman.sent_at" class="ios-row justify-between text-[15px]">
+                                <span class="text-muted-foreground">اتبعت</span>
+                                <span class="tabular" dir="ltr">{{ order.daman.sent_at }}</span>
+                            </div>
+                        </div>
 
-                            <dl class="mt-3 space-y-2 text-sm text-muted-foreground">
-                                <div v-if="order.daman.order_number" class="flex justify-between gap-3">
-                                    <dt>رقم طلب ضمان</dt>
-                                    <dd class="tabular text-foreground" dir="ltr">{{ order.daman.order_number }}</dd>
-                                </div>
-                                <div v-if="order.daman.carrier" class="flex justify-between gap-3">
-                                    <dt>شركة الشحن</dt>
-                                    <dd class="text-foreground">{{ order.daman.carrier }}</dd>
-                                </div>
-                                <div v-if="order.daman.status_note" class="flex justify-between gap-3">
-                                    <dt>آخر حالة</dt>
-                                    <dd class="text-foreground">{{ order.daman.status_note }}</dd>
-                                </div>
-                                <div v-if="order.daman.sent_at" class="flex justify-between gap-3">
-                                    <dt>اتبعت</dt>
-                                    <dd class="tabular text-foreground" dir="ltr">{{ order.daman.sent_at }}</dd>
-                                </div>
-                            </dl>
-                        </template>
-
-                        <p v-else-if="order.daman.error" class="mt-3 flex items-start gap-1.5 rounded-lg bg-destructive/5 p-2.5 text-xs leading-relaxed text-destructive">
+                        <p v-else-if="order.daman.error" class="surface flex items-start gap-1.5 p-3 text-[13px] leading-relaxed text-destructive">
                             <AlertTriangle class="mt-0.5 size-3.5 shrink-0" />
                             {{ order.daman.error }}
                         </p>
                     </section>
 
-                    <section class="surface p-5 text-sm">
-                        <h2 class="font-semibold">تفاصيل</h2>
-                        <dl class="mt-3 space-y-2 text-muted-foreground">
-                            <div class="flex justify-between gap-3">
-                                <dt>طريقة الدفع</dt>
-                                <dd class="text-foreground">الدفع عند الاستلام</dd>
+                    <section>
+                        <h2 class="ios-caption mb-1.5">تفاصيل</h2>
+                        <dl class="ios-group text-[15px]">
+                            <div class="ios-row justify-between">
+                                <dt class="text-muted-foreground">طريقة الدفع</dt>
+                                <dd>الدفع عند الاستلام</dd>
                             </div>
-                            <div class="flex justify-between gap-3">
-                                <dt>الحالة</dt>
+                            <div class="ios-row justify-between">
+                                <dt class="text-muted-foreground">الحالة</dt>
                                 <dd><span :class="STATUS_BADGE[order.status]">{{ order.status_label }}</span></dd>
                             </div>
-                            <div v-if="order.ip" class="flex justify-between gap-3">
-                                <dt>IP</dt>
-                                <dd class="font-mono text-xs text-foreground" dir="ltr">{{ order.ip }}</dd>
+                            <div v-if="order.ip" class="ios-row justify-between">
+                                <dt class="text-muted-foreground">IP</dt>
+                                <dd class="font-mono text-xs" dir="ltr">{{ order.ip }}</dd>
                             </div>
                         </dl>
                     </section>
