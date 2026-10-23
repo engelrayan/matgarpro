@@ -35,6 +35,27 @@ class CheckoutTest extends TestCase
         ], $overrides);
     }
 
+    /**
+     * The confirmation shows a phone number and a basket, and order ids count
+     * up by one. Only the link the customer was redirected to may open it.
+     */
+    public function test_the_thank_you_page_opens_only_through_the_signed_redirect(): void
+    {
+        $store = $this->store();
+        $product = Product::factory()->for($store)->create(['price' => 300, 'stock' => 10]);
+
+        $redirect = $this->post($this->host($store) . '/checkout', $this->customer([
+            'product_id' => $product->id,
+        ]))->assertRedirect()->headers->get('Location');
+
+        $order = Order::firstOrFail();
+
+        $this->get($redirect)->assertOk()->assertSee($order->customer_phone);
+
+        $this->get($this->host($store) . '/thanks/' . $order->id)->assertNotFound();
+        $this->get($this->host($store) . '/thanks/' . $order->id . '?signature=forged')->assertNotFound();
+    }
+
     public function test_a_customer_can_place_a_cash_on_delivery_order(): void
     {
         $store = $this->store();

@@ -46,6 +46,17 @@ class PlaceOrder
         }
 
         $order = DB::transaction(function () use ($store, $lines, $customer) {
+            /*
+             | The store row first, before any product. It serialises this
+             | shop's checkouts for the few milliseconds the transaction lasts,
+             | which is what makes `nextNumber()` safe: product locks alone let
+             | two orders for *different* products read the same max, and the
+             | loser hit the unique index as a 500 — a lost sale, most likely
+             | in the minute an ad starts converting. Always store-then-product,
+             | so two checkouts can never wait on each other in a circle.
+             */
+            Store::whereKey($store->id)->lockForUpdate()->first();
+
             $items = $this->resolveLines($store, $lines);
 
             $subtotal = array_sum(array_column($items, 'total'));
@@ -226,9 +237,8 @@ class PlaceOrder
     /**
      * Next per-store order number.
      *
-     * Read inside the caller's transaction while the store's other rows are
-     * already locked; the unique index on (store_id, number) is the real
-     * guarantee if two checkouts ever land in the same millisecond.
+     * Only safe inside the caller's transaction, after it has locked the store
+     * row; the unique index on (store_id, number) stays as the backstop.
      */
     private function nextNumber(Store $store): int
     {

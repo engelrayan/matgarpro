@@ -187,6 +187,27 @@ class OrderOperationsTest extends TestCase
         $this->assertStringContainsString('رقم الطلب', $csv);
     }
 
+    /**
+     * Name, address and note come from the public order form, and this file
+     * is opened in Excel. A formula typed by a "customer" must arrive as text.
+     */
+    public function test_the_export_neutralises_formulas_typed_into_the_order_form(): void
+    {
+        $this->order([
+            'customer_name' => '=HYPERLINK("http://evil.test","اضغط")',
+            'address' => '@SUM(1+1)',
+            'note' => '+cmd',
+        ]);
+
+        $csv = $this->actingAs($this->user)->get('http://localhost/orders/export')->streamedContent();
+
+        $this->assertStringContainsString("'=HYPERLINK", $csv);
+        $this->assertStringContainsString("'@SUM", $csv);
+        $this->assertStringContainsString("'+cmd", $csv);
+        $this->assertStringNotContainsString(',=HYPERLINK', $csv);
+        $this->assertStringNotContainsString(',"=HYPERLINK', $csv);
+    }
+
     public function test_the_export_respects_the_current_filter(): void
     {
         $this->order(['customer_name' => 'مراجعة', 'status' => Order::STATUS_PENDING]);

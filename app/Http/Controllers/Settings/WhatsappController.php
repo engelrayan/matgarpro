@@ -9,6 +9,7 @@ use App\Models\StoreWhatsappIntegration;
 use App\Models\WhatsappMessage;
 use App\Services\Whatsapp\DriverFactory;
 use App\Services\Whatsapp\OrderConfirmationMessage;
+use App\Services\Whatsapp\Whats360Driver;
 use App\Support\Phone;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -104,7 +105,11 @@ class WhatsappController extends Controller
             'instance' => ['required_if:driver,wapilot', 'nullable', 'string', 'max:100'],
             // Whats360
             'instance_id' => ['required_if:driver,whats360', 'nullable', 'string', 'max:100'],
-            'base_url' => ['nullable', 'string', 'max:200', 'url'],
+            'base_url' => ['nullable', 'string', 'max:200', 'url', function (string $attribute, mixed $value, \Closure $fail) {
+                if (! Whats360Driver::allows($value)) {
+                    $fail('الرابط لازم يكون على دومين whats360.live ويبدأ بـ https://');
+                }
+            }],
             // Cloud API
             'access_token' => ['required_if:driver,cloud_api', 'nullable', 'string', 'max:1000'],
             'phone_number_id' => ['required_if:driver,cloud_api', 'nullable', 'string', 'max:64'],

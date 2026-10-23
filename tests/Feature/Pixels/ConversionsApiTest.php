@@ -11,6 +11,7 @@ use App\Models\StorePixel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
 
 class ConversionsApiTest extends TestCase
@@ -311,7 +312,9 @@ class ConversionsApiTest extends TestCase
         $this->pixel();
         $order = $this->order();
 
-        $this->get('http://' . $this->store->platformHost() . '/thanks/' . $order->id)
+        $path = URL::signedRoute('storefront.thanks', ['order' => $order->id], absolute: false);
+
+        $this->get('http://' . $this->store->platformHost() . $path)
             ->assertOk()
             ->assertSee('Purchase')
             ->assertSee(SendMetaPurchaseEvent::eventIdFor($order));

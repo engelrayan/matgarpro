@@ -14,6 +14,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use App\Services\Storefront\CartCapture;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -89,11 +90,22 @@ class CheckoutController extends Controller
         // customer about an order they already placed.
         $this->carts->recover($request, $store, $order);
 
-        return redirect()->route('storefront.thanks', $order->id);
+        /*
+         | Signed, because the page shows the customer's phone and basket and
+         | order ids count up by one: unsigned, `/thanks/1…N` is the whole
+         | store's customer list for anyone with a loop. Relative, because the
+         | same order is reached on the platform sub-domain and on the
+         | merchant's own domain, behind a proxy that may rewrite the scheme.
+         */
+        return redirect()->to(URL::signedRoute('storefront.thanks', ['order' => $order->id], absolute: false));
     }
 
-    public function thanks(Store $store, int $order): View
+    public function thanks(Request $request, Store $store, int $order): View
     {
+        if (! $request->hasValidSignature(absolute: false)) {
+            throw new NotFoundHttpException();
+        }
+
         $order = $store->orders()->with('items')->find($order);
 
         if (! $order) {

@@ -14,10 +14,11 @@ use Illuminate\Support\Str;
  * Attaching, verifying and retiring the custom domains a merchant points at
  * their store.
  *
- * The trust model is deliberately simple: control of a domain's DNS is proof of
- * ownership. We never issue anything for a hostname that has not already been
- * pointed at us, so a merchant typing someone else's domain into the form
- * achieves nothing.
+ * A domain goes live only on two pieces of evidence: it points at us, and its
+ * zone carries the TXT token minted for *this* store. Pointing alone proves
+ * nothing about who owns it — a merchant moving over from another platform
+ * points their DNS here first, and without the token whichever store typed the
+ * name in earliest would be handed their shop.
  */
 class StoreDomainService
 {
@@ -74,7 +75,14 @@ class StoreDomainService
                     return $existing;
                 }
 
-                throw DomainException::alreadyTaken($domain);
+                // A claim that never proved itself does not hold a name
+                // forever. Otherwise typing a brand's domain in first is
+                // enough to lock its real owner out of the platform.
+                if (! $this->isStaleClaim($existing)) {
+                    throw DomainException::alreadyTaken($domain);
+                }
+
+                $existing->delete();
             }
 
             $isFirst = ! $store->domains()->exists();
@@ -103,11 +111,20 @@ class StoreDomainService
         $domain->last_checked_at = now();
         $domain->check_attempts = $domain->check_attempts + 1;
 
-        if ($result['points_at_us']) {
+        // A domain already serving keeps serving: the token proved ownership
+        // when it went live, and merchants tidy TXT records away afterwards.
+        $proven = $domain->status === StoreDomain::STATUS_ACTIVE
+            || ($result['points_at_us'] && $this->hasOwnershipToken($domain));
+
+        if ($result['points_at_us'] && $proven) {
             $domain->status = StoreDomain::STATUS_ACTIVE;
             $domain->last_error = null;
             $domain->verified_at ??= now();
         } else {
+            if ($result['points_at_us']) {
+                $result['reason'] = 'الدومين بيشاور علينا تمام — فاضل سجل الـ TXT اللي تحت عشان نتأكد إن الدومين بتاعك.';
+            }
+
             $giveUpAfter = (int) config('storefront.verification.give_up_after_hours');
             $expired = $domain->created_at?->addHours($giveUpAfter)->isPast() ?? false;
 
@@ -175,13 +192,34 @@ class StoreDomainService
         return ['points_at_us' => false, 'reason' => $reason, 'a' => $aRecords, 'cname' => $cname];
     }
 
-    /** Has the merchant added our TXT proof? Optional path for live domains. */
+    /**
+     * Has the merchant added this store's TXT proof?
+     *
+     * Accepted on `_matgarpro.{domain}` (what the instructions ask for) and on
+     * the domain itself, because some DNS panels cannot create underscore
+     * names.
+     */
     public function hasOwnershipToken(StoreDomain $domain): bool
     {
         $values = $this->dns->txtRecords('_matgarpro.' . $domain->domain);
 
         return in_array($domain->verification_token, $values, true)
             || in_array($domain->verification_token, $this->dns->txtRecords($domain->domain), true);
+    }
+
+    /**
+     * A row from another store that may be taken over: it never went live and
+     * has sat unproven past the verification window.
+     */
+    private function isStaleClaim(StoreDomain $domain): bool
+    {
+        if ($domain->status === StoreDomain::STATUS_ACTIVE) {
+            return false;
+        }
+
+        $window = (int) config('storefront.verification.give_up_after_hours');
+
+        return $domain->created_at?->addHours($window)->isPast() ?? true;
     }
 
     /**

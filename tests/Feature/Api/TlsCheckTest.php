@@ -16,15 +16,19 @@ class TlsCheckTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_it_allows_a_domain_a_merchant_attached(): void
+    public function test_it_allows_a_domain_a_merchant_attached_and_proved(): void
     {
         $store = Store::factory()->create();
-        StoreDomain::factory()->for($store)->create(['domain' => 'mahmoud.com']);
+        StoreDomain::factory()->for($store)->active()->create(['domain' => 'mahmoud.com']);
 
         $this->get('/api/tls/check?domain=mahmoud.com')->assertOk();
     }
 
-    public function test_it_allows_a_pending_domain_because_https_must_work_on_the_first_hit(): void
+    /**
+     * A pending row is only a claim. Issuing for it would put a valid padlock
+     * on a shop that has not shown it owns the name.
+     */
+    public function test_it_refuses_a_pending_domain(): void
     {
         $store = Store::factory()->create();
         StoreDomain::factory()->for($store)->create([
@@ -32,7 +36,7 @@ class TlsCheckTest extends TestCase
             'status' => StoreDomain::STATUS_PENDING,
         ]);
 
-        $this->get('/api/tls/check?domain=mahmoud.com')->assertOk();
+        $this->get('/api/tls/check?domain=mahmoud.com')->assertNotFound();
     }
 
     public function test_it_allows_a_platform_subdomain_of_a_real_store(): void

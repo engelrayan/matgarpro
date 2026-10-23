@@ -159,7 +159,7 @@ class Whats360DriverTest extends TestCase
 
     public function test_a_wrong_host_is_reported_as_a_wrong_host(): void
     {
-        $link = $this->link(['base_url' => 'https://example.com']);
+        $link = $this->link(['base_url' => 'https://old.whats360.live']);
 
         Http::fake(['*' => Http::response('Not Found', 404)]);
 
@@ -167,6 +167,51 @@ class Whats360DriverTest extends TestCase
 
         $this->assertFalse($result['ok']);
         $this->assertStringContainsString('رابط الخدمة', $result['message']);
+    }
+
+    /**
+     * The server POSTs to this address and shows the merchant the answer, so
+     * anything outside their domain would turn the settings page into a probe
+     * of our own network.
+     */
+    public function test_it_never_calls_a_host_outside_whats360(): void
+    {
+        $link = $this->link();
+
+        foreach ([
+            'http://127.0.0.1:2019/stop?',
+            'https://169.254.169.254/latest',
+            'http://whats360.live',
+            'https://whats360.live.attacker.com',
+            'https://whats360.live@127.0.0.1',
+            'https://whats360.live:2019',
+        ] as $base) {
+            // As if stored before the settings rule existed.
+            $link->credentials = [...$link->credentials, 'base_url' => $base];
+
+            Http::fake(['*' => Http::response(['success' => true, 'message_id' => 'X1'])]);
+
+            (new Whats360Driver($link))->send('201223344556', 'hello');
+
+            Http::assertSent(fn ($request) => $request->url() === 'https://whats360.live/api/v1/send');
+            Http::assertNotSent(fn ($request) => ! str_starts_with($request->url(), 'https://whats360.live/'));
+        }
+    }
+
+    public function test_the_settings_screen_refuses_a_host_outside_whats360(): void
+    {
+        Http::fake();
+
+        $this->actingAs($this->user)
+            ->put('http://localhost/settings/whatsapp', [
+                'driver' => 'whats360',
+                'token' => 'tok_' . str_repeat('a', 20),
+                'instance_id' => 'device_xyz',
+                'base_url' => 'http://127.0.0.1:2019/stop?',
+            ])
+            ->assertSessionHasErrors('base_url');
+
+        Http::assertNothingSent();
     }
 
     // ── Replies ─────────────────────────────────────────────────────────────
