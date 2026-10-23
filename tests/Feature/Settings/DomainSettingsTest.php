@@ -40,7 +40,7 @@ class DomainSettingsTest extends TestCase
                 ->where('domains.0.is_primary', true));
     }
 
-    public function test_adding_a_domain_that_already_points_at_us_works_immediately(): void
+    public function test_a_domain_pointing_at_us_waits_for_the_txt_proof_then_goes_live(): void
     {
         $user = User::factory()->create();
         Store::factory()->for($user)->create();
@@ -51,10 +51,17 @@ class DomainSettingsTest extends TestCase
             ->post('http://localhost/settings/domains', ['domain' => 'https://MAHMOUD.com/'])
             ->assertRedirect();
 
-        $this->assertDatabaseHas('store_domains', [
-            'domain' => 'mahmoud.com',
-            'status' => StoreDomain::STATUS_ACTIVE,
-        ]);
+        $domain = StoreDomain::where('domain', 'mahmoud.com')->firstOrFail();
+        $this->assertSame(StoreDomain::STATUS_PENDING, $domain->status);
+        $this->assertStringContainsString('TXT', $domain->last_error);
+
+        $this->dns->pointTxt('_matgarpro.mahmoud.com', $domain->verification_token);
+
+        $this->actingAs($user)
+            ->post("http://localhost/settings/domains/{$domain->id}/verify")
+            ->assertRedirect();
+
+        $this->assertSame(StoreDomain::STATUS_ACTIVE, $domain->fresh()->status);
     }
 
     public function test_a_bad_domain_comes_back_as_a_field_error(): void

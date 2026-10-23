@@ -11,6 +11,13 @@
 {
 	email ops@matgarpro.com
 
+	# Off the network. By default the admin API listens on localhost:2019 and
+	# answers an unauthenticated `POST /stop` — one request from anything on
+	# this box that can be talked into making it (a merchant-supplied webhook
+	# URL, say) takes every store offline. A socket only root and caddy can
+	# open still lets `caddy reload` work.
+	admin unix//var/lib/caddy/admin.sock
+
 	on_demand_tls {
 		# Caddy calls this BEFORE asking the CA for a certificate. A 2xx means
 		# the hostname belongs to a real store; anything else refuses the
@@ -58,7 +65,10 @@ app.matgarpro.com {
 	# measurable share of the merchant's budget.
 	header {
 		-Server
-		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		# No includeSubDomains: this block also answers on merchants' own
+		# domains, and pinning HTTPS onto every sub-domain of a shop's brand
+		# — their mail panel, their old blog — is not ours to decide.
+		Strict-Transport-Security "max-age=31536000"
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "strict-origin-when-cross-origin"
 	}

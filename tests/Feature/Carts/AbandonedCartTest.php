@@ -47,6 +47,28 @@ class AbandonedCartTest extends TestCase
         $this->assertSame('الإسكندرية', $cart->governorate);
     }
 
+    /**
+     * The carts screen shows the product's name, photo and price, so a cart
+     * must never point at a product from another shop — that would let one
+     * merchant read a competitor's catalogue, drafts included.
+     */
+    public function test_a_cart_never_points_at_another_stores_product(): void
+    {
+        $theirs = Product::factory()->for(Store::factory())->create(['status' => Product::STATUS_DRAFT]);
+        $theirVariant = $theirs->variants()->create(['price' => 100, 'stock' => 1, 'options' => ['اللون' => 'أحمر']]);
+
+        $this->beacon([
+            'product_id' => $theirs->id,
+            'variant_id' => $theirVariant->id,
+            'customer_phone' => '01223344556',
+        ]);
+
+        $cart = AbandonedCart::firstOrFail();
+
+        $this->assertNull($cart->product_id);
+        $this->assertNull($cart->product_variant_id);
+    }
+
     /** Before a phone there is nothing to chase; the funnel already counts it. */
     public function test_nothing_is_kept_without_a_reachable_phone(): void
     {

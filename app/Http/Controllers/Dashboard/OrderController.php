@@ -10,6 +10,7 @@ use App\Support\ArabicNumerals;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -322,9 +323,15 @@ class OrderController extends Controller
 
         // Scoped to the merchant's own store rather than trusting the posted
         // ids — a crafted list would otherwise reach another store's orders.
-        $store->orders()
+        //
+        // Saved one model at a time, not with a single UPDATE: a query-builder
+        // update skips OrderObserver, so the most-used action on this screen
+        // was the one that never reached the customer's delivery record.
+        DB::transaction(fn () => $store->orders()
             ->whereIn('id', $validated['ids'])
-            ->update(['status' => $validated['status']]);
+            ->where('status', '!=', $validated['status'])
+            ->get()
+            ->each(fn (Order $order) => $order->update(['status' => $validated['status']])));
 
         return back()->with('status', 'orders-updated');
     }
@@ -392,7 +399,7 @@ class OrderController extends Controller
                 ->orderBy('number')
                 ->chunk(500, function ($orders) use ($out) {
                     foreach ($orders as $order) {
-                        fputcsv($out, [
+                        fputcsv($out, array_map($this->csvCell(...), [
                             $order->number,
                             $order->created_at->format('Y-m-d H:i'),
                             $order->customer_name,
@@ -407,7 +414,7 @@ class OrderController extends Controller
                             $order->payment_method,
                             $order->statusLabel(),
                             $order->note,
-                        ]);
+                        ]));
                     }
                 });
 
@@ -415,6 +422,22 @@ class OrderController extends Controller
         }, $filename, [
             'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
+    }
+
+    /**
+     * Neutralise a cell Excel would run as a formula.
+     *
+     * Name, address and note are typed by whoever fills the public order form,
+     * and this file is opened by the merchant in Excel or Sheets. A "customer"
+     * called `=HYPERLINK(…)` would otherwise execute on the merchant's machine.
+     */
+    private function csvCell(mixed $value): mixed
+    {
+        if (is_string($value) && $value !== '' && in_array($value[0], ['=', '+', '-', '@', "\t", "\r"], true)) {
+            return "'" . $value;
+        }
+
+        return $value;
     }
 
     /** @return array<int,array{value:string,label:string}> */

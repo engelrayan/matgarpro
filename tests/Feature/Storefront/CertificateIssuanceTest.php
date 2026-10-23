@@ -55,6 +55,7 @@ class CertificateIssuanceTest extends TestCase
 
         $domain = $this->domain();
         $this->dns->pointA('mahmoud.com', ...config('storefront.dns.a'));
+        $this->dns->pointTxt('_matgarpro.mahmoud.com', $domain->verification_token);
 
         $this->service->verify($domain);
 
