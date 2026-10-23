@@ -4,10 +4,10 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
 
-        {{-- Inertia signs its own requests from the XSRF cookie. This is for the
-             one place that does not go through Inertia: the builder's image
-             upload, which posts a FormData straight to the server so it can
-             show progress and get the stored path back. --}}
+        {{-- Inertia signs its own requests from the XSRF cookie, and so does the
+             builder's image upload, which posts with fetch() — see
+             resources/js/lib/csrf.ts. This tag is only its fallback: it is
+             written once per page load and goes stale after an Inertia login. --}}
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
         <title inertia>{{ config('app.name', 'متجر برو') }}</title>
