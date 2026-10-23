@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\AI;
 
-use App\Jobs\GenerateProductDraft;
+use App\Jobs\RunAiGeneration;
 use App\Models\AiCall;
 use App\Models\AiGeneration;
 use App\Models\Category;
@@ -11,7 +11,6 @@ use App\Models\Store;
 use App\Models\User;
 use App\Services\AI\AiFeature;
 use App\Services\AI\AiUsageMeter;
-use App\Services\AI\ProductWriter\ProductDraftWriter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Http\UploadedFile;
@@ -458,16 +457,16 @@ class ProductWriterTest extends TestCase
         ]);
 
         // First attempt: put back on the queue, and the form keeps waiting.
-        $job = (new GenerateProductDraft($generation->id))->withFakeQueueInteractions();
-        $job->handle(app(ProductDraftWriter::class));
+        $job = (new RunAiGeneration($generation->id))->withFakeQueueInteractions();
+        $job->handle();
 
         $job->assertReleased(15);
         $this->assertSame(AiGeneration::STATUS_RUNNING, $generation->fresh()->status);
 
         // Last attempt: now the merchant is told.
-        $job = (new GenerateProductDraft($generation->id))->withFakeQueueInteractions();
+        $job = (new RunAiGeneration($generation->id))->withFakeQueueInteractions();
         $job->job->attempts = 2;
-        $job->handle(app(ProductDraftWriter::class));
+        $job->handle();
 
         $job->assertNotReleased();
         $this->assertSame(AiGeneration::STATUS_FAILED, $generation->fresh()->status);

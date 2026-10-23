@@ -4,20 +4,25 @@ namespace App\Jobs;
 
 use App\Models\AiGeneration;
 use App\Services\AI\AiException;
-use App\Services\AI\ProductWriter\ProductDraftWriter;
+use App\Services\AI\AiFeature;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Facades\Storage;
 use Throwable;
 
 /**
- * Writes one product draft while the merchant's form polls for it.
+ * Produces one AI draft while the merchant's screen polls for it.
  *
- * Queued, on the `ai` queue, because a Claude call with photos takes long
- * enough that doing it inside the request would hold a PHP worker for most of
- * a minute — and the dashboard has few of those to spare.
+ * One job for every on-screen AI feature — the product writer, the store
+ * builder, whatever comes next. The feature's GeneratesDraft does the writing;
+ * this owns the parts that must behave the same everywhere: retrying a busy
+ * API, never leaving a spinner running forever, and deleting the merchant's
+ * uploads once there is an answer.
+ *
+ * Queued, on the `ai` queue, because a Claude call takes long enough that
+ * doing it inside the request would hold a PHP worker for most of a minute —
+ * and the dashboard has few of those to spare.
  */
-class GenerateProductDraft implements ShouldQueue
+class RunAiGeneration implements ShouldQueue
 {
     use Queueable;
 
@@ -41,7 +46,7 @@ class GenerateProductDraft implements ShouldQueue
         return 15;
     }
 
-    public function handle(ProductDraftWriter $writer): void
+    public function handle(): void
     {
         $generation = AiGeneration::with('store')->find($this->generationId);
 
@@ -50,15 +55,18 @@ class GenerateProductDraft implements ShouldQueue
             return;
         }
 
+        $generator = AiFeature::tryFrom($generation->feature)?->generator();
+
+        if ($generator === null) {
+            $this->finish($generation, fn () => $generation->markFailed(AiException::failed()->getMessage()));
+
+            return;
+        }
+
         $generation->markRunning();
 
         try {
-            $draft = $writer->write(
-                $generation->store,
-                $generation->input['notes'] ?? null,
-                $this->images($generation),
-                $generation,
-            );
+            $draft = $generator->generate($generation);
         } catch (AiException $e) {
             // Busy: leave the generation running so the browser keeps waiting,
             // and try once more. The merchant sees one slow answer instead of
@@ -87,22 +95,10 @@ class GenerateProductDraft implements ShouldQueue
         }
     }
 
-    /** The photos go as soon as there is an answer — they are unpublished. */
+    /** Uploads go as soon as there is an answer — they are unpublished. */
     private function finish(AiGeneration $generation, callable $mark): void
     {
         $mark();
         $generation->deleteInputs();
-    }
-
-    /** @return array<int,array{bytes:string,media_type:string}> */
-    private function images(AiGeneration $generation): array
-    {
-        $disk = Storage::disk('local');
-
-        return collect($generation->input['images'] ?? [])
-            ->filter(fn ($image) => $disk->exists($image['path']))
-            ->map(fn ($image) => ['bytes' => $disk->get($image['path']), 'media_type' => $image['media_type']])
-            ->values()
-            ->all();
     }
 }

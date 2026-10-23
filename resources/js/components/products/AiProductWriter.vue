@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import { AiGenerationError, useAiGeneration } from '@/composables/useAiGeneration';
 import { Check, ImagePlus, LoaderCircle, RotateCcw, Sparkles, TriangleAlert } from 'lucide-vue-next';
-import { computed, onBeforeUnmount, ref } from 'vue';
+import { computed, ref } from 'vue';
 
 /**
  * What the writer hands back. The shape the form already speaks, so applying
@@ -16,13 +17,6 @@ export interface ProductDraft {
     category_id: number | null;
     /** One line telling the merchant what to double-check, or empty. */
     heads_up: string;
-}
-
-interface Generation {
-    id: string;
-    status: 'pending' | 'running' | 'done' | 'failed';
-    draft: ProductDraft | null;
-    error: string | null;
 }
 
 const props = defineProps<{
@@ -44,9 +38,6 @@ const emit = defineEmits<{
  */
 
 const MAX_PHOTOS = 4;
-const POLL_EVERY_MS = 2000;
-// A little past the server's own expiry, so the server's message wins.
-const GIVE_UP_AFTER_MS = 6 * 60 * 1000;
 
 const state = ref<'idle' | 'working' | 'ready' | 'applied'>('idle');
 const notes = ref('');
@@ -58,15 +49,7 @@ const photos = computed(() => props.images.slice(0, MAX_PHOTOS));
 const canAsk = computed(() => photos.value.length > 0 || notes.value.trim() !== '');
 const categoryName = computed(() => props.categories.find((c) => c.id === draft.value?.category_id)?.name ?? null);
 
-let unmounted = false;
-let timer: ReturnType<typeof setTimeout> | undefined;
-
-onBeforeUnmount(() => {
-    unmounted = true;
-    clearTimeout(timer);
-});
-
-const csrf = () => document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
+const { run } = useAiGeneration();
 
 /**
  * Shrink a photo in the browser before it is uploaded.
@@ -102,48 +85,6 @@ const shrink = async (url: string): Promise<Blob | null> => {
     }
 };
 
-/** The server's own words: "ارفع صورة" tells the merchant what to do, "خطأ ٤٢٢" does not. */
-const messageFrom = (payload: { message?: string; errors?: Record<string, string[]> }) =>
-    Object.values(payload.errors ?? {})[0]?.[0] ?? payload.message ?? 'حصلت مشكلة. جرّب تاني.';
-
-const fail = (message: string) => {
-    error.value = message;
-    state.value = 'idle';
-};
-
-const wait = () => new Promise<void>((resolve) => (timer = setTimeout(resolve, POLL_EVERY_MS)));
-
-const follow = async (generation: Generation) => {
-    const started = Date.now();
-    let current = generation;
-
-    while (!unmounted) {
-        if (current.status === 'done' && current.draft) {
-            draft.value = current.draft;
-            state.value = 'ready';
-            return;
-        }
-
-        if (current.status === 'failed') {
-            return fail(current.error ?? 'حصلت مشكلة وإحنا بنكتب. جرّب تاني.');
-        }
-
-        if (Date.now() - started > GIVE_UP_AFTER_MS) {
-            return fail('الموضوع أخد وقت أكتر من اللازم. جرّب تاني.');
-        }
-
-        await wait();
-
-        const response = await fetch(`/ai/product-drafts/${current.id}`, { headers: { Accept: 'application/json' } });
-
-        if (!response.ok) {
-            return fail('حصلت مشكلة في الاتصال. جرّب تاني.');
-        }
-
-        current = await response.json();
-    }
-};
-
 const ask = async () => {
     if (!canAsk.value || state.value === 'working') return;
 
@@ -158,21 +99,11 @@ const ask = async () => {
         const blobs = await Promise.all(photos.value.map((photo) => shrink(photo.url)));
         blobs.forEach((blob, index) => blob && body.append('images[]', blob, `photo-${index}.jpg`));
 
-        const response = await fetch('/ai/product-drafts', {
-            method: 'POST',
-            body,
-            headers: { 'X-CSRF-TOKEN': csrf(), Accept: 'application/json' },
-        });
-
-        const payload = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
-            return fail(messageFrom(payload));
-        }
-
-        await follow(payload as Generation);
-    } catch {
-        fail('حصلت مشكلة في الاتصال. جرّب تاني.');
+        draft.value = (await run<ProductDraft>('/ai/product-drafts', body)).draft;
+        state.value = 'ready';
+    } catch (e) {
+        error.value = e instanceof AiGenerationError ? e.message : 'حصلت مشكلة. جرّب تاني.';
+        state.value = 'idle';
     }
 };
 

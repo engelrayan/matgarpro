@@ -2,11 +2,14 @@
 
 namespace App\Services\AI\ProductWriter;
 
+use App\Models\AiGeneration;
 use App\Models\Store;
 use App\Services\AI\AiFeature;
 use App\Services\AI\ClaudeGateway;
+use App\Services\AI\GeneratesDraft;
 use App\Support\HtmlSanitizer;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
@@ -19,7 +22,7 @@ use Illuminate\Support\Str;
  * normalised to the same limits ProductRequest enforces: a draft that fails
  * validation on save is a draft the merchant has to fix by hand.
  */
-class ProductDraftWriter
+class ProductDraftWriter implements GeneratesDraft
 {
     /** ProductRequest allows 3 options and 200 variants; stay inside both. */
     private const MAX_OPTIONS = 3;
@@ -29,6 +32,20 @@ class ProductDraftWriter
     private const MAX_VARIANTS = 200;
 
     public function __construct(private readonly ClaudeGateway $claude) {}
+
+    public function generate(AiGeneration $generation): array
+    {
+        $disk = Storage::disk('local');
+
+        // The photos the controller shrank and stashed for this generation.
+        $images = collect($generation->input['images'] ?? [])
+            ->filter(fn ($image) => $disk->exists($image['path']))
+            ->map(fn ($image) => ['bytes' => $disk->get($image['path']), 'media_type' => $image['media_type']])
+            ->values()
+            ->all();
+
+        return $this->write($generation->store, $generation->input['notes'] ?? null, $images, $generation);
+    }
 
     /**
      * @param  array<int,array{bytes:string,media_type:string}>  $images

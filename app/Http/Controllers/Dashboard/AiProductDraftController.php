@@ -3,11 +3,10 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
-use App\Jobs\GenerateProductDraft;
+use App\Http\Controllers\Dashboard\Concerns\RunsAiGenerations;
+use App\Jobs\RunAiGeneration;
 use App\Models\AiGeneration;
-use App\Services\AI\AiException;
 use App\Services\AI\AiFeature;
-use App\Services\AI\AiUsageMeter;
 use App\Services\AI\VisionImage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,10 +24,12 @@ use Illuminate\Validation\ValidationException;
  */
 class AiProductDraftController extends Controller
 {
+    use RunsAiGenerations;
+
     /** Claude reads up to 4 photos well; more mostly adds cost. */
     private const MAX_IMAGES = 4;
 
-    public function store(Request $request, AiUsageMeter $meter): JsonResponse
+    public function store(Request $request): JsonResponse
     {
         $store = $request->user()->currentStore();
 
@@ -53,25 +54,8 @@ class AiProductDraftController extends Controller
             ]);
         }
 
-        try {
-            $meter->ensureAllowed($store, AiFeature::ProductWriter);
-        } catch (AiException $e) {
-            return response()->json(['message' => $e->getMessage()], 429);
-        }
-
-        /*
-         | One at a time per store. The button is disabled while a draft is
-         | being written, so a second one only comes from a double-click or a
-         | second tab — and each would be a paid call for the same product.
-         */
-        $busy = AiGeneration::where('store_id', $store->id)
-            ->where('feature', AiFeature::ProductWriter->value)
-            ->whereIn('status', [AiGeneration::STATUS_PENDING, AiGeneration::STATUS_RUNNING])
-            ->where('created_at', '>=', now()->subMinutes(AiGeneration::EXPIRES_AFTER_MINUTES))
-            ->exists();
-
-        if ($busy) {
-            return response()->json(['message' => 'لسه بنكتب المنتج اللي قبله. استنى ثواني.'], 429);
+        if ($refusal = $this->refuseToStart($store, AiFeature::ProductWriter, 'لسه بنكتب المنتج اللي قبله. استنى ثواني.')) {
+            return $refusal;
         }
 
         $images = $this->prepareImages($files);
@@ -94,27 +78,16 @@ class AiProductDraftController extends Controller
             'images' => $this->stash($generation, $images),
         ]]);
 
-        GenerateProductDraft::dispatch($generation->id);
+        RunAiGeneration::dispatch($generation->id);
 
-        return response()->json($this->present($generation->refresh()), 202);
+        return response()->json($this->presentGeneration($generation->refresh()), 202);
     }
 
     public function show(Request $request, AiGeneration $generation): JsonResponse
     {
-        // 404, not 403: whether somebody else's draft exists is none of the
-        // asker's business.
-        abort_unless(
-            (int) $generation->store_id === (int) $request->user()->currentStore()->id
-                && $generation->feature === AiFeature::ProductWriter->value,
-            404,
-        );
-
-        if ($generation->hasExpired()) {
-            $generation->markFailed('الموضوع أخد وقت أكتر من اللازم. جرّب تاني.');
-            $generation->deleteInputs();
-        }
-
-        return response()->json($this->present($generation));
+        return response()->json($this->presentGeneration(
+            $this->ownedGeneration($request, $generation, AiFeature::ProductWriter),
+        ));
     }
 
     /**
@@ -154,16 +127,5 @@ class AiProductDraftController extends Controller
         }
 
         return $stored;
-    }
-
-    /** @return array<string,mixed> */
-    private function present(AiGeneration $generation): array
-    {
-        return [
-            'id' => $generation->id,
-            'status' => $generation->status,
-            'draft' => $generation->status === AiGeneration::STATUS_DONE ? $generation->result : null,
-            'error' => $generation->status === AiGeneration::STATUS_FAILED ? $generation->error : null,
-        ];
     }
 }
