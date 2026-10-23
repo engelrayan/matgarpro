@@ -14,6 +14,18 @@
      `$kind` picks the silhouette, `$hue` tints it. Both are passed by the
      caller so four cards side by side are four different products.
 --}}
+{{-- Real photography now exists for the four products the demo shows:
+     Pexels photos (free for commercial use), 400px, in public/images/landing.
+     The drawing below stays as the fallback for any other `$kind`. --}}
+{{-- Not the one-line @php(…) form: Blade cannot parse it in the same file
+     as the @php … @endphp block below. --}}
+@php
+    $photo = in_array($kind, ['shirt', 'watch', 'shoe', 'bag'], true) ? "/images/landing/{$kind}.jpg" : null;
+@endphp
+
+@if ($photo)
+<img src="{{ $photo }}" alt="" loading="lazy" decoding="async" width="400" height="400">
+@else
 @php
     $uid = 'sh' . substr(md5($kind . $hue . uniqid('', true)), 0, 6);
     $deep = "hsl({$hue} 45% 24%)";
@@ -76,3 +88,4 @@
         @endswitch
     </g>
 </svg>
+@endif

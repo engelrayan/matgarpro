@@ -2,12 +2,19 @@
 
 namespace App\Services\Demo;
 
+use Illuminate\Support\Facades\Storage;
+
 /**
- * Draws product artwork for the theme showrooms.
+ * Product images for the theme showrooms and the sample catalogue.
  *
- * Vector art generated here rather than stock photography: we have no licence
- * to any, and a showroom full of grey placeholder boxes reads as a broken
- * store, which is worse than no showroom at all.
+ * Real photographs first: every catalogue row names a Pexels photo, kept in
+ * resources/demo/photos. A drawing next to a real product photo reads as a
+ * mock-up, and a showroom is where a merchant decides whether their own
+ * products would look good here.
+ *
+ * The vector art below is the fallback, for a row with no photo — a showroom
+ * full of grey placeholder boxes reads as a broken store, which is worse than
+ * no showroom at all.
  *
  * Every piece is built from the product's own hue so a catalogue looks like a
  * range rather than a colour test, and each silhouette actually resembles the
@@ -50,6 +57,33 @@ class DemoArtwork
         }
 
         return 'box';
+    }
+
+    /**
+     * Write a catalogue row's image to the public disk and return its path.
+     *
+     * The real photograph when the row names one (see config/demo.php), the
+     * drawing otherwise. Either way it lands as an ordinary file under `$dir`,
+     * so a demo image travels the same path as a merchant's upload — the
+     * gallery, the card, the Open Graph tag — with no special case anywhere.
+     *
+     * @param  array<string,mixed>  $row
+     */
+    public function store(array $row, string $dir, int|string $name): string
+    {
+        $photo = isset($row['photo']) ? resource_path("demo/photos/{$row['photo']}.jpg") : null;
+
+        if ($photo && is_file($photo)) {
+            $path = "{$dir}/{$name}.jpg";
+            Storage::disk('public')->put($path, file_get_contents($photo));
+
+            return $path;
+        }
+
+        $path = "{$dir}/{$name}.svg";
+        Storage::disk('public')->put($path, $this->render($this->kindFor($row['name']), $row['hue'], $row['name']));
+
+        return $path;
     }
 
     /**

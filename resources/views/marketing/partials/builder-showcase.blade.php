@@ -26,9 +26,9 @@
     ];
 
     /*
-     | Product shots. The drawing itself lives in `builder-shot`, which is the
-     | one place to change the day real photography exists — swap its <svg> for
-     | an <img> and nothing on this page has to move.
+     | Product shots. `builder-shot` decides what each one is: a real photo for
+     | these four kinds, the drawing for anything else — this page only ever
+     | names the kind.
      */
     $shots = [
         ['name' => 'قميص قطن مصري', 'price' => '٣٩٩', 'was' => '٥٩٩', 'hue' => 212, 'kind' => 'shirt'],
@@ -302,7 +302,8 @@
     background: radial-gradient(120% 90% at 50% 12%, #fff 0%, hsl(40 14% 93%) 78%);
 }
 .bx-shot--lg { width: 4.6rem; }
-.bx-shot svg { width: 100%; height: 100%; display: block; }
+.bx-shot svg,
+.bx-shot img { width: 100%; height: 100%; display: block; object-fit: cover; }
 .bx-off {
     position: absolute; inset-inline-end: .2rem; top: .2rem;
     border-radius: 999px; background: hsl(var(--destructive)); color: #fff;

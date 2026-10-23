@@ -195,14 +195,14 @@
 
                 {{-- A preview of the card it fills, not a screenshot. --}}
                 <div class="mt-6 flex gap-3 rounded-[16px] bg-foreground/[0.035] p-3">
-                    <div class="flex size-20 shrink-0 items-end justify-center overflow-hidden rounded-[12px] bg-gradient-to-b from-[hsl(205_45%_88%)] to-[hsl(205_35%_78%)]">
-                        <svg class="mb-1 h-16 w-14" viewBox="0 0 56 64" aria-hidden="true"><path d="M14 8 22 4h12l8 4 10 10-8 7-4-4v39H16V21l-4 4-8-7z" fill="hsl(205 45% 42%)"/><path d="M22 4h12l-6 7z" fill="hsl(205 40% 70%)"/></svg>
-                    </div>
+                    <img src="/images/landing/shirt.jpg" alt="" loading="lazy" decoding="async" width="400" height="400"
+                         class="size-20 shrink-0 rounded-[12px] object-cover">
+
                     <div class="min-w-0 flex-1 space-y-1.5 pt-0.5">
                         <p class="text-[14px] font-semibold">قميص قطن مصري — قصّة مريحة</p>
                         <p class="text-[12px] leading-relaxed text-muted-foreground">قطن ١٠٠٪ بيتنفّس في الحر، وزراير متخيّطة كويس…</p>
                         <div class="flex flex-wrap gap-1">
-                            @foreach (['المقاس: M، L، XL', 'اللون: أزرق، أبيض', 'القسم: رجالي'] as $chip)
+                            @foreach (['المقاس: M، L، XL', 'اللون: رمادي، أبيض', 'القسم: رجالي'] as $chip)
                                 <span class="rounded-full bg-card px-2 py-0.5 text-[10.5px] font-medium shadow-[0_0_0_0.5px_hsl(var(--foreground)/0.1)]">{{ $chip }}</span>
                             @endforeach
                         </div>
