@@ -63,6 +63,21 @@ return [
             'daily_limit' => (int) env('AI_PRODUCT_WRITER_DAILY_LIMIT', 20),
             'fallbacks' => true,
         ],
+
+        /*
+         | A whole store's worth of copy in one answer, once per store. Kept at
+         | low effort for time, not money: the answer is a few thousand tokens
+         | and has to arrive inside the 70s request timeout. If real calls
+         | creep towards that, give AI jobs their own queue connection with a
+         | longer retry_after before raising either number.
+         */
+        'store_builder' => [
+            'model' => env('AI_STORE_BUILDER_MODEL', 'claude-sonnet-5-5'),
+            'effort' => env('AI_STORE_BUILDER_EFFORT', 'low'),
+            'max_tokens' => 6000,
+            'daily_limit' => (int) env('AI_STORE_BUILDER_DAILY_LIMIT', 5),
+            'fallbacks' => true,
+        ],
     ],
 
     /*

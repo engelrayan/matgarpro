@@ -3,6 +3,7 @@
 use App\Http\Controllers\Dashboard\BuilderController;
 use App\Http\Controllers\Dashboard\AbandonedCartController;
 use App\Http\Controllers\Dashboard\AiProductDraftController;
+use App\Http\Controllers\Dashboard\AiStoreBuilderController;
 use App\Http\Controllers\Dashboard\CategoryController;
 use App\Http\Controllers\Dashboard\DamanShipmentController;
 use App\Http\Controllers\Dashboard\OrderController;
@@ -86,4 +87,12 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
         ->middleware('throttle:20,1')
         ->name('ai.product-drafts.store');
     Route::get('ai/product-drafts/{generation}', [AiProductDraftController::class, 'show'])->name('ai.product-drafts.show');
+
+    // Set the whole store up from a description: plan → review → builder drafts.
+    Route::get('ai/store-builder', [AiStoreBuilderController::class, 'index'])->name('ai.store-builder');
+    Route::post('ai/store-plans', [AiStoreBuilderController::class, 'store'])
+        ->middleware('throttle:10,1')
+        ->name('ai.store-plans.store');
+    Route::get('ai/store-plans/{generation}', [AiStoreBuilderController::class, 'show'])->name('ai.store-plans.show');
+    Route::post('ai/store-plans/{generation}/apply', [AiStoreBuilderController::class, 'apply'])->name('ai.store-plans.apply');
 });

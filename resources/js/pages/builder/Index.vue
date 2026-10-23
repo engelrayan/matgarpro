@@ -261,6 +261,11 @@ const FRAME_WIDTH = { desktop: '100%', tablet: '820px', mobile: '390px' };
                 </Link>
             </div>
 
+            <Link href="/ai/store-builder" class="btn-ghost px-2.5 py-1.5 text-sm">
+                <Sparkles class="size-4" />
+                جهّزلي المتجر
+            </Link>
+
             <div class="mr-auto flex items-center gap-2">
                 <div class="flex items-center gap-1 rounded-xl bg-muted p-1">
                     <button

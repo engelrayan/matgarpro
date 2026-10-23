@@ -13,6 +13,20 @@ enum AiFeature: string
 {
     case ProductWriter = 'product_writer';
 
+    case StoreBuilder = 'store_builder';
+
+    /**
+     * What writes this feature's draft, for features the merchant waits on
+     * screen for. Null for features that run inside other jobs.
+     */
+    public function generator(): ?GeneratesDraft
+    {
+        return match ($this) {
+            self::ProductWriter => app(ProductWriter\ProductDraftWriter::class),
+            self::StoreBuilder => app(StoreBuilder\StorePlanWriter::class),
+        };
+    }
+
     /** @return array<string,mixed> */
     public function config(): array
     {
