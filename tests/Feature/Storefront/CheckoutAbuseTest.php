@@ -5,6 +5,7 @@ namespace Tests\Feature\Storefront;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\Store;
+use App\Models\StoreDomain;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\RateLimiter;
@@ -138,5 +139,34 @@ class CheckoutAbuseTest extends TestCase
         ]);
 
         $this->assertSame(21, Order::count());
+    }
+
+    /**
+     * One shop answers on many hostnames. Counting each spelling on its own
+     * handed a script a fresh twenty per name.
+     */
+    public function test_the_limit_follows_the_shop_across_its_hostnames(): void
+    {
+        StoreDomain::factory()->for($this->store)->active()->create(['domain' => 'mahmoud.com']);
+
+        for ($i = 0; $i < 20; $i++) {
+            $this->submit($this->order());
+        }
+
+        foreach (['www.mahmoud.mataager.test', 'mahmoud.com', 'www.mahmoud.com'] as $host) {
+            $this->post("http://{$host}/checkout", $this->order());
+        }
+
+        $this->assertSame(20, Order::count());
+    }
+
+    public function test_rotating_through_one_ipv6_block_does_not_reset_the_limit(): void
+    {
+        for ($i = 0; $i < 21; $i++) {
+            $this->withServerVariables(['REMOTE_ADDR' => '2001:db8:aa:bb::' . dechex($i + 1)])
+                ->submit($this->order());
+        }
+
+        $this->assertSame(20, Order::count());
     }
 }

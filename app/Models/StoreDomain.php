@@ -111,8 +111,18 @@ class StoreDomain extends Model
     {
         $ips = config('storefront.dns.a');
 
+        // Proof the domain is this merchant's, not merely pointed at us. Named
+        // relative to the zone, the way every DNS panel asks for it.
+        $ownership = [
+            'type' => 'TXT',
+            'name' => $this->isApex() ? '_matgarpro' : '_matgarpro.' . Str::before($this->domain, '.'),
+            'value' => $this->verification_token,
+            'note' => 'عشان نتأكد إن الدومين ملكك',
+        ];
+
         if ($this->isApex()) {
             return [
+                $ownership,
                 [
                     'type' => 'A',
                     'name' => '@',
@@ -129,6 +139,7 @@ class StoreDomain extends Model
         }
 
         return [
+            $ownership,
             [
                 'type' => 'CNAME',
                 'name' => Str::before($this->domain, '.'),

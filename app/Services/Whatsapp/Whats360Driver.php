@@ -33,6 +33,40 @@ class Whats360Driver implements WhatsappDriver
      */
     public const DEFAULT_BASE = 'https://whats360.live';
 
+    /**
+     * Correctable, but only within their own domain. The server POSTs to this
+     * address and reports what came back, so an open field would let any
+     * merchant aim the platform at its own internals — the edge proxy's admin
+     * port, a metadata endpoint — and read the answers off the settings page.
+     */
+    public const ALLOWED_DOMAINS = ['whats360.live'];
+
+    /** Is this a base address the server may call? https on their domain only. */
+    public static function allows(?string $base): bool
+    {
+        $parts = parse_url((string) $base);
+
+        if (! is_array($parts) || ($parts['scheme'] ?? '') !== 'https') {
+            return false;
+        }
+
+        // Credentials or a port have no business in a gateway address, and
+        // both are ways of pointing a "whats360" URL somewhere else.
+        if (isset($parts['user']) || isset($parts['pass']) || isset($parts['port'])) {
+            return false;
+        }
+
+        $host = strtolower($parts['host'] ?? '');
+
+        foreach (self::ALLOWED_DOMAINS as $domain) {
+            if ($host === $domain || str_ends_with($host, '.' . $domain)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function __construct(private readonly StoreWhatsappIntegration $link) {}
 
     public function send(string $phone, string $body, array $variables = []): SendResult
@@ -148,9 +182,19 @@ class Whats360Driver implements WhatsappDriver
 
     private function url(): string
     {
-        $base = $this->link->credential('base_url') ?: self::DEFAULT_BASE;
+        $base = $this->link->credential('base_url');
 
-        return rtrim($base, '/') . '/api/v1/send';
+        // Checked again here, not only on save: a value stored before the rule
+        // existed must not keep working.
+        if (! self::allows($base)) {
+            $base = self::DEFAULT_BASE;
+        }
+
+        // Rebuilt from host and path, so a trailing `?` or `#` cannot turn the
+        // fixed path below into a query string.
+        $parts = parse_url($base);
+
+        return 'https://' . $parts['host'] . rtrim($parts['path'] ?? '', '/') . '/api/v1/send';
     }
 
     /**

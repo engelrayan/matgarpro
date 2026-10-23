@@ -43,16 +43,23 @@ class CartCapture
         }
 
         try {
-            $productId = (int) ($input['product_id'] ?? 0) ?: null;
+            /*
+             | Both ids come straight from the browser, and the carts screen
+             | shows the product's name, photo and price. Unchecked, a merchant
+             | could post a competitor's ids to their own shop and read that
+             | catalogue — drafts included — off their own dashboard.
+             */
+            $product = $store->products()->find((int) ($input['product_id'] ?? 0));
+            $variant = $product?->variants()->find((int) ($input['variant_id'] ?? 0));
 
             AbandonedCart::updateOrCreate(
                 [
                     'store_id' => $store->id,
                     'visitor_id' => $this->funnel->visitorId($request),
-                    'product_id' => $productId,
+                    'product_id' => $product?->id,
                 ],
                 [
-                    'product_variant_id' => (int) ($input['variant_id'] ?? 0) ?: null,
+                    'product_variant_id' => $variant?->id,
                     'quantity' => max(1, (int) ($input['quantity'] ?? 1)),
                     'customer_name' => $this->clean($input['customer_name'] ?? null, 255),
                     'customer_phone' => $phone,

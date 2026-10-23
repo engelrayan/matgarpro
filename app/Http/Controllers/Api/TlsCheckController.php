@@ -57,14 +57,14 @@ class TlsCheckController extends Controller
     }
 
     /**
-     * A hostname a merchant attached. `pending` counts: the certificate has to
-     * exist before the first HTTPS request can succeed, and DNS already
-     * pointing here is itself the proof of control.
+     * A hostname a merchant attached and proved. `pending` does not count: a
+     * pending row is only somebody's claim, and issuing for it would put a
+     * valid certificate on a shop that may not own the name.
      */
     private function isAttachedDomain(string $host): bool
     {
         return StoreDomain::where('domain', $host)
-            ->whereIn('status', [StoreDomain::STATUS_PENDING, StoreDomain::STATUS_ACTIVE])
+            ->where('status', StoreDomain::STATUS_ACTIVE)
             ->exists();
     }
 }

@@ -6,6 +6,7 @@ use App\Models\Store;
 use App\Services\Builder\PageRenderer;
 use App\Services\Dns\DnsResolver;
 use App\Services\Dns\ResilientDnsResolver;
+use App\Services\Storefront\StoreResolver;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -61,14 +62,19 @@ class AppServiceProvider extends ServiceProvider
         | than an attacker. Twenty an hour is far above any honest buyer and
         | far below anything that can do damage.
         |
-        | The shop is identified by hostname, not by the resolved Store model:
-        | `throttle` carries a framework priority that puts it ahead of the
-        | custom `store` middleware, so the model is not attached yet when this
-        | runs. The Host header is what identifies a storefront anyway — it is
-        | how ResolveStore finds the shop in the first place.
+        | The shop is resolved from the Host here rather than read off the
+        | request: `throttle` carries a framework priority that puts it ahead
+        | of the custom `store` middleware, so the model is not attached yet.
+        | Resolved, not the raw Host, because one shop answers on many names —
+        | `slug.matgarpro.com`, its trailing-dot and `www.` forms, every custom
+        | domain — and keying on the string gave a script a fresh twenty for
+        | each spelling.
+        |
+        | IPv6 is counted per /64. That is one subscriber's allocation, and a
+        | single machine can rotate through billions of addresses inside it.
         */
         RateLimiter::for('checkout', fn (Request $request) => Limit::perHour(20)
-            ->by($request->ip() . '|' . $request->getHost())
+            ->by(self::clientNetwork((string) $request->ip()) . '|' . self::shopKey($request))
             ->response(fn () => back()
                 ->withInput()
                 ->withErrors(['product_id' => 'طلبات كتير من نفس المكان في وقت قصير. استنى شوية وجرّب تاني.'])));
@@ -87,5 +93,26 @@ class AppServiceProvider extends ServiceProvider
                 $view->with(app(PageRenderer::class)->chrome(request(), $store));
             }
         });
+    }
+
+    /** The shop a storefront request is for, however its hostname is spelled. */
+    private static function shopKey(Request $request): string
+    {
+        $resolver = app(StoreResolver::class);
+
+        return 'store:' . ($resolver->resolve($request->getHost())?->id
+            ?? $resolver->normalizeHost($request->getHost()));
+    }
+
+    /** An IPv4 address as is; an IPv6 address reduced to its /64. */
+    private static function clientNetwork(string $ip): string
+    {
+        if (! filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+            return $ip;
+        }
+
+        $packed = inet_pton($ip);
+
+        return $packed === false ? $ip : inet_ntop(substr($packed, 0, 8) . str_repeat("\0", 8)) . '/64';
     }
 }
