@@ -113,11 +113,16 @@
                      merchant the moment it is created, so a flood of fake ones
                      is a way to drain a shop's balance until it stops selling.
 
-                     Positioned off-screen rather than `display:none` — some
-                     bots skip hidden inputs, and a real customer never reaches
-                     this one either way: no tab stop, no autocomplete, hidden
-                     from screen readers. --}}
-                <div aria-hidden="true" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden">
+                     Clipped to nothing rather than `display:none` — some bots
+                     skip hidden inputs, and a real customer never reaches this
+                     one either way: no tab stop, no autocomplete, hidden from
+                     screen readers.
+
+                     Clipped IN PLACE, never pushed off-screen: this page is
+                     RTL, and in RTL a box at `left:-9999px` sits inside the
+                     scrollable area — it made the page ten thousand pixels
+                     wide and phones painted the first screen blank. --}}
+                <div aria-hidden="true" style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap">
                     <label for="confirm_url">لا تكتب هنا</label>
                     <input type="text" id="confirm_url" name="confirm_url" tabindex="-1" autocomplete="off" value="">
                 </div>
