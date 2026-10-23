@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Dashboard\BuilderController;
 use App\Http\Controllers\Dashboard\AbandonedCartController;
+use App\Http\Controllers\Dashboard\AiProductDraftController;
 use App\Http\Controllers\Dashboard\CategoryController;
 use App\Http\Controllers\Dashboard\DamanShipmentController;
 use App\Http\Controllers\Dashboard\OrderController;
@@ -75,4 +76,14 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     // Ask the customer to confirm, by hand — for a store that leaves auto-send
     // off, and for the order whose first message never got an answer.
     Route::post('orders/{order}/whatsapp', [OrderWhatsappController::class, 'store'])->name('orders.whatsapp');
+
+    /*
+    | AI drafts for the product form. Under `ai/`, not `products/`: a POST to
+    | products/anything is already taken by the product update route, which
+    | would try to bind "ai-draft" as a product.
+    */
+    Route::post('ai/product-drafts', [AiProductDraftController::class, 'store'])
+        ->middleware('throttle:20,1')
+        ->name('ai.product-drafts.store');
+    Route::get('ai/product-drafts/{generation}', [AiProductDraftController::class, 'show'])->name('ai.product-drafts.show');
 });

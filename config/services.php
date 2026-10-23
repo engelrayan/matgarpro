@@ -50,6 +50,17 @@ return [
         'cloud_api_version' => env('WHATSAPP_CLOUD_API_VERSION', 'v21.0'),
     ],
 
+    /*
+    | Claude. One platform key — merchants never bring their own, and never see
+    | it. Left empty, every AI feature tells the merchant it is unavailable
+    | instead of failing somewhere inside a job. Models, caps and prices are
+    | in config/ai.php.
+    */
+    'anthropic' => [
+        'key' => env('ANTHROPIC_API_KEY'),
+        'base_url' => env('ANTHROPIC_BASE_URL', 'https://api.anthropic.com'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
