@@ -97,6 +97,7 @@ export default {
                     foreground: token('info-foreground'),
                 },
                 border: token('border'),
+                grouped: token('grouped'),
                 input: token('input'),
                 ring: token('ring'),
                 chart: {
@@ -150,6 +151,8 @@ export default {
             transitionTimingFunction: {
                 // A single easing across the product; mixed easings read sloppy.
                 brand: 'cubic-bezier(0.16, 1, 0.3, 1)',
+                // UIKit's sheet and bar curve; see `--ease-ios` in app.css.
+                ios: 'var(--ease-ios)',
             },
         },
     },

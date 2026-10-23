@@ -116,11 +116,39 @@
          | The platform's own typeface, and the fallback for every surface that
          | has no theme — the dashboard, the marketing site, the admin panel.
          |
+         | Apple's system face first. On an iPhone or a Mac, `-apple-system`
+         | resolves to SF Pro and SF Arabic — the real thing, which may not be
+         | self-hosted (its licence forbids web embedding) but costs nothing to
+         | ask the OS for. Because SF covers Arabic, the browser never needs a
+         | glyph from the next face and never downloads Plex on those devices.
+         |
+         | Everyone else — Android, Windows — gets IBM Plex Sans Arabic: a
+         | neutral grotesque close to SF in tone, with an Arabic and a Latin
+         | drawn as one family so "12 طلب" sits on a single baseline. Noto Sans
+         | Arabic was the other candidate; it is wider and reads as "the
+         | phone's default font", which is exactly the look being replaced.
+         |
+         | `BlinkMacSystemFont` is Chrome-on-macOS's name for the same face.
+         | `system-ui` comes AFTER Plex on purpose: before it, Windows would
+         | render every page in Segoe UI.
+         |
          | A storefront overrides this from its theme (ThemeResolver emits it
          | inline in the <head>), which is what lets a watch boutique and a toy
          | shop stop looking like the same website.
          */
-        --font-sans: 'IBM Plex Sans Arabic', ui-sans-serif, system-ui, sans-serif;
+        --font-sans: -apple-system, BlinkMacSystemFont, 'IBM Plex Sans Arabic', system-ui, sans-serif;
+
+        /*
+         | iOS motion. One curve for things that move into place (sheets, bars,
+         | the stepper thumb) and one for presses. These are the curves UIKit's
+         | default spring settles into; mixing in Tailwind's `ease-out` is what
+         | makes a web app feel like a web app.
+         */
+        --ease-ios: cubic-bezier(0.32, 0.72, 0, 1);
+        --ease-press: cubic-bezier(0.25, 0.1, 0.25, 1);
+
+        /* Grouped background — the canvas an inset-grouped list sits on. */
+        --grouped: 40 18% 95.5%;
     }
 
     .dark {
@@ -162,6 +190,8 @@
         --sidebar-foreground: 156 22% 78%;
         --sidebar-accent: 165 30% 11%;
         --sidebar-border: 165 25% 12%;
+
+        --grouped: 160 22% 3%;
     }
 }
 
@@ -329,8 +359,11 @@
     }
 
     /* ---- Form controls -------------------------------------------------- */
+    /* 16px on phones, not 14: iOS Safari zooms the whole page into any
+       focused input smaller than that, and the merchant then has to pinch
+       back out after every field. */
     .field {
-        @apply w-full rounded-xl border border-input bg-card px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/70 focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/25 focus:ring-offset-0;
+        @apply w-full rounded-xl border border-input bg-card px-3.5 py-2.5 text-base placeholder:text-muted-foreground/70 focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/25 focus:ring-offset-0 md:text-sm;
     }
 
     .field-label {
@@ -642,5 +675,352 @@
     [dir='rtl'] [data-sidebar='sidebar'][data-mobile='true'] > button {
         right: auto;
         left: 1rem;
+    }
+}
+
+/*
+|--------------------------------------------------------------------------
+| iOS primitives
+|--------------------------------------------------------------------------
+| The handful of shapes that make an Apple screen read as Apple: translucent
+| bars, inset-grouped lists with half-point separators, large titles, a
+| segmented control with a raised thumb, and buttons that dim when pressed
+| instead of changing colour.
+|
+| Tokens, not a component library. Konsta UI and Ionic were the alternatives;
+| both ship a second component system built for full-screen phone apps, and
+| this one has to serve a desktop dashboard and a storefront that pays for
+| every kilobyte too. Everything below composes from the existing palette, so
+| a storefront theme's colours and corner radius flow straight through it.
+*/
+@layer components {
+    /* Translucent bar material — navigation bars, tab bars, the buy bar. */
+    .material {
+        background-color: hsl(var(--card) / 0.78);
+        -webkit-backdrop-filter: saturate(180%) blur(20px);
+        backdrop-filter: saturate(180%) blur(20px);
+    }
+
+    /* Browsers without backdrop-filter get a near-opaque bar, not a see-through
+       one with text sliding illegibly underneath it. */
+    @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+        .material {
+            background-color: hsl(var(--card) / 0.97);
+        }
+    }
+
+    .hairline-b {
+        border-bottom: 0.5px solid hsl(var(--foreground) / 0.12);
+    }
+
+    .hairline-t {
+        border-top: 0.5px solid hsl(var(--foreground) / 0.12);
+    }
+
+    /*
+    | Inset grouped list.
+    |
+    | A white card on a tinted canvas, no border — the half-point ring is
+    | there only so the card still has an edge on a canvas that is nearly
+    | white itself. Rows separate with hairlines inset from the reading edge,
+    | as in Settings.
+    */
+    .ios-group {
+        @apply relative overflow-hidden bg-card;
+        border-radius: calc(var(--radius) + 4px);
+        box-shadow:
+            0 0 0 0.5px hsl(var(--foreground) / 0.07),
+            0 1px 2px hsl(var(--foreground) / 0.04);
+    }
+
+    .ios-row {
+        @apply relative flex min-h-[48px] items-center gap-3 px-4 py-2.5;
+    }
+
+    .ios-group > * + .ios-row::before,
+    .ios-group > * + .ios-field-row::before {
+        content: '';
+        @apply pointer-events-none absolute top-0 h-0;
+        inset-inline-start: 1rem;
+        inset-inline-end: 0;
+        border-top: 0.5px solid hsl(var(--foreground) / 0.12);
+    }
+
+    /* The small grey caption that sits above or below a group. */
+    .ios-caption {
+        @apply px-4 text-[13px] leading-5 text-muted-foreground;
+    }
+
+    /* Row icon tile, as in Settings: a rounded square carrying a glyph. */
+    .ios-tile {
+        @apply flex size-[30px] shrink-0 items-center justify-center rounded-[8px] bg-primary text-primary-foreground;
+    }
+
+    /*
+    | Form row: a small label above a borderless 17px field, all inside a
+    | group. The focus indicator is the row itself — an inset ring in the
+    | theme colour — so it stays visible without the field drawing a box.
+    */
+    .ios-field-row {
+        @apply relative flex flex-col gap-0.5 px-4 pb-2.5 pt-2.5 transition-colors;
+    }
+
+    .ios-field-row:focus-within {
+        @apply z-10 bg-primary/[0.03];
+        box-shadow: inset 0 0 0 2px hsl(var(--primary) / 0.9);
+    }
+
+    .ios-field-row:first-child {
+        border-start-start-radius: inherit;
+        border-start-end-radius: inherit;
+    }
+
+    .ios-field-row:last-child {
+        border-end-start-radius: inherit;
+        border-end-end-radius: inherit;
+    }
+
+    .ios-field-label {
+        @apply text-[13px] font-medium leading-5 text-muted-foreground;
+    }
+
+    /* 17px, the iOS body size — and never under 16, or Safari zooms in. */
+    .ios-input {
+        @apply w-full appearance-none border-0 bg-transparent p-0 py-1 text-[17px] leading-7 text-foreground caret-primary outline-none placeholder:text-muted-foreground/55 focus:outline-none focus:ring-0 focus:ring-offset-0;
+    }
+
+    select.ios-input {
+        @apply cursor-pointer;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238e8e93' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+        background-position: left 0 center;
+        background-repeat: no-repeat;
+        background-size: 1.1rem;
+        padding-inline-end: 1.5rem;
+    }
+
+    textarea.ios-input {
+        @apply resize-none;
+    }
+
+    .ios-field-row.has-error {
+        @apply bg-destructive/[0.04];
+    }
+
+    .ios-field-row.has-error .ios-field-label {
+        @apply text-destructive;
+    }
+
+    /*
+    | Buttons. A press dims and settles a hair smaller — iOS never flashes a
+    | darker colour on tap. `ios-btn-lg` is the 50pt full-width button that
+    | sits at the bottom of every sheet Apple ships.
+    */
+    .ios-btn {
+        @apply inline-flex select-none items-center justify-center gap-2 font-semibold disabled:pointer-events-none disabled:opacity-40;
+        border-radius: calc(var(--radius) + 2px);
+        transition:
+            opacity 0.15s var(--ease-press),
+            transform 0.15s var(--ease-press),
+            background-color 0.2s var(--ease-press);
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .ios-btn:active {
+        opacity: 0.72;
+        transform: scale(0.98);
+    }
+
+    .ios-btn-lg {
+        @apply ios-btn min-h-[52px] px-6 text-[17px];
+    }
+
+    .ios-btn-md {
+        @apply ios-btn min-h-[44px] px-5 text-[15px];
+    }
+
+    .ios-btn-filled {
+        @apply bg-primary text-primary-foreground;
+    }
+
+    .ios-btn-tinted {
+        @apply bg-primary/10 text-primary;
+    }
+
+    .ios-btn-gray {
+        @apply bg-foreground/[0.06] text-foreground;
+    }
+
+    /*
+    | Segmented control. A grey track with a white thumb under the selected
+    | segment. Selection is `aria-pressed`, `aria-selected`, `data-active` or
+    | `data-state=active` — whichever the markup already speaks — so the
+    | style works on plain buttons, radix tabs and Inertia links alike.
+    */
+    .ios-segmented {
+        @apply inline-flex items-stretch gap-0.5 rounded-[9px] bg-foreground/[0.06] p-0.5;
+    }
+
+    .ios-segment {
+        @apply relative flex min-h-[32px] flex-1 select-none items-center justify-center whitespace-nowrap rounded-[7px] px-3 text-[13px] font-medium text-foreground/80 transition-all duration-200;
+        transition-timing-function: var(--ease-ios);
+    }
+
+    .ios-segment:hover {
+        @apply text-foreground;
+    }
+
+    .ios-segment[aria-pressed='true'],
+    .ios-segment[aria-selected='true'],
+    .ios-segment[data-active],
+    .ios-segment[data-state='active'] {
+        @apply bg-card font-semibold text-foreground;
+        box-shadow:
+            0 3px 8px hsl(0 0% 0% / 0.12),
+            0 3px 1px hsl(0 0% 0% / 0.04),
+            0 0 0 0.5px hsl(0 0% 0% / 0.04);
+    }
+
+    .dark .ios-segment[aria-pressed='true'],
+    .dark .ios-segment[aria-selected='true'],
+    .dark .ios-segment[data-active],
+    .dark .ios-segment[data-state='active'] {
+        @apply bg-foreground/20;
+    }
+
+    /* Choice chip — product options, filters. A full tap target, always. */
+    .ios-chip {
+        @apply inline-flex min-h-[44px] select-none items-center justify-center gap-1.5 bg-foreground/[0.05] px-4 text-[15px] font-medium text-foreground transition-all duration-150;
+        border-radius: calc(var(--radius) + 2px);
+        box-shadow: inset 0 0 0 1px transparent;
+    }
+
+    .ios-chip:active {
+        transform: scale(0.97);
+    }
+
+    .ios-chip[aria-pressed='true'],
+    .ios-chip[data-active] {
+        @apply bg-primary/[0.08] font-semibold text-primary;
+        box-shadow: inset 0 0 0 2px hsl(var(--primary));
+    }
+
+    /* Stepper: − and + either side of a number, one rounded capsule. */
+    .ios-stepper {
+        @apply inline-flex items-center bg-foreground/[0.06] p-1;
+        border-radius: calc(var(--radius) + 2px);
+    }
+
+    .ios-stepper > button {
+        @apply flex size-10 items-center justify-center text-xl leading-none text-foreground transition-colors;
+        border-radius: var(--radius);
+    }
+
+    .ios-stepper > button:active {
+        @apply bg-card;
+    }
+
+    /* Type scale, after Apple's. Arabic gets a little more line height than
+       the Latin originals; its ascenders and dots need the room. */
+    .text-large-title {
+        @apply text-[30px] font-bold leading-[1.25] md:text-[34px];
+    }
+
+    .text-title-2 {
+        @apply text-[22px] font-bold leading-[1.35];
+    }
+
+    .text-title-3 {
+        @apply text-[20px] font-semibold leading-[1.4];
+    }
+
+    .text-headline {
+        @apply text-[17px] font-semibold leading-[1.45];
+    }
+
+    .text-callout {
+        @apply text-[16px] leading-[1.55];
+    }
+
+    .text-footnote {
+        @apply text-[13px] leading-[1.5];
+    }
+
+    /* Pressable surface — cards and rows that are links. */
+    .pressable {
+        transition:
+            transform 0.18s var(--ease-press),
+            opacity 0.18s var(--ease-press);
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .pressable:active {
+        transform: scale(0.985);
+        opacity: 0.85;
+    }
+
+    /* Grabber — the little bar at the top of a sheet. */
+    .ios-grabber {
+        @apply mx-auto h-[5px] w-9 rounded-full bg-foreground/20;
+    }
+}
+
+@layer utilities {
+    /* Room for the iPhone home indicator under anything pinned to the bottom. */
+    .pb-safe {
+        padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+    }
+
+    .scrollbar-none {
+        scrollbar-width: none;
+    }
+
+    .scrollbar-none::-webkit-scrollbar {
+        display: none;
+    }
+
+    @keyframes ios-pop {
+        0% {
+            opacity: 0;
+            transform: scale(0.6);
+        }
+        60% {
+            opacity: 1;
+            transform: scale(1.06);
+        }
+        100% {
+            transform: scale(1);
+        }
+    }
+
+    @keyframes ios-rise {
+        from {
+            opacity: 0;
+            transform: translateY(0.75rem);
+        }
+        to {
+            opacity: 1;
+            transform: none;
+        }
+    }
+
+    .animate-ios-pop {
+        animation: ios-pop 0.55s var(--ease-ios) both;
+    }
+
+    .animate-ios-rise {
+        animation: ios-rise 0.5s var(--ease-ios) both;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .animate-ios-pop,
+        .animate-ios-rise {
+            animation: none;
+        }
+
+        .pressable:active,
+        .ios-btn:active,
+        .ios-chip:active {
+            transform: none;
+        }
     }
 }

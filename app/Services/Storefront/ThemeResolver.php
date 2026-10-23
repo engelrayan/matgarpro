@@ -96,6 +96,16 @@ class ThemeResolver
      */
     public function fontFamily(array $theme): string
     {
+        /*
+         | `system` is Apple's own face where there is one: SF Arabic on an
+         | iPhone, which is most of the traffic an Instagram ad sends. Asked
+         | for by name, never shipped — SF may not be embedded in a web page.
+         | Plex stands in on Android and Windows.
+         */
+        if ($theme['font'] === 'system') {
+            return "-apple-system,BlinkMacSystemFont,'IBM Plex Sans Arabic',system-ui,sans-serif";
+        }
+
         $family = config('themes.fonts.' . $theme['font']) ?? 'IBM Plex Sans Arabic';
 
         return "'{$family}',ui-sans-serif,system-ui,sans-serif";
@@ -104,9 +114,14 @@ class ThemeResolver
     /** The stylesheet URL that actually delivers the theme's font. */
     public function fontUrl(array $theme): string
     {
+        // The system theme still links Plex, for the devices that have no SF.
+        // Linking it costs an iPhone nothing: a browser only downloads a face
+        // it actually draws a glyph from, and SF covers every one first.
+        $slug = $theme['font'] === 'system' ? 'ibm-plex-sans-arabic' : $theme['font'];
+
         // Weights are fixed across themes: anything a storefront needs is
         // covered, and letting each theme pick its own would mean a theme that
         // asks for a weight it never uses paying for the download anyway.
-        return 'https://fonts.bunny.net/css?family=' . $theme['font'] . ':400,500,600,700';
+        return 'https://fonts.bunny.net/css?family=' . $slug . ':400,500,600,700&display=swap';
     }
 }

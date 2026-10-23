@@ -47,6 +47,9 @@ return [
     | than designed.
     */
     'fonts' => [
+        // Apple's SF Arabic on Apple devices, Plex everywhere else. Resolved
+        // specially in ThemeResolver — it is a stack, not one family.
+        'system' => 'SF Arabic',
         'ibm-plex-sans-arabic' => 'IBM Plex Sans Arabic',
         'cairo' => 'Cairo',
         'tajawal' => 'Tajawal',
@@ -65,7 +68,7 @@ return [
             'name' => 'يشم',
             'description' => 'أخضر عميق وذهبي. هادي وفخم، ينفع لأي منتج.',
             'tags' => ['متجر عام', 'هدايا', 'عطور'],
-            'font' => 'ibm-plex-sans-arabic',
+            'font' => 'system',
             'radius' => '0.75rem',
             'header' => 'classic',
             'card' => 'soft',
@@ -255,7 +258,7 @@ return [
             'name' => 'نقي',
             'description' => 'أبيض ورمادي وأخضر خفيف، تفاصيل أقل ما يمكن. لما يكون عندك منتج واحد أو منتجات قليلة.',
             'tags' => ['منتج واحد', 'إلكترونيات', 'متجر عام'],
-            'font' => 'tajawal',
+            'font' => 'system',
             'radius' => '0.375rem',
             // No search box, no category strip — a shop with four products has
             // nothing to search for, and the links are noise the visitor has

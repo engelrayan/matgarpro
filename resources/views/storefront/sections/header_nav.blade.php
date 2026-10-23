@@ -12,6 +12,10 @@
 
     The merchant's own switches (sticky, search, which links) still apply on
     top — the theme decides the shape, the merchant decides the contents.
+
+    Every shape is an iOS navigation bar: translucent material with a half-point
+    rule under it, so the page scrolls visibly beneath instead of vanishing
+    behind a white slab.
 --}}
 @php
     $shape = $theme['header'] ?? 'classic';
@@ -31,23 +35,33 @@
     $showLinks = $navLinks->isNotEmpty() && $shape !== 'minimal';
 @endphp
 
+@php
+    /*
+     | The iOS search field: a filled capsule with no border, the glass on the
+     | reading edge. 16px text, or Safari zooms the page in when it is tapped.
+     */
+    $searchField = 'h-10 w-full appearance-none rounded-[calc(var(--radius)+2px)] border-0 bg-foreground/[0.06] pe-3 ps-9 text-base text-foreground placeholder:text-muted-foreground/80 focus:bg-foreground/[0.08] focus:outline-none focus:ring-2 focus:ring-primary/40 md:text-[15px]';
+@endphp
+
 <header @class([
-    'z-40 border-b border-border bg-card/95 backdrop-blur',
+    'material hairline-b z-40',
     'sticky top-0' => $settings['sticky'],
 ])>
     @if ($shape === 'centered')
-        <div class="mx-auto max-w-5xl px-5 py-4 text-center">
-            <a href="{{ route('storefront.home') }}" class="inline-flex flex-col items-center gap-2">
+        <div class="mx-auto max-w-5xl px-4 pb-3 pt-4 text-center md:px-5">
+            <a href="{{ route('storefront.home') }}" class="pressable inline-flex flex-col items-center gap-2">
                 @if ($logo = $store->logoUrl())
                     <img src="{{ $logo }}" alt="{{ $store->name }}" class="size-12 rounded-[--radius] object-cover">
                 @endif
-                <span class="text-lg font-bold tracking-tight">{{ $store->name }}</span>
+                <span class="text-headline">{{ $store->name }}</span>
             </a>
 
             @if ($showLinks)
-                <nav class="mt-3 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm">
+                {{-- One scrollable line on a phone rather than wrapping into a
+                     ragged two-row block under the logo. --}}
+                <nav class="scrollbar-none -mx-4 mt-2 flex items-center gap-1 overflow-x-auto px-4 text-[15px] md:justify-center">
                     @foreach ($navLinks as $link)
-                        <a href="{{ $link['url'] }}" class="text-muted-foreground transition-colors hover:text-foreground">
+                        <a href="{{ $link['url'] }}" class="flex min-h-[44px] shrink-0 items-center px-3 text-muted-foreground transition-colors hover:text-foreground">
                             {{ $link['label'] }}
                         </a>
                     @endforeach
@@ -55,11 +69,9 @@
             @endif
 
             @if ($showSearch)
-                <form action="{{ route('storefront.search') }}" method="GET" class="relative mx-auto mt-3 w-full max-w-sm">
-                    <input type="search" name="q" value="{{ $term ?? '' }}"
-                           placeholder="دوّر على منتج…"
-                           class="w-full rounded-[--radius] border border-input bg-background py-2 pr-9 pl-3 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/25">
-                    <svg class="absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <form action="{{ route('storefront.search') }}" method="GET" role="search" class="relative mx-auto mt-2 w-full max-w-sm">
+                    <input type="search" name="q" value="{{ $term ?? '' }}" placeholder="دوّر على منتج" aria-label="دوّر على منتج" class="{{ $searchField }}">
+                    <svg class="pointer-events-none absolute start-3 top-1/2 size-[18px] -translate-y-1/2 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
                         <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
                     </svg>
                 </form>
@@ -67,35 +79,35 @@
         </div>
 
     @elseif ($shape === 'minimal')
-        <div class="mx-auto flex max-w-5xl items-center justify-center px-5 py-4">
-            <a href="{{ route('storefront.home') }}" class="flex items-center gap-2.5">
+        <div class="mx-auto flex h-14 max-w-5xl items-center justify-center px-4 md:px-5">
+            <a href="{{ route('storefront.home') }}" class="pressable flex items-center gap-2.5">
                 @if ($logo = $store->logoUrl())
-                    <img src="{{ $logo }}" alt="{{ $store->name }}" class="size-9 rounded-[--radius] object-cover">
+                    <img src="{{ $logo }}" alt="{{ $store->name }}" class="size-8 rounded-[--radius] object-cover">
                 @endif
-                <span class="font-bold tracking-tight">{{ $store->name }}</span>
+                <span class="text-headline">{{ $store->name }}</span>
             </a>
         </div>
 
     @else
-        <div class="mx-auto flex max-w-5xl items-center gap-3 px-5 py-3">
-            <a href="{{ route('storefront.home') }}" class="flex shrink-0 items-center gap-2.5">
+        <div class="mx-auto flex h-14 max-w-5xl items-center gap-3 px-4 md:h-16 md:px-5">
+            <a href="{{ route('storefront.home') }}" class="pressable flex min-w-0 shrink-0 items-center gap-2.5">
                 @if ($logo = $store->logoUrl())
                     <img src="{{ $logo }}" alt="{{ $store->name }}" class="size-9 rounded-[--radius] object-cover">
                 @else
-                    <span class="flex size-9 items-center justify-center rounded-[--radius] bg-primary text-base font-bold text-primary-foreground">
+                    <span class="flex size-9 items-center justify-center rounded-[calc(var(--radius)+2px)] bg-primary text-base font-bold text-primary-foreground">
                         {{ mb_substr($store->name, 0, 1) }}
                     </span>
                 @endif
-                <span class="font-bold tracking-tight">{{ $store->name }}</span>
+                <span class="max-w-[9rem] truncate text-headline sm:max-w-none">{{ $store->name }}</span>
             </a>
 
             {{-- Links inline on desktop; the search box carries the phone,
                  where a customer who knows what they want should not have to
                  scroll a category list to find it. --}}
             @if ($showLinks)
-                <nav class="mr-4 hidden items-center gap-4 text-sm md:flex">
+                <nav class="ms-4 hidden items-center gap-1 text-[15px] md:flex">
                     @foreach ($navLinks->take(4) as $link)
-                        <a href="{{ $link['url'] }}" class="text-muted-foreground transition-colors hover:text-foreground">
+                        <a href="{{ $link['url'] }}" class="rounded-lg px-3 py-2 text-muted-foreground transition-colors hover:bg-foreground/[0.05] hover:text-foreground">
                             {{ $link['label'] }}
                         </a>
                     @endforeach
@@ -103,11 +115,9 @@
             @endif
 
             @if ($showSearch)
-                <form action="{{ route('storefront.search') }}" method="GET" class="relative mr-auto w-full max-w-56">
-                    <input type="search" name="q" value="{{ $term ?? '' }}"
-                           placeholder="دوّر على منتج…"
-                           class="w-full rounded-[--radius] border border-input bg-background py-2 pr-9 pl-3 text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/25">
-                    <svg class="absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <form action="{{ route('storefront.search') }}" method="GET" role="search" class="relative ms-auto w-full max-w-60">
+                    <input type="search" name="q" value="{{ $term ?? '' }}" placeholder="دوّر على منتج" aria-label="دوّر على منتج" class="{{ $searchField }}">
+                    <svg class="pointer-events-none absolute start-3 top-1/2 size-[18px] -translate-y-1/2 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
                         <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
                     </svg>
                 </form>
