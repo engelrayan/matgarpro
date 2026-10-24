@@ -8,6 +8,7 @@ use App\Http\Controllers\Settings\GeneralController;
 use App\Http\Controllers\Settings\PasswordController;
 use App\Http\Controllers\Settings\PixelController;
 use App\Http\Controllers\Settings\ProfileController;
+use App\Http\Controllers\Settings\ShippingController;
 use App\Http\Controllers\Settings\StoreController;
 use App\Http\Controllers\Settings\ThemeController;
 use App\Http\Controllers\Settings\WhatsappController;
@@ -63,6 +64,10 @@ Route::middleware('auth')->group(function () {
     Route::post('settings/domains/{domain}/verify', [DomainController::class, 'verify'])->name('domains.verify');
     Route::post('settings/domains/{domain}/primary', [DomainController::class, 'primary'])->name('domains.primary');
     Route::delete('settings/domains/{domain}', [DomainController::class, 'destroy'])->name('domains.destroy');
+
+    // Who carries the parcels, and what delivery costs per governorate.
+    Route::get('settings/shipping', [ShippingController::class, 'edit'])->name('shipping.edit');
+    Route::put('settings/shipping', [ShippingController::class, 'update'])->name('shipping.update');
 
     /*
     | Shipping through Daman. The merchant's carrier contracts live on their

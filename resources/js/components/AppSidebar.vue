@@ -48,7 +48,8 @@ const navGroups: NavGroup[] = [
             // Store data, account and domain are one screen now.
             { title: 'إعدادات المتجر', href: '/settings/general', icon: Store },
             { title: 'واتساب', href: '/settings/whatsapp', icon: MessageCircle },
-            { title: 'الشحن مع ضمان', href: '/settings/daman', icon: Truck },
+            // Prices and the carrier choice; Daman's own key lives one click in.
+            { title: 'الشحن', href: '/settings/shipping', icon: Truck },
             { title: 'الدومين', href: '/settings/general#domain', icon: Globe },
         ],
     },

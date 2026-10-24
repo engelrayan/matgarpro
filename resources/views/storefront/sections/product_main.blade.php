@@ -15,6 +15,15 @@
 
     $checkoutFields = $store->enabledCheckoutFields();
 
+    // Delivery priced by governorate, when the merchant has switched it on.
+    // Only governorates the store delivers to are offered; the price rides on
+    // each option so the total can update without a request.
+    $shippingRates = \App\Services\Shipping\ShippingRates::for($store);
+    $shippingOn = $shippingRates->enabled();
+    $governorateOptions = $shippingOn
+        ? $shippingRates->openGovernorates()
+        : array_fill_keys((array) config('egypt.governorates'), null);
+
     // Errors that belong to a field are shown on that field. Anything else —
     // a sold-out variant, an expired form — still needs saying, at the top.
     $looseErrors = collect($errors->getMessages())
@@ -256,8 +265,8 @@
                                 @if ($key === 'governorate')
                                     <select id="{{ $key }}" name="{{ $key }}" class="ios-input" autocomplete="address-level1" @required($field['required'])>
                                         <option value="">اختار المحافظة</option>
-                                        @foreach (config('egypt.governorates') as $gov)
-                                            <option value="{{ $gov }}" @selected(old('governorate') === $gov)>{{ $gov }}</option>
+                                        @foreach ($governorateOptions as $gov => $shippingPrice)
+                                            <option value="{{ $gov }}" @if ($shippingPrice !== null) data-shipping="{{ $shippingPrice }}" @endif @selected(old('governorate') === $gov)>{{ $gov }}</option>
                                         @endforeach
                                     </select>
 
@@ -293,6 +302,18 @@
 
                 {{-- Summary ------------------------------------------------ --}}
                 <div class="ios-group">
+                    @if ($shippingOn)
+                        {{-- Said before the total, not discovered on the waybill:
+                             a COD parcel refused at the door over a fee the
+                             customer never saw costs the merchant both ways. --}}
+                        <div class="ios-row justify-between">
+                            <span class="text-[15px] text-muted-foreground">الشحن</span>
+                            <span id="shippingAmount" class="tabular text-[15px] font-medium"
+                                  data-choose="اختار المحافظة" data-free="مجاني">
+                                {{ $productSettings['free_shipping'] ? 'مجاني' : 'اختار المحافظة' }}
+                            </span>
+                        </div>
+                    @endif
                     <div class="ios-row justify-between">
                         <span class="text-[17px] text-muted-foreground">الإجمالي</span>
                         <span id="total" class="tabular text-[20px] font-bold tracking-tight">

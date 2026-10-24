@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\Store;
 use App\Services\Billing\UsageBiller;
+use App\Services\Shipping\ShippingRates;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -55,11 +56,12 @@ class PlaceOrder
              | in the minute an ad starts converting. Always store-then-product,
              | so two checkouts can never wait on each other in a circle.
              */
-            Store::whereKey($store->id)->lockForUpdate()->first();
+            $locked = Store::whereKey($store->id)->lockForUpdate()->first() ?? $store;
 
             $items = $this->resolveLines($store, $lines);
 
             $subtotal = array_sum(array_column($items, 'total'));
+            $shipping = $this->shipping($locked, $customer['governorate'] ?? null, $items);
 
             $order = $store->orders()->create([
                 'number' => $this->nextNumber($store),
@@ -72,9 +74,12 @@ class PlaceOrder
                 'address' => $customer['address'] ?? null,
                 'note' => $customer['note'] ?? null,
                 'subtotal' => $subtotal,
-                'shipping_amount' => 0,
+                // Written onto the order, never looked up again: a merchant
+                // who raises their prices tomorrow must not change what an
+                // order taken today asks the courier to collect.
+                'shipping_amount' => $shipping,
                 'discount_amount' => 0,
-                'total' => $subtotal,
+                'total' => $subtotal + $shipping,
                 'status' => Order::STATUS_PENDING,
                 'payment_method' => 'cod',
                 'ip' => $customer['ip'] ?? null,
@@ -213,6 +218,31 @@ class PlaceOrder
         }
 
         return $items;
+    }
+
+    /**
+     * The delivery charge, from the store's own prices.
+     *
+     * Read from the locked store row, so a merchant saving new prices while
+     * this order is being written cannot leave it half on the old ones. The
+     * checkout already refused governorates the store does not deliver to;
+     * this refuses them again for any caller that skipped it.
+     *
+     * @param  array<int,array<string,mixed>>  $items
+     *
+     * @throws CheckoutException
+     */
+    private function shipping(Store $store, ?string $governorate, array $items): float
+    {
+        $fee = ShippingRates::for($store)->feeFor($governorate, array_column($items, 'product'));
+
+        if ($fee === null) {
+            throw new CheckoutException(filled($governorate)
+                ? 'للأسف مش بنوصّل للمحافظة دي.'
+                : 'اختار المحافظة عشان نحسب الشحن.');
+        }
+
+        return $fee;
     }
 
     /** @param array<string,mixed> $item */

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Services\Shipping\ShippingRates;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -45,6 +46,8 @@ class CheckoutFieldsController extends Controller
         ]);
 
         $defaults = (array) config('checkout.fields');
+        $previous = (array) data_get($store->settings, 'checkout_fields', []);
+        $shippingForcesGovernorate = ShippingRates::for($store)->enabled();
         $saved = [];
 
         foreach ($validated['fields'] as $field) {
@@ -65,6 +68,14 @@ class CheckoutFieldsController extends Controller
                 'required' => $locked ? true : (bool) ($field['required'] ?? false),
                 'order' => $field['order'],
             ];
+
+            // Shown locked on while shipping prices are on. What arrives is
+            // that forced value, not the merchant's choice — keep the choice,
+            // so switching prices off later gives them their own form back.
+            if ($key === 'governorate' && $shippingForcesGovernorate) {
+                $saved[$key]['enabled'] = (bool) ($previous[$key]['enabled'] ?? $defaults[$key]['enabled']);
+                $saved[$key]['required'] = (bool) ($previous[$key]['required'] ?? $defaults[$key]['required']);
+            }
         }
 
         $store->update([

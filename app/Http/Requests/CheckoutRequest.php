@@ -3,9 +3,11 @@
 namespace App\Http\Requests;
 
 use App\Models\Store;
+use App\Services\Shipping\ShippingRates;
 use App\Support\ArabicNumerals;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Validation\Rule;
 
 class CheckoutRequest extends FormRequest
 {
@@ -121,8 +123,24 @@ class CheckoutRequest extends FormRequest
             'customer_phone', 'customer_phone_alt' => ['string', 'regex:/^\d{8,15}$/'],
             'customer_email' => ['email', 'max:255'],
             'address', 'note' => ['string', 'max:1000'],
+            'governorate' => $this->governorateRules(),
             default => ['string', 'max:255'],
         };
+    }
+
+    /**
+     * With shipping prices on, only a governorate the store delivers to — the
+     * form only offers those, so anything else was typed into the request.
+     *
+     * @return array<int,mixed>
+     */
+    private function governorateRules(): array
+    {
+        $rates = ShippingRates::for($this->store());
+
+        return $rates->enabled()
+            ? ['string', Rule::in(array_keys($rates->openGovernorates()))]
+            : ['string', 'max:255'];
     }
 
     public function messages(): array
@@ -131,6 +149,7 @@ class CheckoutRequest extends FormRequest
             'customer_phone.regex' => 'رقم التليفون مش مظبوط. اكتبه بالأرقام — مثال: 01006262330',
             'customer_phone_alt.regex' => 'الرقم البديل مش مظبوط.',
             'quantity.min' => 'الكمية لازم تكون ١ على الأقل.',
+            'governorate.in' => 'للأسف مش بنوصّل للمحافظة دي.',
         ];
 
         // "اكتب اسمك" reads better than "حقل اسمك مطلوب", and the merchant may

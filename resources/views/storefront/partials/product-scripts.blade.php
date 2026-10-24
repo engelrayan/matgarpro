@@ -19,6 +19,27 @@
     const qtyEl = document.getElementById('quantity');
     const submitEl = document.querySelector('#orderForm button[type="submit"]');
 
+    // Delivery, when the store prices it by governorate. The price rides on
+    // each <option>; the server charges the same figure from the same table.
+    const freeShipping = {{ $productSettings['free_shipping'] ? 'true' : 'false' }};
+    const governorateEl = document.getElementById('governorate');
+    const shippingEl = document.getElementById('shippingAmount');
+
+    function shippingFee() {
+        if (!shippingEl || freeShipping) return 0;
+        const option = governorateEl?.selectedOptions[0];
+        return option?.dataset.shipping ? parseFloat(option.dataset.shipping) : 0;
+    }
+
+    function refreshShipping() {
+        if (!shippingEl || freeShipping) return;
+        const option = governorateEl?.selectedOptions[0];
+        // The words live on the element, so the page carries one copy of them.
+        shippingEl.textContent = option?.dataset.shipping
+            ? (shippingFee() > 0 ? `${money(shippingFee())} ${currency}` : shippingEl.dataset.free)
+            : shippingEl.dataset.choose;
+    }
+
     const money = (n) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
     // Must match ProductVariant::keyFor() — same sort, same separators.
@@ -36,9 +57,12 @@
         const unit = variant ? variant.price : basePrice;
         const qty = Math.max(1, parseInt(qtyEl.value, 10) || 1);
 
+        const total = unit * qty + shippingFee();
+
         priceEl.textContent = money(unit);
-        totalEl.textContent = `${money(unit * qty)} ${currency}`;
-        if (stickyTotalEl) stickyTotalEl.textContent = money(unit * qty);
+        totalEl.textContent = `${money(total)} ${currency}`;
+        if (stickyTotalEl) stickyTotalEl.textContent = money(total);
+        refreshShipping();
         variantIdEl.value = variant ? variant.id : '';
 
         // A combination the merchant never created is not buyable. Saying so
@@ -77,6 +101,7 @@
     });
 
     qtyEl.addEventListener('input', refresh);
+    governorateEl?.addEventListener('change', refresh);
 
     /*
      * Gallery. The swiping is CSS scroll snapping; all this does is keep the

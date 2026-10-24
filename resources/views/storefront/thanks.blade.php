@@ -41,6 +41,13 @@
                 </div>
             @endforeach
 
+            @if ((float) $order->shipping_amount > 0)
+                <div class="ios-row justify-between">
+                    <span class="text-[15px] text-muted-foreground">الشحن ({{ $order->governorate }})</span>
+                    <span class="tabular shrink-0 text-[15px]">{{ number_format((float) $order->shipping_amount, 2) }}</span>
+                </div>
+            @endif
+
             <div class="ios-row justify-between">
                 <span class="text-[15px] text-muted-foreground">الإجمالي</span>
                 <span class="tabular text-[20px] font-bold tracking-tight">

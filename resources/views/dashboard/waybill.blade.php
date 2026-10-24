@@ -137,6 +137,14 @@
                         <td>{{ $item->quantity }}</td>
                     </tr>
                 @endforeach
+                {{-- So the customer can see why the collected amount is more
+                     than the price they saw on the ad. --}}
+                @if ((float) $order->shipping_amount > 0)
+                    <tr>
+                        <td>الشحن</td>
+                        <td>{{ number_format((float) $order->shipping_amount, 2) }}</td>
+                    </tr>
+                @endif
             </tbody>
         </table>
 

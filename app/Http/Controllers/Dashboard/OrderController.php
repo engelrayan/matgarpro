@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\Store;
 use App\Services\Customers\ReputationService;
+use App\Services\Shipping\ShippingRates;
 use App\Support\ArabicNumerals;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -74,7 +75,7 @@ class OrderController extends Controller
             // Drives the "شحن عبر ضمان" button. Absent rather than disabled
             // when the store has not linked an account — an action a merchant
             // cannot take is clutter on the screen they use all day.
-            'daman_enabled' => (bool) $store->damanIntegration?->canShip(),
+            'daman_enabled' => $this->shipsWithDaman($store),
             'counts' => $this->countsByStatus($store),
             'statuses' => collect(Order::STATUSES)
                 ->map(fn ($s) => ['value' => $s, 'label' => (new Order(['status' => $s]))->statusLabel()])
@@ -150,7 +151,7 @@ class OrderController extends Controller
                 ]),
             ],
             'currency' => $store->currency,
-            'daman_enabled' => (bool) $store->damanIntegration?->canShip(),
+            'daman_enabled' => $this->shipsWithDaman($store),
             'whatsapp_enabled' => (bool) $store->whatsappIntegration?->canSend(),
             'statuses' => $this->statusOptions(),
             /*
@@ -476,5 +477,17 @@ class OrderController extends Controller
     private function currentStore(Request $request): Store
     {
         return $request->user()->currentStore();
+    }
+
+    /**
+     * Offer "ship via Daman" only to a store that is connected to Daman and
+     * has said, in its shipping settings, that Daman is who carries its
+     * parcels. A store using its own courier would otherwise be one click
+     * from booking a second pickup for the same order.
+     */
+    private function shipsWithDaman(Store $store): bool
+    {
+        return (bool) $store->damanIntegration?->canShip()
+            && ShippingRates::for($store)->carrier() === ShippingRates::CARRIER_DAMAN;
     }
 }

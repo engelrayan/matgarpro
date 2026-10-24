@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\Shipping\ShippingRates;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -203,6 +204,19 @@ class Store extends Model
             }
 
             $field['locked'] = $default['locked'];
+
+            /*
+             | With shipping priced by governorate, an order without one has
+             | no shipping price — so the field is on and required for as long
+             | as prices are, whatever the merchant set on the form screen.
+             | Their own choice comes back the moment prices are switched off.
+             */
+            if ($key === 'governorate' && ShippingRates::for($this)->enabled()) {
+                $field['enabled'] = true;
+                $field['required'] = true;
+                $field['locked'] = true;
+            }
+
             $fields[$key] = $field;
         }
 
