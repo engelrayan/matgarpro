@@ -19,20 +19,40 @@
     const qtyEl = document.getElementById('quantity');
     const submitEl = document.querySelector('#orderForm button[type="submit"]');
 
+    // Quantity offers, keyed by id: how many pieces, at what each, and whether
+    // delivery is on the house. Empty when the product has none.
+    const offers = @json($offerMap ?? []);
+    const hasOffers = Object.keys(offers).length > 0;
+    const piecesEl = document.getElementById('offerPieces');
+    const pieceTemplate = document.getElementById('pieceTemplate');
+    // What the customer picked for each piece, in order.
+    const pieceChoices = [];
+
+    function currentOffer() {
+        const checked = document.querySelector('input[name="offer_id"]:checked');
+        return checked ? offers[checked.value] : null;
+    }
+
     // Delivery, when the store prices it by governorate. The price rides on
     // each <option>; the server charges the same figure from the same table.
-    const freeShipping = {{ $productSettings['free_shipping'] ? 'true' : 'false' }};
+    const productFreeShipping = {{ $productSettings['free_shipping'] ? 'true' : 'false' }};
     const governorateEl = document.getElementById('governorate');
     const shippingEl = document.getElementById('shippingAmount');
 
+    const freeShipping = () => productFreeShipping || !!currentOffer()?.free_shipping;
+
     function shippingFee() {
-        if (!shippingEl || freeShipping) return 0;
+        if (!shippingEl || freeShipping()) return 0;
         const option = governorateEl?.selectedOptions[0];
         return option?.dataset.shipping ? parseFloat(option.dataset.shipping) : 0;
     }
 
     function refreshShipping() {
-        if (!shippingEl || freeShipping) return;
+        if (!shippingEl) return;
+        if (freeShipping()) {
+            shippingEl.textContent = shippingEl.dataset.free;
+            return;
+        }
         const option = governorateEl?.selectedOptions[0];
         // The words live on the element, so the page carries one copy of them.
         shippingEl.textContent = option?.dataset.shipping
@@ -52,7 +72,91 @@
         return variants[keyFor(selected)] ?? null;
     }
 
+    /** The variant for one piece's picks: undefined while incomplete, null if never made. */
+    function variantFor(choice) {
+        if (optionNames.some((n) => !choice[n])) return undefined;
+        return variants[keyFor(choice)] ?? null;
+    }
+
+    /**
+     * One row of size/colour pickers per piece in the offer. Rebuilt when the
+     * offer changes; pieces already picked keep their picks, and a new piece
+     * starts as a copy of the first — most people want the same size twice.
+     */
+    function buildPieces(count) {
+        if (!piecesEl || !pieceTemplate) return;
+
+        while (pieceChoices.length < count) pieceChoices.push({ ...(pieceChoices[0] ?? {}) });
+        pieceChoices.length = count;
+        piecesEl.replaceChildren();
+
+        pieceChoices.forEach((choice, index) => {
+            const row = pieceTemplate.content.firstElementChild.cloneNode(true);
+            const title = row.querySelector('[data-piece-title]');
+            title.textContent = count > 1 ? `القطعة ${index + 1}` : '';
+            title.hidden = count === 1;
+
+            row.querySelectorAll('.piece-opt').forEach((btn) => {
+                btn.setAttribute('aria-pressed', choice[btn.dataset.option] === btn.dataset.value ? 'true' : 'false');
+                btn.addEventListener('click', () => {
+                    choice[btn.dataset.option] = btn.dataset.value;
+                    row.querySelectorAll(`.piece-opt[data-option="${CSS.escape(btn.dataset.option)}"]`).forEach((b) => {
+                        b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+                    });
+                    row.removeAttribute('data-missing');
+                    refresh();
+                });
+            });
+
+            piecesEl.append(row);
+        });
+    }
+
+    /** Price, stock and the posted pieces for the chosen offer. */
+    function refreshOffer() {
+        const offer = currentOffer();
+        if (!offer) return;
+
+        qtyEl.value = offer.quantity;
+        const total = offer.unit * offer.quantity + shippingFee();
+
+        // The headline price stays the product's own: the discount badge
+        // under it is worked out from that price, and the offer cards
+        // already say what each piece costs.
+        totalEl.textContent = `${money(total)} ${currency}`;
+        if (stickyTotalEl) stickyTotalEl.textContent = money(total);
+        refreshShipping();
+
+        // A piece in a combination the merchant never made, or more pieces of
+        // one variant than are on the shelf, cannot be sold — counted across
+        // pieces, since three pieces of "L" all draw on the same stock.
+        let soldOut = false;
+        const wanted = {};
+
+        if (piecesEl) {
+            piecesEl.querySelectorAll('[data-piece]').forEach((row, index) => {
+                const variant = variantFor(pieceChoices[index]);
+                row.querySelector('[data-piece-variant]').value = variant ? variant.id : '';
+                if (variant === null) soldOut = true;
+                if (variant) wanted[variant.id] = (wanted[variant.id] ?? 0) + 1;
+            });
+
+            if (trackStock) {
+                Object.values(variants).forEach((v) => {
+                    if ((wanted[v.id] ?? 0) > v.stock) soldOut = true;
+                });
+            }
+        } else if (trackStock && productStock < offer.quantity) {
+            soldOut = true;
+        }
+
+        submitEl.disabled = soldOut;
+        submitEl.textContent = soldOut ? 'غير متاح حاليًا' : buyLabel;
+    }
+
     function refresh() {
+        if (hasOffers) return refreshOffer();
+
         const variant = currentVariant();
         const unit = variant ? variant.price : basePrice;
         const qty = Math.max(1, parseInt(qtyEl.value, 10) || 1);
@@ -102,6 +206,31 @@
 
     qtyEl.addEventListener('input', refresh);
     governorateEl?.addEventListener('change', refresh);
+
+    document.querySelectorAll('input[name="offer_id"]').forEach((radio) => {
+        radio.addEventListener('change', () => {
+            buildPieces(currentOffer()?.quantity ?? 1);
+            refresh();
+        });
+    });
+
+    if (hasOffers) {
+        buildPieces(currentOffer()?.quantity ?? 1);
+
+        // Every piece needs its size before the order goes: point at the
+        // first one still missing instead of letting the server refuse it.
+        document.getElementById('orderForm').addEventListener('submit', (event) => {
+            const missing = piecesEl
+                ? [...piecesEl.querySelectorAll('[data-piece]')].filter((row, i) => variantFor(pieceChoices[i]) === undefined)
+                : [];
+
+            if (missing.length) {
+                event.preventDefault();
+                missing.forEach((row) => row.setAttribute('data-missing', ''));
+                missing[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        });
+    }
 
     /*
      * Gallery. The swiping is CSS scroll snapping; all this does is keep the

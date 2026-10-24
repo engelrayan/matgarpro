@@ -41,6 +41,13 @@
                 </div>
             @endforeach
 
+            @foreach ($order->items->pluck('offer_label')->filter()->unique() as $offerLabel)
+                <div class="ios-row justify-between gap-3">
+                    <span class="text-[15px] text-muted-foreground">العرض</span>
+                    <span class="text-[15px] font-medium">{{ $offerLabel }}</span>
+                </div>
+            @endforeach
+
             @if ((float) $order->shipping_amount > 0)
                 <div class="ios-row justify-between">
                     <span class="text-[15px] text-muted-foreground">الشحن ({{ $order->governorate }})</span>

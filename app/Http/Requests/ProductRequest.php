@@ -56,6 +56,21 @@ class ProductRequest extends FormRequest
             'variants.*.sku' => ['nullable', 'string', 'max:100'],
 
             /*
+             | Quantity offers. `distinct` on the count: two offers for the same
+             | number of pieces would leave the customer choosing between two
+             | prices for one thing.
+             */
+            'offers' => ['nullable', 'array', 'max:6'],
+            'offers.*.id' => ['nullable', 'integer'],
+            'offers.*.quantity' => ['required', 'integer', 'min:1', 'max:20', 'distinct'],
+            'offers.*.unit_price' => ['required', 'numeric', 'min:0', 'max:9999999'],
+            'offers.*.title' => ['nullable', 'string', 'max:120'],
+            'offers.*.badge' => ['nullable', 'string', 'max:40'],
+            'offers.*.note' => ['nullable', 'string', 'max:120'],
+            'offers.*.free_shipping' => ['boolean'],
+            'offers.*.is_default' => ['boolean'],
+
+            /*
              | Page settings. Each key is listed explicitly rather than taking
              | the whole array: an un-enumerated JSON blob from the client ends
              | up stored verbatim, and the storefront then renders whatever was
@@ -92,6 +107,13 @@ class ProductRequest extends FormRequest
             'images.max' => 'أقصى عدد صور للمنتج ١٠.',
             'options.max' => 'أقصى عدد خواص للمنتج ٣ (زي اللون والمقاس).',
             'slug.regex' => 'رابط المنتج يقبل حروف وأرقام وشرطة (-) بس.',
+            'offers.max' => 'أقصى عدد عروض للمنتج ٦.',
+            'offers.*.quantity.required' => 'اكتب عدد القطع.',
+            'offers.*.quantity.min' => 'عدد القطع لازم يكون ١ على الأقل.',
+            'offers.*.quantity.max' => 'أقصى عدد قطع في العرض ٢٠.',
+            'offers.*.quantity.distinct' => 'فيه عرضين بنفس عدد القطع.',
+            'offers.*.unit_price.required' => 'اكتب سعر القطعة.',
+            'offers.*.unit_price.numeric' => 'سعر القطعة لازم يكون رقم.',
         ];
     }
 
@@ -103,5 +125,12 @@ class ProductRequest extends FormRequest
             'track_stock' => filter_var($this->input('track_stock', true), FILTER_VALIDATE_BOOLEAN),
             'slug' => trim((string) $this->input('slug')),
         ]);
+
+        // FormData cannot carry an empty list, so the form sends "" once the
+        // merchant removes every offer — which has to mean "none", not "leave
+        // them as they were".
+        if ($this->has('offers') && ! is_array($this->input('offers'))) {
+            $this->merge(['offers' => []]);
+        }
     }
 }

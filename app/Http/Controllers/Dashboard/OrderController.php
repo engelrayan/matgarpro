@@ -199,6 +199,7 @@ class OrderController extends Controller
                 'items' => $order->items->map(fn ($item) => [
                     'name' => $item->name,
                     'variant_label' => $item->variant_label,
+                    'offer_label' => $item->offer_label,
                     'quantity' => $item->quantity,
                     'unit_price' => $item->unit_price,
                     'total' => $item->total,

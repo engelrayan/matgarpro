@@ -60,6 +60,16 @@ class ProductController extends Controller
             ...$page,
             // Keyed by the same canonical string the client builds from the
             // selectors, so picking options is a map lookup instead of a search.
+            'offers' => $offers = $product->offers()->get(),
+            // What the page script needs to price an offer: the same figures
+            // PlaceOrder charges, from the same rows.
+            'offerMap' => $offers->mapWithKeys(fn ($o) => [
+                $o->id => [
+                    'quantity' => $o->quantity,
+                    'unit' => (float) $o->unit_price,
+                    'free_shipping' => $o->free_shipping,
+                ],
+            ]),
             'variantMap' => $product->variants->mapWithKeys(fn ($v) => [
                 $v->key() => [
                     'id' => $v->id,

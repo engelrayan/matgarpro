@@ -4,6 +4,7 @@ import InputError from '@/components/InputError.vue';
 import AdvancedSettings, { type ProductSettings } from '@/components/products/AdvancedSettings.vue';
 import AiProductWriter, { type ProductDraft } from '@/components/products/AiProductWriter.vue';
 import LivePreview from '@/components/products/LivePreview.vue';
+import OfferEditor, { type OfferRow } from '@/components/products/OfferEditor.vue';
 import ProfitCalculator from '@/components/products/ProfitCalculator.vue';
 import RichTextEditor from '@/components/products/RichTextEditor.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
@@ -24,6 +25,7 @@ interface ProductPayload {
     status: 'draft' | 'active';
     seo_title: string | null; seo_description: string | null;
     options: OptionDef[]; variants: VariantRow[];
+    offers: OfferRow[];
     settings: ProductSettings;
     categories: number[];
     images: ExistingImage[]; url: string;
@@ -61,6 +63,7 @@ const form = useForm({
     seo_description: props.product?.seo_description ?? '',
     options: (props.product?.options ?? []) as OptionDef[],
     variants: (props.product?.variants ?? []) as VariantRow[],
+    offers: (props.product?.offers ?? []).map((o) => ({ ...o })) as OfferRow[],
     settings: { ...props.settingDefaults, ...(props.product?.settings ?? {}) } as ProductSettings,
     categories: [...(props.product?.categories ?? [])] as number[],
     kept_images: (props.product?.images ?? []).map((i) => i.id),
@@ -167,6 +170,10 @@ const previewImages = computed(() => [
 
 const showAdvanced = ref(false);
 
+// Offer errors arrive keyed per row ("offers.1.quantity"), which the form's
+// own error type does not know about.
+const offerErrors = computed(() => form.errors as Record<string, string | undefined>);
+
 /** The AI draft fills the form; saving stays the merchant's call. */
 const applyDraft = (draft: ProductDraft) => {
     form.name = draft.name || form.name;
@@ -182,7 +189,9 @@ const applyDraft = (draft: ProductDraft) => {
 
 const submit = () => {
     const url = isEdit.value ? `/products/${props.product!.id}` : '/products';
-    form.post(url, {
+    // FormData drops an empty list entirely, and "no key" means "leave the
+    // offers alone" on the server. An empty string is how "none" survives.
+    form.transform((data) => ({ ...data, offers: data.offers.length ? data.offers : '' })).post(url, {
         forceFormData: true,
         preserveScroll: true,
         onSuccess: () => {
@@ -370,6 +379,16 @@ const submit = () => {
                         </table>
                     </div>
                 </section>
+
+                    <!-- ── Quantity offers ──────────────────────────────── -->
+                    <OfferEditor
+                        v-model="form.offers"
+                        :price="form.price"
+                        :compare-at-price="form.compare_at_price"
+                        :currency="currency"
+                        :has-options="form.options.some((o) => o.name.trim() && o.values.length)"
+                        :errors="offerErrors"
+                    />
 
                     <!-- ── SEO ──────────────────────────────────────────── -->
                     <section class="surface p-6">

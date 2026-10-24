@@ -118,6 +118,12 @@ class Product extends Model
         return $this->hasMany(ProductVariant::class);
     }
 
+    /** Quantity offers, in the order the merchant lined them up. */
+    public function offers(): HasMany
+    {
+        return $this->hasMany(ProductOffer::class)->orderBy('sort_order')->orderBy('id');
+    }
+
     public function orderItems(): HasMany
     {
         return $this->hasMany(OrderItem::class);

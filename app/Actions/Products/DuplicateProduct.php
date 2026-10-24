@@ -18,7 +18,7 @@ class DuplicateProduct
     public function handle(Product $product): Product
     {
         return DB::transaction(function () use ($product) {
-            $product->loadMissing(['images', 'variants']);
+            $product->loadMissing(['images', 'variants', 'offers']);
 
             $name = $product->name . ' — نسخة';
 
@@ -63,6 +63,12 @@ class DuplicateProduct
                     'price' => $variant->price,
                     'stock' => $variant->stock,
                 ]);
+            }
+
+            foreach ($product->offers as $offer) {
+                $copy->offers()->create($offer->only([
+                    'quantity', 'unit_price', 'title', 'badge', 'note', 'free_shipping', 'is_default', 'sort_order',
+                ]));
             }
 
             return $copy;

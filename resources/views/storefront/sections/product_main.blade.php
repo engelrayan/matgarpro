@@ -209,6 +209,9 @@
                      script posts instantly. --}}
                 <input type="hidden" name="form_opened_at" value="{{ Crypt::encryptString((string) time()) }}">
 
+                @if (($offers ?? collect())->isNotEmpty())
+                    @include('storefront.partials.product-offers')
+                @else
                 {{-- Options ------------------------------------------------ --}}
                 @foreach ($product->options ?? [] as $option)
                     <fieldset>
@@ -239,6 +242,7 @@
                         </div>
                     </div>
                 </div>
+                @endif
 
                 {{-- Rendered from the store's own form settings, in the order
                      the merchant chose. Every extra field on a COD form costs

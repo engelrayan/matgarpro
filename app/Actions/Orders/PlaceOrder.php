@@ -7,6 +7,7 @@ use App\Jobs\SendMetaPurchaseEvent;
 use App\Jobs\SendWhatsappOrderConfirmation;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\ProductOffer;
 use App\Models\ProductVariant;
 use App\Models\Store;
 use App\Services\Billing\UsageBiller;
@@ -27,7 +28,7 @@ class PlaceOrder
     public function __construct(private readonly UsageBiller $biller) {}
 
     /**
-     * @param  array<int,array{product_id:int,variant_id?:int|null,quantity:int}>  $lines
+     * @param  array<int,array{product_id:int,variant_id?:int|null,quantity:int,offer_id?:int|null}>  $lines
      * @param  array<string,mixed>  $customer
      *
      * @throws CheckoutException
@@ -187,7 +188,10 @@ class PlaceOrder
     {
         $items = [];
 
-        foreach ($lines as $line) {
+        // Pieces in each offer actually ordered, product id => offer id => count.
+        $offerPieces = [];
+
+        foreach ($this->mergeLines($lines) as $line) {
             /** @var Product|null $product */
             $product = $store->products()
                 ->whereKey($line['product_id'])
@@ -218,11 +222,21 @@ class PlaceOrder
                 throw new CheckoutException("الكمية المطلوبة مش متوفرة من: {$product->name}");
             }
 
-            $unitPrice = (float) ($variant?->effectivePrice($product) ?? $product->price);
+            $offer = $this->offerFor($product, $line['offer_id'] ?? null);
+
+            if ($offer) {
+                $offerPieces[$product->id][$offer->id] = ($offerPieces[$product->id][$offer->id] ?? 0) + $quantity;
+            }
+
+            // An offer's price holds whatever size or colour each piece is.
+            $unitPrice = $offer
+                ? (float) $offer->unit_price
+                : (float) ($variant?->effectivePrice($product) ?? $product->price);
 
             $items[] = [
                 'product' => $product,
                 'variant' => $variant,
+                'offer' => $offer,
                 'quantity' => $quantity,
                 'total' => $unitPrice * $quantity,
                 'attributes' => [
@@ -230,6 +244,7 @@ class PlaceOrder
                     'product_variant_id' => $variant?->id,
                     'name' => $product->name,
                     'variant_label' => $variant?->label(),
+                    'offer_label' => $offer?->label(),
                     'unit_price' => $unitPrice,
                     'quantity' => $quantity,
                     'total' => $unitPrice * $quantity,
@@ -237,7 +252,79 @@ class PlaceOrder
             ];
         }
 
+        /*
+         | An offer is a price for an exact number of pieces. Posting the offer
+         | with a different count — one piece at the three-piece price — is the
+         | first thing anyone tampering with this form would try.
+         */
+        foreach ($items as $item) {
+            if ($offer = $item['offer']) {
+                if ($offerPieces[$item['product']->id][$offer->id] !== $offer->quantity) {
+                    throw new CheckoutException('عدد القطع مش مطابق للعرض. حدّث الصفحة واختار العرض تاني.');
+                }
+            }
+        }
+
         return $items;
+    }
+
+    /**
+     * The offer this line is bought under, read from the locked product.
+     *
+     * A product with offers is sold only through them. One without any
+     * ignores a posted offer id rather than failing on it — the merchant may
+     * have removed every offer while the page sat open.
+     *
+     * @throws CheckoutException
+     */
+    private function offerFor(Product $product, mixed $offerId): ?ProductOffer
+    {
+        $offers = $product->offers()->get();
+
+        if ($offers->isEmpty()) {
+            return null;
+        }
+
+        $offer = $offers->firstWhere('id', (int) $offerId);
+
+        if (! $offer) {
+            throw new CheckoutException(filled($offerId)
+                ? 'العرض ده اتغيّر. حدّث الصفحة واختار العرض تاني.'
+                : "اختار عرض من عروض: {$product->name}");
+        }
+
+        return $offer;
+    }
+
+    /**
+     * One line per product, variant and offer.
+     *
+     * An offer with sizes arrives a piece at a time, and two pieces of the
+     * same size must be checked against stock together — two lines of one
+     * each would each see the last piece on the shelf and both pass.
+     *
+     * @param  array<int,array<string,mixed>>  $lines
+     * @return array<int,array<string,mixed>>
+     */
+    private function mergeLines(array $lines): array
+    {
+        $merged = [];
+
+        foreach ($lines as $line) {
+            $key = implode(':', [
+                (int) $line['product_id'],
+                (int) ($line['variant_id'] ?? 0),
+                (int) ($line['offer_id'] ?? 0),
+            ]);
+
+            if (isset($merged[$key])) {
+                $merged[$key]['quantity'] = (int) $merged[$key]['quantity'] + max(1, (int) $line['quantity']);
+            } else {
+                $merged[$key] = $line;
+            }
+        }
+
+        return array_values($merged);
     }
 
     /**
@@ -262,7 +349,12 @@ class PlaceOrder
                 : 'اختار المحافظة عشان نحسب الشحن.');
         }
 
-        return $fee;
+        // An offer that promises free delivery keeps the promise — but only
+        // after the governorate check above: it is free shipping, not
+        // shipping to places the store does not go.
+        $allFree = collect($items)->every(fn (array $item) => $item['offer']?->free_shipping);
+
+        return $allFree ? 0.0 : $fee;
     }
 
     /** @param array<string,mixed> $item */

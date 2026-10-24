@@ -88,7 +88,7 @@ class ProductController extends Controller
         $this->authorizeProduct($request, $product);
 
         $store = $this->currentStore($request);
-        $product->load(['images', 'variants', 'categories']);
+        $product->load(['images', 'variants', 'offers', 'categories']);
 
         return Inertia::render('products/Form', [
             'currency' => $store->currency,
@@ -125,6 +125,16 @@ class ProductController extends Controller
                     'price' => $v->price,
                     'stock' => $v->stock,
                     'sku' => $v->sku,
+                ]),
+                'offers' => $product->offers->map(fn ($o) => [
+                    'id' => $o->id,
+                    'quantity' => $o->quantity,
+                    'unit_price' => $o->unit_price,
+                    'title' => $o->title,
+                    'badge' => $o->badge,
+                    'note' => $o->note,
+                    'free_shipping' => $o->free_shipping,
+                    'is_default' => $o->is_default,
                 ]),
             ],
         ]);

@@ -239,6 +239,12 @@
                             <td class="qty">{{ $item->quantity }}</td>
                         </tr>
                     @endforeach
+                    {{-- Said once, however many sizes the offer was split into. --}}
+                    @foreach ($order->items->pluck('offer_label')->filter()->unique() as $offerLabel)
+                        <tr>
+                            <td colspan="2"><span class="variant">العرض: {{ $offerLabel }}</span></td>
+                        </tr>
+                    @endforeach
                 </tbody>
             </table>
         </div>

@@ -33,9 +33,10 @@ class SaveProduct
 
             $this->syncImages($product, $data, $newImages);
             $this->syncVariants($product, $data);
+            $this->syncOffers($product, $data);
             $this->syncCategories($store, $product, $data);
 
-            return $product->fresh(['images', 'variants', 'categories']);
+            return $product->fresh(['images', 'variants', 'offers', 'categories']);
         });
     }
 
@@ -190,6 +191,53 @@ class SaveProduct
                 'sort_order' => $next++,
             ]);
         }
+    }
+
+    /**
+     * Reconcile the quantity offers against the list the form sent.
+     *
+     * Only when the form sent one: a caller that saves a product without
+     * knowing about offers must not wipe them. Matched by id, and only ids
+     * already on this product — a posted id from another product's offer
+     * becomes a new row here, never a way to edit someone else's.
+     *
+     * @param  array<string,mixed>  $data
+     */
+    private function syncOffers(Product $product, array $data): void
+    {
+        if (! array_key_exists('offers', $data)) {
+            return;
+        }
+
+        $existing = $product->offers()->get()->keyBy('id');
+        $kept = [];
+        $defaultTaken = false;
+
+        foreach (array_values((array) $data['offers']) as $index => $row) {
+            // One default at most: the first one ticked wins.
+            $isDefault = filter_var($row['is_default'] ?? false, FILTER_VALIDATE_BOOLEAN) && ! $defaultTaken;
+            $defaultTaken = $defaultTaken || $isDefault;
+
+            $attributes = [
+                'quantity' => (int) $row['quantity'],
+                'unit_price' => $row['unit_price'],
+                'title' => filled($row['title'] ?? null) ? trim($row['title']) : null,
+                'badge' => filled($row['badge'] ?? null) ? trim($row['badge']) : null,
+                'note' => filled($row['note'] ?? null) ? trim($row['note']) : null,
+                'free_shipping' => filter_var($row['free_shipping'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                'is_default' => $isDefault,
+                'sort_order' => $index,
+            ];
+
+            if ($match = $existing->get((int) ($row['id'] ?? 0))) {
+                $match->update($attributes);
+                $kept[] = $match->id;
+            } else {
+                $kept[] = $product->offers()->create($attributes)->id;
+            }
+        }
+
+        $product->offers()->whereNotIn('id', $kept)->delete();
     }
 
     /**

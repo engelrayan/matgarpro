@@ -92,6 +92,13 @@ class CheckoutRequest extends FormRequest
             'variant_id' => ['nullable', 'integer'],
             'quantity' => ['required', 'integer', 'min:1', 'max:100'],
 
+            // A quantity offer, and — when the product has sizes or colours —
+            // the variant picked for each piece in it. Priced and counted
+            // against the offer itself in PlaceOrder.
+            'offer_id' => ['nullable', 'integer'],
+            'pieces' => ['nullable', 'array', 'max:20'],
+            'pieces.*' => ['nullable', 'integer'],
+
             // Present so the trap fields are never flagged as unexpected input
             // and never reach the order.
             'confirm_url' => ['nullable', 'string', 'max:200'],

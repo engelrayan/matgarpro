@@ -55,11 +55,7 @@ class CheckoutController extends Controller
         try {
             $order = $this->placeOrder->handle(
                 store: $store,
-                lines: [[
-                    'product_id' => $data['product_id'],
-                    'variant_id' => $data['variant_id'] ?? null,
-                    'quantity' => $data['quantity'],
-                ]],
+                lines: $this->lines($data),
                 customer: [
                     ...$data,
                     'ip' => $request->ip(),
@@ -98,6 +94,39 @@ class CheckoutController extends Controller
          | merchant's own domain, behind a proxy that may rewrite the scheme.
          */
         return redirect()->to(URL::signedRoute('storefront.thanks', ['order' => $order->id], absolute: false));
+    }
+
+    /**
+     * The form, as order lines.
+     *
+     * An offer on a product with sizes posts one variant per piece; each piece
+     * becomes its own line here and PlaceOrder folds pieces of the same
+     * variant back together. Nothing is priced or counted here — whether the
+     * pieces add up to the offer is checked against the offer itself.
+     *
+     * @param  array<string,mixed>  $data
+     * @return array<int,array<string,mixed>>
+     */
+    private function lines(array $data): array
+    {
+        $offerId = $data['offer_id'] ?? null;
+        $pieces = array_values(array_filter((array) ($data['pieces'] ?? []), 'filled'));
+
+        if ($offerId && $pieces !== []) {
+            return array_map(fn ($variantId) => [
+                'product_id' => $data['product_id'],
+                'variant_id' => (int) $variantId,
+                'quantity' => 1,
+                'offer_id' => (int) $offerId,
+            ], $pieces);
+        }
+
+        return [[
+            'product_id' => $data['product_id'],
+            'variant_id' => $data['variant_id'] ?? null,
+            'quantity' => $data['quantity'],
+            'offer_id' => $offerId,
+        ]];
     }
 
     public function thanks(Request $request, Store $store, int $order): View

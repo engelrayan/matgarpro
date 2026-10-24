@@ -11,6 +11,8 @@ import { computed, ref } from 'vue';
 interface Item {
     name: string;
     variant_label: string | null;
+    /** The quantity offer this line was sold under, as the customer read it. */
+    offer_label: string | null;
     quantity: number;
     unit_price: string;
     total: string;
@@ -299,6 +301,9 @@ const sendWhatsapp = () => {
                                     <p class="mt-0.5 text-[13px] text-muted-foreground">
                                         <template v-if="item.variant_label">{{ item.variant_label }} · </template>
                                         <span class="tabular" dir="ltr">{{ money(item.unit_price) }}</span> للقطعة
+                                    </p>
+                                    <p v-if="item.offer_label" class="mt-1">
+                                        <span class="badge bg-primary/10 text-[12px] font-semibold text-primary">عرض: {{ item.offer_label }}</span>
                                     </p>
                                 </div>
                                 <span class="tabular shrink-0 text-[16px] font-semibold" dir="ltr">
