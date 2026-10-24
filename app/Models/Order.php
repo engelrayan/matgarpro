@@ -41,7 +41,7 @@ class Order extends Model
         'store_id', 'number', 'customer_name', 'customer_phone', 'customer_phone_alt',
         'customer_email', 'governorate', 'city', 'address', 'note', 'subtotal',
         'shipping_amount', 'discount_amount', 'total', 'status', 'payment_method',
-        'ip', 'user_agent', 'tracking',
+        'ip', 'user_agent', 'tracking', 'locked_at',
     ];
 
     protected function casts(): array
@@ -55,7 +55,30 @@ class Order extends Model
             'daman_sent_at' => 'datetime',
             'whatsapp_sent_at' => 'datetime',
             'whatsapp_replied_at' => 'datetime',
+            'locked_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Arrived while the store was past its credit floor: real, but its
+     * customer details stay hidden from the merchant until a top-up covers it.
+     * See OrderUnlocker.
+     */
+    public function isLocked(): bool
+    {
+        return $this->locked_at !== null;
+    }
+
+    /** Orders the merchant can see in full. */
+    public function scopeVisible($query)
+    {
+        return $query->whereNull('locked_at');
+    }
+
+    /** Orders waiting on a top-up. */
+    public function scopeLocked($query)
+    {
+        return $query->whereNotNull('locked_at');
     }
 
     /** Messaged the customer and still waiting on their answer. */

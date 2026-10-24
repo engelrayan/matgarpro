@@ -39,6 +39,9 @@ class ShipOrdersViaDaman
         // list would otherwise reach another merchant's orders.
         $orders = $store->orders()
             ->whereIn('id', $orderIds)
+            // Hidden until a top-up: handing it to a carrier hands over the
+            // customer the merchant has not paid to see.
+            ->visible()
             ->orderBy('id')
             ->get();
 

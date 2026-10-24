@@ -60,6 +60,7 @@ class OverviewController extends Controller
                 'price_after_intro' => $store->basePricePerOrder(),
                 'price_after_intro_with_confirmation' => $store->basePricePerOrder() + $store->confirmationPrice(),
                 'balance' => (float) $store->balance,
+                'locked' => $store->lockedOrdersSummary(),
             ],
             'range' => $range,
             'insights' => $insights->all(),
@@ -75,7 +76,9 @@ class OverviewController extends Controller
                 ->map(fn (Order $o) => [
                     'id' => $o->id,
                     'number' => $o->number,
-                    'customer_name' => $o->customer_name,
+                    // Hidden until a top-up, here as everywhere.
+                    'customer_name' => $o->isLocked() ? null : $o->customer_name,
+                    'locked' => $o->isLocked(),
                     'total' => $o->total,
                     'status' => $o->status,
                     'status_label' => $o->statusLabel(),

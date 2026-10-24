@@ -3,7 +3,7 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/vue3';
 import {
-    AlertTriangle, ChevronLeft, ChevronRight, Copy, Check, LoaderCircle, MapPin,
+    AlertTriangle, ChevronLeft, ChevronRight, Copy, Check, LoaderCircle, Lock, MapPin,
     MessageCircle, Package, Phone, Printer, Send, ShieldAlert, ShieldCheck, Truck,
 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
@@ -19,7 +19,9 @@ interface Item {
 const props = defineProps<{
     order: {
         id: number; number: number; status: string; status_label: string;
-        customer_name: string; customer_phone: string; customer_phone_alt: string | null;
+        // Null while the order is hidden until a top-up (`locked`).
+        locked: boolean;
+        customer_name: string | null; customer_phone: string | null; customer_phone_alt: string | null;
         customer_email: string | null; governorate: string | null; city: string | null;
         address: string | null; note: string | null;
         subtotal: string; shipping_amount: string; discount_amount: string; total: string;
@@ -84,7 +86,7 @@ const copy = async (value: string, key: string) => {
 // Pre-filled so confirming an order is one tap, not a message typed forty times
 // a day. wa.me needs an international number without the leading zero.
 const whatsappUrl = computed(() => {
-    const phone = props.order.customer_phone.replace(/^0/, '20');
+    const phone = (props.order.customer_phone ?? '').replace(/^0/, '20');
     const lines = [
         `أهلاً ${props.order.customer_name} 👋`,
         `طلبك رقم #${props.order.number} وصلنا:`,
@@ -110,7 +112,7 @@ const shipping = ref(false);
 // Confirmed only, and only once: the same rule the grid's bulk button follows,
 // enforced on the server either way.
 const canShipViaDaman = computed(
-    () => props.daman_enabled && props.order.status === 'confirmed' && !props.order.daman?.tracking_number,
+    () => props.daman_enabled && !props.order.locked && props.order.status === 'confirmed' && !props.order.daman?.tracking_number,
 );
 
 const shipViaDaman = () => {
@@ -173,7 +175,7 @@ const sendWhatsapp = () => {
             <!-- ── Status ───────────────────────────────────────────────
                  One line that scrolls on a phone. The current status is the
                  filled pill; every other is one tap away. -->
-            <section>
+            <section v-if="!order.locked">
                 <h2 class="ios-caption mb-1.5">الحالة</h2>
                 <div class="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 md:mx-0 md:flex-wrap md:px-0">
                     <button
@@ -197,11 +199,30 @@ const sendWhatsapp = () => {
                 merchant opened this order to call that person.
             -->
             <div class="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_21rem] lg:grid-rows-[auto_1fr]">
+                <!-- ── Hidden until a top-up ─────────────────────────────
+                     The order is real and its parcel is waiting; who it is
+                     for is what the top-up buys. -->
+                <section v-if="order.locked" class="surface space-y-3 p-4 lg:col-start-2 lg:row-start-1">
+                    <div class="flex items-center gap-3">
+                        <span class="flex size-12 shrink-0 items-center justify-center rounded-full bg-warning/15 text-warning">
+                            <Lock class="size-5" />
+                        </span>
+                        <div class="min-w-0">
+                            <p class="text-[17px] font-semibold leading-snug">بيانات العميل مخفية</p>
+                            <p class="text-[13px] text-muted-foreground">
+                                الطلب وصل ورصيدك تحت حد السماح. اشحن رصيدك والبيانات تظهر لوحدها.
+                            </p>
+                        </div>
+                    </div>
+                    <p v-if="order.governorate" class="flex items-center gap-1 text-[15px]"><MapPin class="size-4" /> {{ order.governorate }}</p>
+                    <Link href="/billing" class="btn-primary w-full">اشحن رصيدك</Link>
+                </section>
+
                 <!-- ── Customer: a contact card ─────────────────────────── -->
-                <section class="surface overflow-hidden lg:col-start-2 lg:row-start-1">
+                <section v-else class="surface overflow-hidden lg:col-start-2 lg:row-start-1">
                     <div class="flex items-center gap-3.5 px-4 pb-3 pt-4">
                         <span class="flex size-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-b from-foreground/25 to-foreground/40 text-xl font-semibold text-white">
-                            {{ order.customer_name.trim().charAt(0) }}
+                            {{ (order.customer_name ?? '').trim().charAt(0) }}
                         </span>
                         <div class="min-w-0">
                             <p class="truncate text-[20px] font-semibold leading-tight">{{ order.customer_name }}</p>
@@ -231,7 +252,7 @@ const sendWhatsapp = () => {
 
                     <div class="ios-group !rounded-none !shadow-none hairline-t">
                         <button class="ios-row w-full text-right transition-colors hover:bg-foreground/[0.03] active:bg-foreground/[0.06]"
-                                @click="copy(order.customer_phone, 'phone')">
+                                @click="copy(order.customer_phone ?? '', 'phone')">
                             <div class="min-w-0 flex-1">
                                 <p class="text-[13px] text-muted-foreground">الموبايل</p>
                                 <p class="tabular text-[17px] text-primary" dir="ltr" style="text-align: right">{{ order.customer_phone }}</p>
@@ -393,7 +414,7 @@ const sendWhatsapp = () => {
 
                     <!-- The number that decides whether this parcel is worth
                          shipping. Scoped to this store's own history. -->
-                    <section class="surface p-4" :class="{ 'bg-destructive/[0.04] !shadow-[0_0_0_0.5px_hsl(var(--destructive)/0.4)]': isRisky }">
+                    <section v-if="!order.locked" class="surface p-4" :class="{ 'bg-destructive/[0.04] !shadow-[0_0_0_0.5px_hsl(var(--destructive)/0.4)]': isRisky }">
                         <h2 class="text-[17px] font-semibold">سجل العميل</h2>
 
                         <p v-if="customer_history.orders === 0" class="mt-1.5 text-[15px] text-muted-foreground">
@@ -464,7 +485,7 @@ const sendWhatsapp = () => {
                         </p>
 
                         <button
-                            v-if="whatsapp_enabled"
+                            v-if="whatsapp_enabled && !order.locked"
                             class="btn-outline mt-3 w-full"
                             :disabled="messaging"
                             @click="sendWhatsapp"

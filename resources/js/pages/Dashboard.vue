@@ -45,9 +45,11 @@ const props = defineProps<{
         price_after_intro: number;
         price_after_intro_with_confirmation: number;
         balance: number;
+        locked: { count: number; value: number };
     };
     setup: { has_product: boolean; has_domain: boolean; has_logo: boolean; has_order: boolean };
-    recent: { id: number; number: number; customer_name: string; total: string; status: string; status_label: string; created_at: string }[];
+    // `customer_name` is null while the order is hidden until a top-up.
+    recent: { id: number; number: number; customer_name: string | null; locked: boolean; total: string; status: string; status_label: string; created_at: string }[];
     products_active: number;
 }>();
 
@@ -167,6 +169,24 @@ const copyUrl = async () => {
                     افتح المتجر
                 </a>
             </section>
+
+            <!-- Orders that arrived past the credit floor: what they are
+                 worth is the reason to top up, so it leads. -->
+            <Link
+                v-if="billing.locked.count"
+                href="/billing"
+                class="surface flex items-center gap-3 p-4 text-[15px] !shadow-[0_0_0_0.5px_hsl(var(--warning)/0.4)]"
+            >
+                <span class="ios-tile bg-warning"><AlertTriangle class="size-[18px]" /></span>
+                <p class="min-w-0 flex-1 leading-relaxed">
+                    <span class="font-semibold text-warning">
+                        عندك <span class="tabular">{{ num(billing.locked.count) }}</span> طلب مخفي بقيمة
+                        <span class="tabular">{{ money(billing.locked.value) }}</span> {{ store.currency }}
+                    </span>
+                    <span class="text-muted-foreground"> — اشحن رصيدك وبيانات العملاء تظهر وتتأكّد على واتساب.</span>
+                </p>
+                <ChevronLeft class="size-5 shrink-0 text-muted-foreground/50" />
+            </Link>
 
             <!--
                 The introductory months, counted down.
@@ -389,10 +409,12 @@ const copyUrl = async () => {
                     <Link v-for="order in recent" :key="order.id" :href="`/orders/${order.id}`"
                           class="ios-row min-h-[60px] transition-colors hover:bg-foreground/[0.03] active:bg-foreground/[0.06]">
                         <span class="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[15px] font-semibold text-primary">
-                            {{ order.customer_name.trim().charAt(0) }}
+                            {{ (order.customer_name ?? '').trim().charAt(0) }}
                         </span>
                         <div class="min-w-0 flex-1">
-                            <p class="truncate text-[16px] font-medium">{{ order.customer_name }}</p>
+                            <p class="truncate text-[16px] font-medium" :class="{ 'text-muted-foreground': order.locked }">
+                                {{ order.locked ? 'مخفي لحد ما تشحن رصيدك' : order.customer_name }}
+                            </p>
                             <p class="mt-0.5 truncate text-[13px] text-muted-foreground">
                                 <span class="tabular">#{{ order.number }}</span> · {{ order.created_at }}
                             </p>

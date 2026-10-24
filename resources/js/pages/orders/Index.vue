@@ -3,7 +3,7 @@ import EditableCell from '@/components/orders/EditableCell.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { AlertTriangle, ArrowDown, ArrowUp, Check, ChevronLeft, Download, LoaderCircle, Printer, Search, Truck, X } from 'lucide-vue-next';
+import { AlertTriangle, ArrowDown, ArrowUp, Check, ChevronLeft, Download, LoaderCircle, Lock, Printer, Search, Truck, X } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
 
 interface DamanCell {
@@ -17,8 +17,9 @@ interface DamanCell {
 interface Order {
     id: number;
     number: number;
-    customer_name: string;
-    customer_phone: string;
+    // Null while the order is hidden until a top-up (`locked`).
+    customer_name: string | null;
+    customer_phone: string | null;
     customer_phone_alt: string | null;
     governorate: string | null;
     city: string | null;
@@ -30,6 +31,7 @@ interface Order {
     created_at: string;
     daman: DamanCell | null;
     whatsapp: string | null;
+    locked: boolean;
 }
 
 interface PaginatorLink {
@@ -43,6 +45,8 @@ const props = defineProps<{
     filters: { status: string; q: string; gov: string; sort: string; dir: string };
     currency: string;
     counts: Record<string, number>;
+    /** Orders that arrived past the credit floor, waiting on a top-up. */
+    locked: { count: number; value: number };
     statuses: { value: string; label: string }[];
     governorates: string[];
     daman_enabled: boolean;
@@ -90,7 +94,8 @@ const tabs = computed(() => [
 const selected = ref<number[]>([]);
 const bulkStatus = ref('');
 
-const allOnPage = computed(() => props.orders.data.map((o) => o.id));
+// A hidden order cannot be worked on, so it is never part of a selection.
+const allOnPage = computed(() => props.orders.data.filter((o) => !o.locked).map((o) => o.id));
 const allSelected = computed(() => selected.value.length > 0 && selected.value.length === allOnPage.value.length);
 
 const toggleAll = () => {
@@ -287,6 +292,21 @@ const columns = computed(() => [
                 </ul>
             </div>
 
+            <!-- Orders waiting on a top-up: the count and what they are
+                 worth, which is the reason to top up. -->
+            <Link
+                v-if="locked.count"
+                href="/billing"
+                class="flex items-center gap-3 rounded-xl bg-warning/10 px-4 py-3 text-sm text-warning"
+            >
+                <Lock class="size-4 shrink-0" />
+                <span class="flex-1">
+                    عندك <strong class="tabular">{{ locked.count }}</strong> طلب مخفي بقيمة
+                    <strong class="tabular">{{ locked.value.toLocaleString('en-US') }}</strong> {{ currency }} — اشحن رصيدك وبيانات العملاء تظهر.
+                </span>
+                <ChevronLeft class="size-4 shrink-0" />
+            </Link>
+
             <!-- ── Bulk bar ───────────────────────────────────────────────
                  On a phone it is a toolbar pinned over the tab bar, the way
                  Mail shows its actions once messages are selected — reachable
@@ -369,6 +389,7 @@ const columns = computed(() => [
                                 v-model="selected"
                                 type="checkbox"
                                 :value="order.id"
+                                :disabled="order.locked"
                                 class="size-[22px] rounded-full border-foreground/25 text-primary accent-primary focus:ring-primary/30"
                                 :aria-label="`حدد طلب ${order.number}`"
                             />
@@ -378,7 +399,11 @@ const columns = computed(() => [
                             <Link :href="`/orders/${order.id}`" class="flex items-start gap-2 active:opacity-60">
                                 <div class="min-w-0 flex-1">
                                     <div class="flex items-baseline justify-between gap-2">
-                                        <p class="truncate text-[17px] font-semibold">{{ order.customer_name }}</p>
+                                        <p v-if="order.locked" class="flex items-center gap-1.5 truncate text-[17px] font-semibold text-muted-foreground">
+                                            <Lock class="size-4 shrink-0" />
+                                            مخفي لحد ما تشحن
+                                        </p>
+                                        <p v-else class="truncate text-[17px] font-semibold">{{ order.customer_name }}</p>
                                         <span class="tabular shrink-0 text-[15px] font-semibold" dir="ltr">{{ order.total }}</span>
                                     </div>
 
@@ -400,6 +425,7 @@ const columns = computed(() => [
                                     class="min-h-[30px] cursor-pointer rounded-full border-0 py-1 pl-7 pr-3 text-[12px] font-semibold focus:outline-none focus:ring-2 focus:ring-ring/30"
                                     :class="STATUS_BADGE[order.status]"
                                     :value="order.status"
+                                    :disabled="order.locked"
                                     aria-label="حالة الطلب"
                                     @change="setStatus(order, ($event.target as HTMLSelectElement).value)"
                                 >
@@ -487,6 +513,7 @@ const columns = computed(() => [
                                         v-model="selected"
                                         type="checkbox"
                                         :value="order.id"
+                                        :disabled="order.locked"
                                         class="size-4 rounded border-input accent-primary"
                                         :aria-label="`حدد طلب ${order.number}`"
                                     />
@@ -496,10 +523,19 @@ const columns = computed(() => [
                                     <Link :href="`/orders/${order.id}`" class="text-primary hover:underline">#{{ order.number }}</Link>
                                 </td>
 
-                                <EditableCell :order-id="order.id" field="customer_name" :model-value="order.customer_name" />
-                                <EditableCell :order-id="order.id" field="customer_phone" :model-value="order.customer_phone" type="tel" />
-                                <EditableCell :order-id="order.id" field="governorate" :model-value="order.governorate" />
-                                <EditableCell :order-id="order.id" field="address" :model-value="order.address" />
+                                <template v-if="order.locked">
+                                    <td colspan="2" class="px-3 py-2 text-muted-foreground">
+                                        <span class="flex items-center gap-1.5"><Lock class="size-3.5 shrink-0" /> مخفي لحد ما تشحن رصيدك</span>
+                                    </td>
+                                    <td class="px-3 py-2">{{ order.governorate }}</td>
+                                    <td class="px-3 py-2 text-muted-foreground">—</td>
+                                </template>
+                                <template v-else>
+                                    <EditableCell :order-id="order.id" field="customer_name" :model-value="order.customer_name" />
+                                    <EditableCell :order-id="order.id" field="customer_phone" :model-value="order.customer_phone" type="tel" />
+                                    <EditableCell :order-id="order.id" field="governorate" :model-value="order.governorate" />
+                                    <EditableCell :order-id="order.id" field="address" :model-value="order.address" />
+                                </template>
 
                                 <td class="max-w-64 px-3 py-2 text-muted-foreground">
                                     <span class="block truncate" :title="order.items_summary">{{ order.items_summary }}</span>
@@ -515,6 +551,7 @@ const columns = computed(() => [
                                             class="cursor-pointer rounded-full border-0 py-1 pl-7 pr-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-ring/30"
                                             :class="STATUS_BADGE[order.status]"
                                             :value="order.status"
+                                            :disabled="order.locked"
                                             aria-label="حالة الطلب"
                                             @change="setStatus(order, ($event.target as HTMLSelectElement).value)"
                                         >

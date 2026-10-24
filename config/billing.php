@@ -70,10 +70,11 @@ return [
     |--------------------------------------------------------------------------
     | Credit floor
     |--------------------------------------------------------------------------
-    | How far a wallet may go below zero before the store stops accepting
-    | orders. A small buffer keeps a store selling through the minutes between
-    | running out and topping up — losing a COD order costs the merchant far
-    | more than the pound we are owed.
+    | How far a wallet may go below zero before new orders arrive hidden. The
+    | store never stops selling — losing a COD order costs the merchant far
+    | more than the pound we are owed — but past this point an order's
+    | customer details wait for a top-up (Store::hidesNewOrders,
+    | OrderUnlocker), and that is what makes topping up worth doing.
     */
     'overdraft_limit' => (float) env('BILLING_OVERDRAFT_LIMIT', 25),
 

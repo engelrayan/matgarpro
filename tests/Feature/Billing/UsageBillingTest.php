@@ -119,23 +119,26 @@ class UsageBillingTest extends TestCase
         $this->assertSame(45.0, (float) StoreWalletTransaction::latest('id')->first()->balance_after);
     }
 
-    public function test_a_store_stops_taking_orders_once_it_passes_the_overdraft_floor(): void
+    /** Past the floor the store keeps selling; new orders arrive hidden. */
+    public function test_past_the_overdraft_floor_new_orders_arrive_hidden_not_refused(): void
     {
         $store = $this->storeOnPlan(1.00, balance: 0);
 
-        $this->assertTrue($store->canAcceptOrders(), 'a small buffer keeps the store selling');
+        $this->assertFalse($store->hidesNewOrders(), 'a small buffer keeps orders visible');
 
         $this->wallet->debit($store, 30, description: 'استهلاك');
 
-        $this->assertFalse($store->refresh()->canAcceptOrders());
+        $this->assertTrue($store->refresh()->hidesNewOrders());
+        $this->assertTrue($store->canAcceptOrders());
     }
 
-    public function test_a_free_store_is_never_blocked_by_its_balance(): void
+    public function test_a_free_store_never_hides_an_order(): void
     {
         $store = $this->storeOnPlan(0, balance: 0);
 
         $this->wallet->debit($store, 500, description: 'رصيد سالب قديم');
 
-        $this->assertTrue($store->refresh()->canAcceptOrders());
+        $this->assertFalse($store->refresh()->hidesNewOrders());
+        $this->assertTrue($store->canAcceptOrders());
     }
 }

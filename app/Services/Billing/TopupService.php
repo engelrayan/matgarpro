@@ -27,6 +27,7 @@ class TopupService
     public function __construct(
         private readonly WalletService $wallet,
         private readonly AuditLogger $audit,
+        private readonly OrderUnlocker $unlocker,
     ) {}
 
     /** @return array<int,int> */
@@ -120,6 +121,9 @@ class TopupService
             changes: ['balance' => ['from' => (float) $request->store->refresh()->balance - $amount, 'to' => (float) $request->store->balance]],
             actor: $admin,
         );
+
+        // The point of topping up: the orders that arrived hidden open now.
+        $this->unlocker->unlock($request->store);
 
         return $request;
     }

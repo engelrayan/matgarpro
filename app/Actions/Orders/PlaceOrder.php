@@ -63,6 +63,14 @@ class PlaceOrder
             $subtotal = array_sum(array_column($items, 'total'));
             $shipping = $this->shipping($locked, $customer['governorate'] ?? null, $items);
 
+            /*
+             | Past the credit floor the order is still taken — stock, number,
+             | the customer's "we got your order" — but it arrives hidden and
+             | unbilled, and opens when a top-up covers it. Read from the
+             | locked row, so two checkouts racing past the floor agree.
+             */
+            $hidden = $locked->hidesNewOrders();
+
             $order = $store->orders()->create([
                 'number' => $this->nextNumber($store),
                 'customer_name' => $customer['customer_name'],
@@ -85,6 +93,7 @@ class PlaceOrder
                 'ip' => $customer['ip'] ?? null,
                 'user_agent' => $customer['user_agent'] ?? null,
                 'tracking' => $customer['tracking'] ?? null,
+                'locked_at' => $hidden ? now() : null,
             ]);
 
             foreach ($items as $item) {
@@ -98,11 +107,22 @@ class PlaceOrder
         // Billing sits outside the order transaction on purpose. A store that
         // is somehow un-billable must still keep the order it just took — the
         // merchant's sale is worth more than our fee, and the usage row can be
-        // reconciled later.
-        $this->biller->chargeForOrder($store, $order, "طلب رقم {$order->number}");
+        // reconciled later. A hidden order is billed when it opens, not now.
+        if (! $order->isLocked()) {
+            $this->biller->chargeForOrder($store, $order, "طلب رقم {$order->number}");
+        }
 
+        // The ad platforms hear about every sale, hidden or not: it reveals
+        // nothing to the merchant, and starving the pixel would cost them the
+        // ad optimisation they are paying for.
         $this->reportConversion($store, $order);
-        $this->askCustomerToConfirm($store, $order);
+
+        // Not while hidden: the customer's reply would land on the merchant's
+        // own WhatsApp and show them the number we are hiding. It goes out
+        // when the order opens.
+        if (! $order->isLocked()) {
+            $this->askCustomerToConfirm($store, $order);
+        }
 
         return $order;
     }

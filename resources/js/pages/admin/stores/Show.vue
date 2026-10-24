@@ -26,6 +26,8 @@ const props = defineProps<{
         price_per_order: number;
         price_source: string;
         can_accept_orders: boolean;
+        hides_new_orders: boolean;
+        locked_orders: { count: number; value: number };
         is_demo: boolean;
         theme: string;
         created_at: string;
@@ -132,7 +134,23 @@ const TX_LABEL: Record<string, string> = {
                         <template v-if="store.is_demo">متجر عرض — الطلبات عليه متوقفة بالتصميم.</template>
                         <template v-else-if="store.status !== 'active'">الحالة: {{ store.status }}.</template>
                         <template v-else-if="store.billing_status === 'suspended'">موقوف مالياً.</template>
-                        <template v-else>الرصيد نزل تحت حد السماح.</template>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Past the credit floor: still selling, but the merchant sees
+                 new orders without their customers until they top up. -->
+            <div
+                v-else-if="store.hides_new_orders || store.locked_orders.count"
+                class="flex items-start gap-3 rounded-2xl border border-warning/30 bg-warning/5 p-4"
+            >
+                <ShieldAlert class="mt-0.5 size-5 shrink-0 text-warning" />
+                <div class="text-sm">
+                    <p class="font-medium text-warning">
+                        {{ store.hides_new_orders ? 'الرصيد تحت حد السماح — الطلبات الجديدة بتوصل مخفية.' : 'فيه طلبات مخفية مستنية شحن.' }}
+                    </p>
+                    <p v-if="store.locked_orders.count" class="mt-0.5 text-muted-foreground">
+                        {{ num(store.locked_orders.count) }} طلب مستني بقيمة {{ money(store.locked_orders.value) }} {{ currency }}.
                     </p>
                 </div>
             </div>

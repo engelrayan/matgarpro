@@ -18,6 +18,9 @@ class AbandonedCartController extends Controller
         $carts = $store->abandonedCarts()
             ->with(['product.images', 'variant'])
             ->whereNotNull('customer_phone')
+            // A cart that became a hidden order stays out of sight with it —
+            // the recovered list would otherwise show the phone we are hiding.
+            ->whereDoesntHave('recoveredOrder', fn ($o) => $o->whereNotNull('locked_at'))
             ->when(
                 $request->string('filter')->toString() === 'recovered',
                 fn ($q) => $q->whereNotNull('recovered_at'),

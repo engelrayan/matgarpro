@@ -9,6 +9,7 @@ use App\Models\Store;
 use App\Models\StoreUsageEvent;
 use App\Models\StoreWalletTransaction;
 use App\Services\Admin\AuditLogger;
+use App\Services\Billing\OrderUnlocker;
 use App\Services\Billing\WalletService;
 use App\Services\Storefront\ThemeResolver;
 use Illuminate\Http\RedirectResponse;
@@ -31,6 +32,7 @@ class StoreController extends Controller
         private readonly AuditLogger $audit,
         private readonly WalletService $wallet,
         private readonly ThemeResolver $themes,
+        private readonly OrderUnlocker $unlocker,
     ) {}
 
     public function index(Request $request): Response
@@ -137,6 +139,8 @@ class StoreController extends Controller
                 'price_per_order' => $store->pricePerOrder(),
                 'price_source' => $store->priceSource(),
                 'can_accept_orders' => $store->canAcceptOrders(),
+                'hides_new_orders' => $store->hidesNewOrders(),
+                'locked_orders' => $store->lockedOrdersSummary(),
                 'is_demo' => $store->is_demo,
                 'theme' => $this->themes->forStore($store)['key'],
                 'created_at' => $store->created_at->format('Y-m-d'),
@@ -283,6 +287,10 @@ class StoreController extends Controller
             ]),
         );
 
+        // A price of zero, or an ended introductory period on a cheaper
+        // override, can be what lets hidden orders open.
+        $this->unlocker->unlock($store);
+
         return back()->with('status', 'store-billing-updated');
     }
 
@@ -325,6 +333,10 @@ class StoreController extends Controller
                 'balance' => ['from' => (float) $transaction->balance_after - (float) $transaction->amount, 'to' => (float) $transaction->balance_after],
             ],
         );
+
+        if ($validated['direction'] === 'credit') {
+            $this->unlocker->unlock($store);
+        }
 
         return back()->with('status', 'store-wallet-updated');
     }

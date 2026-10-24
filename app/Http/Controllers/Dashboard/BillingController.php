@@ -31,6 +31,7 @@ class BillingController extends Controller
             'currency' => $store->currency,
             'balance' => (float) $store->balance,
             'overdraftLimit' => (float) config('billing.overdraft_limit'),
+            'locked' => $store->lockedOrdersSummary(),
             'prices' => [
                 'in_intro' => $store->inIntroPeriod(),
                 'intro_days_left' => $store->introDaysLeft(),

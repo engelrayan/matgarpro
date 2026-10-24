@@ -13,12 +13,28 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class OrderController extends Controller
 {
+    /**
+     * What a merchant sees of a hidden order's customer: nothing. The number,
+     * governorate, items and total stay — they are what makes topping up worth
+     * it — and the people behind them wait for the top-up.
+     */
+    private const HIDDEN_CUSTOMER = [
+        'customer_name' => null,
+        'customer_phone' => null,
+        'customer_phone_alt' => null,
+        'customer_email' => null,
+        'city' => null,
+        'address' => null,
+        'note' => null,
+    ];
+
     public function index(Request $request): Response
     {
         $store = $this->currentStore($request);
@@ -33,10 +49,13 @@ class OrderController extends Controller
             ->with('items')
             ->when($status, fn ($q) => $q->where('status', $status))
             ->when($request->string('gov')->toString(), fn ($q, $gov) => $q->where('governorate', $gov))
+            // A hidden order is found by its number only: matching it by name or
+            // phone would tell the merchant who placed it.
             ->when($request->string('q')->toString(), fn ($q, $term) => $q->where(
-                fn ($w) => $w->where('customer_name', 'like', "%{$term}%")
-                    ->orWhere('customer_phone', 'like', "%{$term}%")
-                    ->orWhere('number', $term),
+                fn ($w) => $w->where(fn ($c) => $c->whereNull('locked_at')->where(
+                    fn ($m) => $m->where('customer_name', 'like', "%{$term}%")
+                        ->orWhere('customer_phone', 'like', "%{$term}%"),
+                ))->orWhere('number', $term),
             ))
             ->orderBy($sort, $direction)
             ->paginate((int) $request->integer('per_page', 50) ?: 50)
@@ -60,7 +79,9 @@ class OrderController extends Controller
                 'daman' => $this->damanColumn($o),
                 // Only the state — the grid shows a dot, not a story.
                 'whatsapp' => $o->whatsapp_state,
-            ]);
+                'locked' => $o->isLocked(),
+            ])
+            ->through(fn (array $row) => $row['locked'] ? [...$row, ...self::HIDDEN_CUSTOMER] : $row);
 
         return Inertia::render('orders/Index', [
             'orders' => $orders,
@@ -77,6 +98,7 @@ class OrderController extends Controller
             // cannot take is clutter on the screen they use all day.
             'daman_enabled' => $this->shipsWithDaman($store),
             'counts' => $this->countsByStatus($store),
+            'locked' => $store->lockedOrdersSummary(),
             'statuses' => collect(Order::STATUSES)
                 ->map(fn ($s) => ['value' => $s, 'label' => (new Order(['status' => $s]))->statusLabel()])
                 ->all(),
@@ -104,12 +126,29 @@ class OrderController extends Controller
         $store = $this->currentStore($request);
         $order->load('items');
 
+        /*
+         | Hidden until a top-up. The lookups below are keyed by phone, so they
+         | are skipped rather than run — a refusal history is a description of
+         | the customer — and the fields are blanked on this in-memory copy,
+         | which is never saved.
+         */
+        $hidden = $order->isLocked();
+        $history = $hidden
+            ? ['orders' => 0, 'delivered' => 0, 'refused' => 0, 'delivery_rate' => null]
+            : $this->customerHistory($store, $order);
+        $reputation = $hidden ? null : $this->networkReputation($order);
+
+        if ($hidden) {
+            $order->setRawAttributes([...$order->getAttributes(), ...self::HIDDEN_CUSTOMER, 'ip' => null, 'tracking' => null], true);
+        }
+
         return Inertia::render('orders/Show', [
             'order' => [
                 'id' => $order->id,
                 'number' => $order->number,
                 'status' => $order->status,
                 'status_label' => $order->statusLabel(),
+                'locked' => $hidden,
                 'customer_name' => $order->customer_name,
                 'customer_phone' => $order->customer_phone,
                 'customer_phone_alt' => $order->customer_phone_alt,
@@ -162,7 +201,7 @@ class OrderController extends Controller
              | pays to ship twice. Scoped to the store — one merchant's history
              | is not ours to hand to another.
              */
-            'customer_history' => $this->customerHistory($store, $order),
+            'customer_history' => $history,
             /*
              | The same question, answered across every store on the platform.
              |
@@ -175,7 +214,7 @@ class OrderController extends Controller
              | in it. A warning about a phone number is useful; a window into a
              | competitor's customers is not ours to open.
              */
-            'network_reputation' => $this->networkReputation($order),
+            'network_reputation' => $reputation,
             // Reachable without going back to the list.
             'neighbours' => [
                 'prev' => $store->orders()->where('id', '<', $order->id)->max('id'),
@@ -258,6 +297,7 @@ class OrderController extends Controller
     public function updateStatus(Request $request, Order $order): RedirectResponse
     {
         $this->authorizeOrder($request, $order);
+        $this->ensureVisible($order);
 
         $validated = $request->validate([
             'status' => ['required', Rule::in(Order::STATUSES)],
@@ -278,6 +318,7 @@ class OrderController extends Controller
     public function update(Request $request, Order $order): RedirectResponse
     {
         $this->authorizeOrder($request, $order);
+        $this->ensureVisible($order);
 
         $validated = $request->validate([
             'customer_name' => ['sometimes', 'required', 'string', 'max:255'],
@@ -330,6 +371,7 @@ class OrderController extends Controller
         // was the one that never reached the customer's delivery record.
         DB::transaction(fn () => $store->orders()
             ->whereIn('id', $validated['ids'])
+            ->visible()
             ->where('status', '!=', $validated['status'])
             ->get()
             ->each(fn (Order $order) => $order->update(['status' => $validated['status']])));
@@ -361,6 +403,8 @@ class OrderController extends Controller
             'orders' => $store->orders()
                 ->with('items')
                 ->whereIn('id', $ids)
+                // A waybill is the customer's name, phone and address on paper.
+                ->visible()
                 ->orderBy('number')
                 ->get(),
         ]);
@@ -395,6 +439,7 @@ class OrderController extends Controller
             // memory before the download starts.
             $store->orders()
                 ->with('items')
+                ->visible()
                 ->when($status, fn ($q) => $q->where('status', $status))
                 ->when($request->string('gov')->toString(), fn ($q, $gov) => $q->where('governorate', $gov))
                 ->orderBy('number')
@@ -472,6 +517,19 @@ class OrderController extends Controller
             ->mapWithKeys(fn ($s) => [$s => (int) ($counts[$s] ?? 0)])
             ->put('all', (int) $counts->sum())
             ->all();
+    }
+
+    /**
+     * A hidden order is looked at, not worked on: changing its status or its
+     * details would act on a customer the merchant has not paid to see.
+     */
+    private function ensureVisible(Order $order): void
+    {
+        if ($order->isLocked()) {
+            throw ValidationException::withMessages([
+                'order' => 'الطلب ده مخفي لحد ما تشحن رصيدك.',
+            ]);
+        }
     }
 
     private function currentStore(Request $request): Store

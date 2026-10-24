@@ -374,15 +374,40 @@ class Store extends Model
             return false;
         }
 
-        if (! $this->isActive() || $this->billing_status === 'suspended') {
+        // The balance no longer decides this. A store past its credit floor
+        // still takes the order — the customer must never see a shop that
+        // will not sell — and the order arrives hidden instead (see
+        // hidesNewOrders and OrderUnlocker).
+        return $this->isActive() && $this->billing_status !== 'suspended';
+    }
+
+    /**
+     * Would an order placed right now arrive hidden?
+     *
+     * Past the credit floor (billing.overdraft_limit below zero) on a store
+     * that pays for orders. The same test decides when hidden orders open
+     * again after a top-up, so an order is never unlocked into a balance that
+     * would have hidden it.
+     */
+    public function hidesNewOrders(): bool
+    {
+        if ($this->pricePerOrder() <= 0) {
             return false;
         }
 
-        // A free store is never blocked by its balance.
-        if ($this->pricePerOrder() <= 0) {
-            return true;
-        }
+        return (float) $this->balance <= -1 * (float) config('billing.overdraft_limit');
+    }
 
-        return (float) $this->balance > -1 * (float) config('billing.overdraft_limit');
+    /**
+     * How many orders are waiting on a top-up, and what they are worth — the
+     * number that tells a merchant why topping up is worth it.
+     *
+     * @return array{count:int,value:float}
+     */
+    public function lockedOrdersSummary(): array
+    {
+        $row = $this->orders()->locked()->selectRaw('count(*) as c, coalesce(sum(total), 0) as v')->first();
+
+        return ['count' => (int) $row->c, 'value' => (float) $row->v];
     }
 }
