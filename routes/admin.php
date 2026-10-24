@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\OverviewController;
 use App\Http\Controllers\Admin\PlanController;
 use App\Http\Controllers\Admin\StoreController;
 use App\Http\Controllers\Admin\ThemeController;
+use App\Http\Controllers\Admin\TopupController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -54,6 +55,11 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
         // field, and it is never idempotent — sending it twice moves the money
         // twice, on purpose.
         Route::post('stores/{store}/wallet', [StoreController::class, 'wallet'])->name('stores.wallet');
+
+        // ---- Top-ups: merchants asking for balance, matched against InstaPay
+        Route::get('topups', [TopupController::class, 'index'])->name('topups.index');
+        Route::post('topups/{topup}/confirm', [TopupController::class, 'confirm'])->name('topups.confirm');
+        Route::post('topups/{topup}/reject', [TopupController::class, 'reject'])->name('topups.reject');
 
         // ---- Merchants (read-only) ----------------------------------------
         Route::get('merchants', [MerchantController::class, 'index'])->name('merchants.index');

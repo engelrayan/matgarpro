@@ -5,7 +5,7 @@ import NavUser from '@/components/NavUser.vue';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/vue3';
-import { Boxes, Globe, LayoutGrid, LayoutList, LayoutTemplate, MessageCircle, Package, Palette, Radio, ScrollText, ShoppingBag, ShoppingCart, Store, TrendingUp, Truck } from 'lucide-vue-next';
+import { Boxes, Globe, LayoutGrid, LayoutList, LayoutTemplate, MessageCircle, Package, Palette, Radio, ScrollText, ShoppingBag, ShoppingCart, Store, TrendingUp, Truck, Wallet } from 'lucide-vue-next';
 import AppLogo from './AppLogo.vue';
 
 /*
@@ -45,6 +45,8 @@ const navGroups: NavGroup[] = [
     {
         label: 'الإعدادات',
         items: [
+            // First: the one a merchant has to act on to keep taking orders.
+            { title: 'رصيدك', href: '/billing', icon: Wallet },
             // Store data, account and domain are one screen now.
             { title: 'إعدادات المتجر', href: '/settings/general', icon: Store },
             { title: 'واتساب', href: '/settings/whatsapp', icon: MessageCircle },

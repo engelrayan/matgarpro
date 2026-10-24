@@ -4,6 +4,7 @@ use App\Http\Controllers\Dashboard\BuilderController;
 use App\Http\Controllers\Dashboard\AbandonedCartController;
 use App\Http\Controllers\Dashboard\AiProductDraftController;
 use App\Http\Controllers\Dashboard\AiStoreBuilderController;
+use App\Http\Controllers\Dashboard\BillingController;
 use App\Http\Controllers\Dashboard\CategoryController;
 use App\Http\Controllers\Dashboard\DamanShipmentController;
 use App\Http\Controllers\Dashboard\OrderController;
@@ -95,4 +96,11 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
         ->name('ai.store-plans.store');
     Route::get('ai/store-plans/{generation}', [AiStoreBuilderController::class, 'show'])->name('ai.store-plans.show');
     Route::post('ai/store-plans/{generation}/apply', [AiStoreBuilderController::class, 'apply'])->name('ai.store-plans.apply');
+
+    // The merchant's balance and asking to top it up. An operator confirms.
+    Route::get('billing', [BillingController::class, 'index'])->name('billing.index');
+    Route::post('billing/topups', [BillingController::class, 'store'])
+        ->middleware('throttle:10,1')
+        ->name('billing.topups.store');
+    Route::delete('billing/topups/{topup}', [BillingController::class, 'destroy'])->name('billing.topups.destroy');
 });

@@ -11,6 +11,7 @@ import {
     ShieldCheck,
     Store,
     Users,
+    Wallet,
     X,
 } from 'lucide-vue-next';
 import { computed, ref, watch } from 'vue';
@@ -49,6 +50,7 @@ const NAV = computed(() => [
             { title: 'نظرة عامة', href: '/admin', icon: LayoutGrid, exact: true },
             { title: 'المتاجر', href: '/admin/stores', icon: Store },
             { title: 'التجار', href: '/admin/merchants', icon: Users },
+            { title: 'طلبات الشحن', href: '/admin/topups', icon: Wallet },
         ],
     },
     {
