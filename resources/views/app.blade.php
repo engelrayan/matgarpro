@@ -4,9 +4,9 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
 
-        {{-- Inertia signs its own requests from the XSRF cookie, and so does the
-             builder's image upload, which posts with fetch() — see
-             resources/js/lib/csrf.ts. This tag is only its fallback: it is
+        {{-- Inertia signs its own requests from the XSRF cookie, and so do the
+             few direct fetches (builder uploads, AI drafts) — see
+             resources/js/lib/csrf.ts. This tag is only their fallback: it is
              written once per page load and goes stale after an Inertia login. --}}
         <meta name="csrf-token" content="{{ csrf_token() }}">
 

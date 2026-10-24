@@ -2,6 +2,7 @@
 import HeadingSmall from '@/components/HeadingSmall.vue';
 import InputError from '@/components/InputError.vue';
 import AdvancedSettings, { type ProductSettings } from '@/components/products/AdvancedSettings.vue';
+import AiProductWriter, { type ProductDraft } from '@/components/products/AiProductWriter.vue';
 import LivePreview from '@/components/products/LivePreview.vue';
 import ProfitCalculator from '@/components/products/ProfitCalculator.vue';
 import RichTextEditor from '@/components/products/RichTextEditor.vue';
@@ -166,6 +167,19 @@ const previewImages = computed(() => [
 
 const showAdvanced = ref(false);
 
+/** The AI draft fills the form; saving stays the merchant's call. */
+const applyDraft = (draft: ProductDraft) => {
+    form.name = draft.name || form.name;
+    form.description = draft.description || form.description;
+    form.seo_title = draft.seo_title || form.seo_title;
+    form.seo_description = draft.seo_description || form.seo_description;
+    if (draft.options.length) {
+        form.options = draft.options.map((o) => ({ name: o.name, values: [...o.values] }));
+        rebuildVariants();
+    }
+    if (draft.category_id && !form.categories.includes(draft.category_id)) form.categories.push(draft.category_id);
+};
+
 const submit = () => {
     const url = isEdit.value ? `/products/${props.product!.id}` : '/products';
     form.post(url, {
@@ -208,6 +222,8 @@ const submit = () => {
                  settings below the fold. -->
             <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
                 <div class="space-y-6">
+                    <AiProductWriter :images="previewImages" :categories="categories" @apply="applyDraft" @add-images="addFiles" />
+
                     <!-- ── Basics ───────────────────────────────────────────── -->
                     <section class="surface space-y-5 p-6">
                     <div>

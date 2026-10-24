@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /**
- * The CSRF contract the builder's image upload relies on.
+ * The CSRF contract the builder's image upload (and the AI screens) rely on.
  *
  * Those requests are plain fetch() calls, not Inertia visits, and they sign
  * themselves from the XSRF-TOKEN cookie rather than the page's <meta> tag

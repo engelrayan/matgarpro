@@ -34,3 +34,11 @@ Schedule::command('domains:certify')
     ->hourly()
     ->withoutOverlapping()
     ->runInBackground();
+
+/*
+| AI drafts are only useful while the merchant is on the form; this clears
+| the month-old ones, and the photos of any whose job never ran.
+*/
+Schedule::command('model:prune', ['--model' => [\App\Models\AiGeneration::class]])
+    ->daily()
+    ->withoutOverlapping();

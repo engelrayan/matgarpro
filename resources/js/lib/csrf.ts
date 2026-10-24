@@ -1,6 +1,6 @@
 /*
- * CSRF headers for the requests that do not go through Inertia (the builder's
- * image upload), taken from Laravel's XSRF-TOKEN cookie rather than the page's
+ * CSRF headers for the few requests that do not go through Inertia (uploads,
+ * AI drafts), taken from Laravel's XSRF-TOKEN cookie rather than the page's
  * <meta> tag.
  *
  * The meta tag is written once, when the HTML document loads. Signing in
