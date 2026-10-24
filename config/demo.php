@@ -165,4 +165,29 @@ return [
 
     'fallback_catalogue' => 'fashion',
 
+    /*
+    |--------------------------------------------------------------------------
+    | Theme picker previews
+    |--------------------------------------------------------------------------
+    | The three products each theme's card shows on the settings screen, by
+    | photo id. Picked by hand from that theme's own catalogue, and different
+    | for themes that share one (jade and rose are both beauty) — nine cards
+    | showing the same three serums would make nine themes look like one.
+    |
+    | Name and price come from the catalogue row with that photo. The images
+    | are 360px copies in public/images/theme-previews — the 800px originals
+    | are a quarter of a megabyte each, for a 120px thumbnail.
+    */
+    'theme_previews' => [
+        'jade' => [4841460, 14473476, 16722501],
+        'rose' => [19644204, 4841179, 10221858],
+        'noir' => [28977357, 8839887, 12495669],
+        'pearl' => [12835315, 9261531, 16722452],
+        'coral' => [7131254, 27204251, 3649765],
+        'indigo' => [17890636, 14086822, 3094227],
+        'sand' => [38317548, 29149067, 30761844],
+        'linen' => [15269290, 20468733, 13439100],
+        'joy' => [5693889, 37305530, 5693888],
+    ],
+
 ];

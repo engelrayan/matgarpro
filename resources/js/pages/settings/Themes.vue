@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ThemePreview, { type PreviewProduct } from '@/components/ThemePreview.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { type BreadcrumbItem } from '@/types';
@@ -13,9 +14,15 @@ interface Theme {
     tags: string[];
     radius: string;
     layout: string;
+    header: string;
+    card: string;
     palette: Record<string, string>;
     /** A live showroom store on this theme, opened in a new tab. */
     preview_url: string | null;
+    /** Three products from that showroom, drawn in the card's preview. */
+    products: PreviewProduct[];
+    font_family: string;
+    font_url: string;
 }
 
 const props = defineProps<{
@@ -47,6 +54,10 @@ const apply = (key: string) => {
 const active = computed(() => props.themes.find((t) => t.key === selected.value));
 const others = computed(() => props.themes.filter((t) => t.key !== selected.value));
 
+// Each preview is set in its theme's own typeface — the font is half of what
+// tells one shop from another. Several themes share a font, so link each once.
+const fontUrls = computed(() => [...new Set(props.themes.map((t) => t.font_url))]);
+
 // The palette is stored as raw `H S% L%` so Tailwind can compose it with
 // opacity; a swatch needs it wrapped back into a colour.
 const hsl = (value: string) => `hsl(${value})`;
@@ -54,7 +65,9 @@ const hsl = (value: string) => `hsl(${value})`;
 
 <template>
     <AppLayout :breadcrumbs="breadcrumbItems">
-        <Head title="الثيمات" />
+        <Head title="الثيمات">
+            <link v-for="url in fontUrls" :key="url" rel="stylesheet" :href="url" />
+        </Head>
 
         <SettingsLayout width="wide">
             <div class="space-y-6">
@@ -75,29 +88,41 @@ const hsl = (value: string) => `hsl(${value})`;
                 <!-- The theme in use, pulled out of the grid: a merchant opening
                      this page is asking "what am I on now?" before "what else is
                      there?", and hunting for a tick across six cards is work. -->
-                <div v-if="active" class="surface-lux flex flex-wrap items-center gap-4 p-5">
-                    <div class="flex gap-1.5">
-                        <span v-for="token in ['primary', 'accent', 'background']" :key="token"
-                              class="size-8 rounded-full border border-border"
-                              :style="{ background: hsl(active.palette[token]) }" />
-                    </div>
+                <div v-if="active" class="surface-lux grid overflow-hidden p-0 md:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+                    <ThemePreview
+                        :palette="active.palette"
+                        :radius="active.radius"
+                        :header="active.header"
+                        :card="active.card"
+                        :font-family="active.font_family"
+                        :products="active.products"
+                        size="lg"
+                        class="border-b border-border md:border-b-0 md:border-e"
+                    />
 
-                    <div class="min-w-0 flex-1">
-                        <div class="flex flex-wrap items-center gap-2">
-                            <span class="font-semibold">{{ active.name }}</span>
+                    <div class="flex flex-col justify-center gap-4 p-5 md:p-6">
+                        <div>
                             <span class="badge-success gap-1">
                                 <Check class="size-3" />
                                 مفعّل دلوقتي
                             </span>
+                            <p class="mt-3 text-xl font-bold tracking-tight">{{ active.name }}</p>
+                            <p class="mt-1 text-sm text-muted-foreground">{{ active.description }}</p>
                         </div>
-                        <p class="mt-0.5 text-sm text-muted-foreground">{{ active.description }}</p>
-                    </div>
 
-                    <a v-if="active.preview_url" :href="active.preview_url" target="_blank" rel="noopener"
-                       class="btn-ghost shrink-0">
-                        <Eye class="size-4" />
-                        شوف مثال
-                    </a>
+                        <div class="flex flex-wrap items-center gap-1.5">
+                            <span v-for="token in ['primary', 'accent', 'background']" :key="token"
+                                  class="size-6 rounded-full border border-border"
+                                  :style="{ background: hsl(active.palette[token]) }" />
+                            <span v-for="tag in active.tags" :key="tag" class="badge-neutral ms-1">{{ tag }}</span>
+                        </div>
+
+                        <a v-if="active.preview_url" :href="active.preview_url" target="_blank" rel="noopener"
+                           class="btn-outline self-start">
+                            <Eye class="size-4" />
+                            شوف مثال كامل
+                        </a>
+                    </div>
                 </div>
 
                 <p class="text-sm font-medium text-muted-foreground">ثيمات تانية</p>
@@ -108,60 +133,22 @@ const hsl = (value: string) => `hsl(${value})`;
                     <div
                         v-for="theme in others"
                         :key="theme.key"
-                        class="surface overflow-hidden p-0 text-right transition-all hover:shadow-e2"
+                        class="surface flex flex-col overflow-hidden p-0 text-right transition-all hover:shadow-e2"
                     >
-                        <!-- A miniature of the real storefront, painted with the
-                             theme's own tokens: the swatch row alone tells a
-                             merchant almost nothing about the result. -->
-                        <div
-                            class="p-4"
-                            :style="{
-                                background: hsl(theme.palette.background),
-                                color: hsl(theme.palette.foreground),
-                            }"
-                        >
-                            <div class="flex items-center gap-2">
-                                <span
-                                    class="flex size-6 items-center justify-center text-[10px] font-bold"
-                                    :style="{
-                                        background: hsl(theme.palette.primary),
-                                        color: hsl(theme.palette['primary-foreground']),
-                                        borderRadius: theme.radius,
-                                    }"
-                                >م</span>
-                                <span class="text-xs font-semibold">متجرك</span>
-                            </div>
+                        <!-- A miniature of the real storefront in the theme's own
+                             tokens, typeface and card shape, over real products:
+                             a swatch row alone tells a merchant almost nothing
+                             about the result. -->
+                        <ThemePreview
+                            :palette="theme.palette"
+                            :radius="theme.radius"
+                            :header="theme.header"
+                            :card="theme.card"
+                            :font-family="theme.font_family"
+                            :products="theme.products"
+                        />
 
-                            <div class="mt-3 grid grid-cols-3 gap-2">
-                                <div
-                                    v-for="n in 3"
-                                    :key="n"
-                                    class="overflow-hidden border"
-                                    :style="{
-                                        borderColor: hsl(theme.palette.border),
-                                        borderRadius: theme.radius,
-                                        background: hsl(theme.palette.card),
-                                    }"
-                                >
-                                    <div class="aspect-square" :style="{ background: hsl(theme.palette.muted) }" />
-                                    <div class="p-1.5">
-                                        <div class="h-1 w-3/4 rounded-full" :style="{ background: hsl(theme.palette['muted-foreground']), opacity: 0.4 }" />
-                                        <div class="mt-1 h-1.5 w-1/2 rounded-full" :style="{ background: hsl(theme.palette.primary) }" />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div
-                                class="mt-3 flex h-6 items-center justify-center text-[10px] font-medium"
-                                :style="{
-                                    background: hsl(theme.palette.primary),
-                                    color: hsl(theme.palette['primary-foreground']),
-                                    borderRadius: theme.radius,
-                                }"
-                            >اطلب دلوقتي</div>
-                        </div>
-
-                        <div class="border-t border-border p-4">
+                        <div class="flex flex-1 flex-col border-t border-border p-4">
                             <div class="flex items-center justify-between gap-2">
                                 <span class="font-semibold">{{ theme.name }}</span>
                                 <LoaderCircle v-if="saving === theme.key" class="size-4 animate-spin text-primary" />
@@ -173,7 +160,9 @@ const hsl = (value: string) => `hsl(${value})`;
                                 <span v-for="tag in theme.tags" :key="tag" class="badge-neutral">{{ tag }}</span>
                             </div>
 
-                            <div class="mt-4 flex items-center gap-2">
+                            <!-- mt-auto: cards in a row end level, whatever
+                                 the length of the text above. -->
+                            <div class="mt-auto flex items-center gap-2 pt-4">
                                 <!-- Preview first. Activating changes what live
                                      customers see, so the safe action is the one
                                      that should fall under the thumb. -->

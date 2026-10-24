@@ -33,9 +33,37 @@ class ThemeController extends Controller
                 Str::after($demo->slug, 'demo-') => $demo->canonicalUrl(),
             ]);
 
+        /*
+         | What each card shows: three real products from that theme's own
+         | showroom catalogue (config/demo.php → theme_previews), in the
+         | theme's own typeface. A card of empty grey boxes asks the merchant
+         | to imagine the shop; this one shows it.
+         */
+        $catalogueRows = collect(config('demo.catalogues'))
+            ->flatMap(fn (array $catalogue) => $catalogue['products'])
+            ->keyBy('photo');
+
+        $previewProducts = fn (string $key) => collect(config("demo.theme_previews.{$key}", []))
+            ->map(fn (int $photo) => $catalogueRows->get($photo))
+            ->filter()
+            ->map(fn (array $row) => [
+                'name' => $row['name'],
+                'price' => number_format((float) $row['price']),
+                'compare' => $row['compare'] ? number_format((float) $row['compare']) : null,
+                'image' => "/images/theme-previews/{$row['photo']}.jpg",
+            ])
+            ->values()
+            ->all();
+
         return Inertia::render('settings/Themes', [
             'themes' => collect($this->themes->all())
-                ->map(fn (array $theme) => [...$theme, 'preview_url' => $showrooms[$theme['key']] ?? null])
+                ->map(fn (array $theme) => [
+                    ...$theme,
+                    'preview_url' => $showrooms[$theme['key']] ?? null,
+                    'products' => $previewProducts($theme['key']),
+                    'font_family' => $this->themes->fontFamily($theme),
+                    'font_url' => $this->themes->fontUrl($theme),
+                ])
                 ->all(),
             'current' => $this->themes->forStore($store)['key'],
             // The merchant should be able to look at the result immediately;
