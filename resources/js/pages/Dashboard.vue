@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AiSetupCard from '@/components/AiSetupCard.vue';
 import AreaChart from '@/components/charts/AreaChart.vue';
 import FunnelBars from '@/components/charts/FunnelBars.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
@@ -164,6 +165,9 @@ const copyUrl = async () => {
                     افتح المتجر
                 </a>
             </section>
+
+            <!-- An empty store: the AI builder, ahead of everything else. -->
+            <AiSetupCard v-if="!setup.has_product" :store-name="store.name" />
 
             <!--
                 The free months, counted down.
