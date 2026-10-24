@@ -18,10 +18,11 @@
 # that fails (nothing after a failed build touches the live site).
 #
 # Settings, all optional, as environment variables:
-#   APP_DIR    the checkout                 (default: the folder above this one)
+#   APP_DIR    the checkout                   (default: the folder above this one)
 #   APP_USER   who php-fpm and workers run as (default: www-data)
-#   BRANCH     what to deploy               (default: main)
-#   PHP_FPM    the php-fpm unit to reload   (default: php8.3-fpm)
+#   REPO_USER  who owns the checkout          (default: the owner of .git)
+#   BRANCH     what to deploy                 (default: main)
+#   PHP_FPM    the php-fpm unit to reload     (default: php8.3-fpm)
 
 set -Eeuo pipefail
 
@@ -43,28 +44,54 @@ step() { printf '\n\033[1;32m▸ %s\033[0m\n' "$*"; }
 warn() { printf '\033[1;33m! %s\033[0m\n' "$*" >&2; }
 trap 'printf "\n\033[1;31m✗ Deploy stopped at line %s. The site is still on the previous release for every step that had not run yet.\033[0m\n" "$LINENO" >&2' ERR
 
-# Everything that writes into the app runs as the same user as php-fpm. A file
-# created by root in storage/ or bootstrap/cache/ is one the web request
-# cannot read back, and the error shows up hours later somewhere unrelated.
-as_app() {
-    if [ "$(id -un)" = "$APP_USER" ]; then
-        "$@"
-    elif [ "$(id -u)" -eq 0 ]; then
-        sudo -u "$APP_USER" -H -- "$@"
-    else
-        "$@"
-    fi
-}
-
-artisan() { as_app php artisan "$@"; }
-
 cd "$APP_DIR"
 
-if [ "$(id -u)" -ne 0 ] && [ "$(id -un)" != "$APP_USER" ]; then
-    warn "Running as $(id -un), not root or $APP_USER: files will be owned by $(id -un)."
+[ -d .git ] || { echo "$APP_DIR is not a git checkout." >&2; exit 1; }
+[ -f .env ] || { echo ".env is missing in $APP_DIR — refusing to deploy." >&2; exit 1; }
+
+# Two users, each doing only its own kind of work:
+#
+#   REPO_USER — whoever owns the checkout. Runs git, composer, npm and the
+#   build, which write code and vendor/node_modules/public/build. git refuses
+#   outright ("dubious ownership") to work in a repository its user does not
+#   own; the first version of this script ran it as www-data and stopped there.
+#
+#   APP_USER — the php-fpm user. Runs artisan, which writes storage/ and
+#   bootstrap/cache/. A file created there by anyone else is one the web
+#   request cannot read back, and the error shows up hours later somewhere
+#   unrelated.
+REPO_USER="${REPO_USER:-$(stat -c %U .git)}"
+
+if [ "$(id -u)" -ne 0 ]; then
+    echo "Run it with sudo: it acts as $REPO_USER for the code and as $APP_USER for the app." >&2
+    exit 1
 fi
 
-[ -f .env ] || { echo ".env is missing in $APP_DIR — refusing to deploy." >&2; exit 1; }
+as_user() {
+    local user="$1"; shift
+    if [ "$user" = root ]; then "$@"; else sudo -u "$user" -H -- "$@"; fi
+}
+as_repo() { as_user "$REPO_USER" "$@"; }
+as_app() { as_user "$APP_USER" "$@"; }
+
+# Permission bits are not changes. Giving www-data write access to storage/
+# (`chmod -R 775`) flips the mode of every .gitignore in there, and git would
+# otherwise call each of them "modified" and block the deploy over nothing.
+# Passed per command, so the server's own git config is left alone.
+git_() { as_repo git -c core.fileMode=false "$@"; }
+artisan() { as_app php artisan "$@"; }
+
+echo "Checkout owned by $REPO_USER; app runs as $APP_USER."
+
+# Said up front rather than discovered at step 4 with a stack trace: the app
+# user has to be able to write these two, and nothing else.
+for dir in storage bootstrap/cache; do
+    if ! as_app test -w "$dir"; then
+        echo "$APP_USER cannot write $dir. Fix it once with:" >&2
+        echo "  sudo chown -R $APP_USER:$APP_USER $APP_DIR/storage $APP_DIR/bootstrap/cache" >&2
+        exit 1
+    fi
+done
 
 for tool in git php composer npm; do
     command -v "$tool" >/dev/null || { echo "$tool is not installed." >&2; exit 1; }
@@ -76,29 +103,51 @@ step "Fetching $BRANCH"
 # Fast-forward only, and never over local edits: a hotfix typed straight onto
 # the server would otherwise be silently merged into, or lost under, the
 # release.
-if ! as_app git diff --quiet || ! as_app git diff --cached --quiet; then
+#
+# The status is read into a variable first, so a git that fails for any other
+# reason stops the script with git's own error — not, as before, with a
+# misleading "you have uncommitted changes".
+# Untracked files (`??`) are ignored: they are not overwritten by a pull, and
+# a server always has a few (backups, a stray log).
+#
+# package-lock.json is the one tracked file reset without asking. It is
+# generated, never edited by hand, and a server's copy only drifts when
+# someone runs `npm install` there; this script uses `npm ci`, which installs
+# exactly what the committed lock says.
+if [ -n "$(git_ status --porcelain --untracked-files=no -- package-lock.json)" ]; then
+    echo "package-lock.json was changed by an npm install on this server — restoring the committed one."
+    git_ checkout -- package-lock.json
+fi
+
+dirty="$(git_ status --porcelain --untracked-files=no)"
+if [ -n "$dirty" ]; then
     echo "The checkout has uncommitted changes — commit or discard them first:" >&2
-    as_app git status --short >&2
+    printf '%s\n' "$dirty" >&2
     exit 1
 fi
 
-OLD_REV="$(as_app git rev-parse HEAD)"
-as_app git fetch --quiet origin "$BRANCH"
-as_app git checkout --quiet "$BRANCH"
-as_app git merge --ff-only --quiet "origin/$BRANCH"
-NEW_REV="$(as_app git rev-parse HEAD)"
+OLD_REV="$(git_ rev-parse HEAD)"
+git_ fetch --quiet origin "$BRANCH"
+git_ checkout --quiet "$BRANCH"
+git_ merge --ff-only --quiet "origin/$BRANCH"
+NEW_REV="$(git_ rev-parse HEAD)"
 
 if [ "$OLD_REV" = "$NEW_REV" ]; then
-    echo "Already at $(as_app git log -1 --format='%h %s'). Rebuilding anyway."
+    echo "Already at $(git_ log -1 --format='%h %s'). Rebuilding anyway."
 else
-    as_app git log --oneline "$OLD_REV..$NEW_REV" | sed 's/^/  /'
+    git_ log --oneline "$OLD_REV..$NEW_REV" | sed 's/^/  /'
 fi
 
-changed() { [ "$OLD_REV" != "$NEW_REV" ] && as_app git diff --name-only "$OLD_REV" "$NEW_REV" -- "$@" | grep -q .; }
+changed() { [ "$OLD_REV" != "$NEW_REV" ] && git_ diff --name-only "$OLD_REV" "$NEW_REV" -- "$@" | grep -q .; }
 
 # ── 2. PHP dependencies ──────────────────────────────────────────────────
 step "Installing PHP packages"
-as_app composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction --no-progress
+
+# --no-scripts, then package discovery as the app user: composer's own
+# post-install hook would run artisan as the checkout owner and write
+# bootstrap/cache/ under the wrong user.
+as_repo composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction --no-progress --no-scripts
+artisan package:discover --ansi
 
 # ── 3. Front-end build ───────────────────────────────────────────────────
 step "Building CSS and JS"
@@ -108,10 +157,11 @@ step "Building CSS and JS"
 # development machine, so on a server it is always a mistake.
 rm -f public/hot
 
-# Its own cache folder: www-data's home is usually /var/www, owned by root,
-# and npm fails outright when it cannot write its default cache there.
-NPM_CACHE="${NPM_CACHE:-/tmp/matgarpro-npm-cache}"
-npm_() { as_app env "npm_config_cache=$NPM_CACHE" "$@"; }
+# A cache folder of the checkout owner's own: their home may not be writable
+# (www-data's is /var/www, owned by root), and npm fails outright when it
+# cannot write its default cache.
+NPM_CACHE="${NPM_CACHE:-/tmp/matgarpro-npm-cache-$REPO_USER}"
+npm_() { as_repo env "npm_config_cache=$NPM_CACHE" "$@"; }
 
 npm_ npm ci --no-audit --no-fund
 
@@ -123,10 +173,10 @@ rm -rf public/build.next
 npm_ npx vite build --outDir public/build.next --emptyOutDir
 [ -f public/build.next/manifest.json ] || { echo "The build produced no manifest.json." >&2; exit 1; }
 if [ -d public/build/assets ]; then
-    as_app cp -n public/build/assets/* public/build.next/assets/ 2>/dev/null || true
+    as_repo cp -n public/build/assets/* public/build.next/assets/ 2>/dev/null || true
 fi
 rm -rf public/build.prev
-[ -d public/build ] && mv public/build public/build.prev
+if [ -d public/build ]; then mv public/build public/build.prev; fi
 mv public/build.next public/build
 rm -rf public/build.prev
 
@@ -136,7 +186,8 @@ artisan migrate --force
 
 # ── 5. Caches ────────────────────────────────────────────────────────────
 step "Refreshing caches"
-[ -L public/storage ] || artisan storage:link
+# The link lives in public/, which belongs to the checkout owner.
+[ -L public/storage ] || as_repo php artisan storage:link
 artisan optimize:clear
 artisan optimize
 
@@ -167,7 +218,7 @@ if [ "$(id -u)" -eq 0 ] && command -v systemctl >/dev/null; then
             units_changed=1
         fi
     done
-    [ "$units_changed" -eq 1 ] && systemctl daemon-reload
+    if [ "$units_changed" -eq 1 ]; then systemctl daemon-reload; fi
 
     systemctl enable --now --quiet matgarpro-worker matgarpro-ai-worker matgarpro-scheduler.timer
     systemctl restart matgarpro-worker matgarpro-ai-worker
@@ -207,4 +258,4 @@ else
 fi
 
 trap - ERR
-printf '\n\033[1;32m✓ Deployed %s\033[0m\n' "$(as_app git log -1 --format='%h %s')"
+printf '\n\033[1;32m✓ Deployed %s\033[0m\n' "$(git_ log -1 --format='%h %s')"
