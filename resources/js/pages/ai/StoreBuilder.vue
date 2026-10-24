@@ -57,6 +57,8 @@ const props = defineProps<{
     themes: ThemeOption[];
     currentTheme: string;
     triesLeft: number;
+    /** What they typed on the landing page, carried through signup. */
+    prefill?: string | null;
 }>();
 
 const breadcrumbItems: BreadcrumbItem[] = [
@@ -65,7 +67,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
 ];
 
 const answers = reactive({
-    business: '',
+    business: props.prefill ?? '',
     audience: '',
     mood: '',
     shipping: '',

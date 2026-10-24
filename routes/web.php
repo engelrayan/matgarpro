@@ -6,6 +6,9 @@ use Inertia\Inertia;
 // Marketing site. Blade rather than Inertia: it is the page ad traffic lands
 // on, so it ships no application JS at all.
 Route::view('/', 'marketing.home')->name('home');
+Route::post('start', \App\Http\Controllers\StartWithAiController::class)
+    ->middleware('throttle:20,1')
+    ->name('start');
 
 // Living style guide. Kept in the app (not a static export) so it breaks loudly
 // the moment a design token is renamed or removed.

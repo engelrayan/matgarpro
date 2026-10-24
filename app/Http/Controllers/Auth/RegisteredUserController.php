@@ -29,6 +29,10 @@ class RegisteredUserController extends Controller
             // the sub-domain previewed while typing is the one the merchant
             // actually gets in this environment.
             'platformDomain' => config('storefront.domain'),
+            // What they typed into the landing page's AI box, if they came
+            // from there: shown back to them so signup reads as one step of
+            // getting the store made, not a detour.
+            'aiStart' => session()->has('ai_start') ? (string) session('ai_start.business') : null,
         ]);
     }
 
@@ -65,6 +69,9 @@ class RegisteredUserController extends Controller
 
         Auth::login($user);
 
-        return to_route('dashboard');
+        // Came in through the landing page's AI box: finish what they started.
+        return $request->session()->has('ai_start')
+            ? to_route('ai.store-builder')
+            : to_route('dashboard');
     }
 }

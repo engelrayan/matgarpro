@@ -38,12 +38,28 @@
                 ويكتب الصفحة الرئيسية ووصف منتجاتك من صورها — وإنت بتراجع وتنشر.
             </p>
 
-            <div class="reveal mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:justify-start">
-                <a href="{{ route('register') }}" class="btn-primary w-full !min-h-[52px] !rounded-full !px-8 !text-[17px] shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.7)] sm:w-auto">
-                    جهّز متجرك مجانًا
-                </a>
-                <a href="#ai" class="btn-outline w-full !min-h-[52px] !rounded-full !px-7 !text-[17px] sm:w-auto">
-                    شوف بيعمل إيه
+            {{-- The first question the AI builder asks, asked here. What they
+                 type rides through signup (StartWithAiController) and is
+                 waiting in the builder's form when they land there. --}}
+            <div class="reveal mt-8">
+                <form method="POST" action="{{ route('start') }}" class="ai-ring mx-auto max-w-xl rounded-[26px] text-start lg:mx-0">
+                    @csrf
+                    <div class="flex flex-col gap-2 rounded-[24.5px] bg-card p-2 sm:flex-row sm:items-center">
+                        <label for="hero-business" class="sr-only">بتبيع إيه؟</label>
+                        {{-- 16px or larger, or iOS zooms the page on focus. --}}
+                        <input id="hero-business" name="business" type="text" maxlength="600" autocomplete="off"
+                               placeholder="بتبيع إيه؟ مثلاً: هدوم أطفال قطن"
+                               class="min-h-[52px] min-w-0 flex-1 rounded-[18px] bg-transparent px-4 text-[16px] outline-none placeholder:text-muted-foreground/80 focus-visible:bg-foreground/[0.03]">
+                        <button type="submit" class="btn-primary !min-h-[52px] shrink-0 !rounded-[18px] !px-6 !text-[17px] shadow-[0_10px_30px_-10px_hsl(var(--primary)/0.7)]">
+                            <svg class="size-[18px]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.9 5.6L19.5 9.5l-5.6 1.9L12 17l-1.9-5.6L4.5 9.5l5.6-1.9zM19 14l.9 2.6 2.6.9-2.6.9L19 21l-.9-2.6-2.6-.9 2.6-.9z"/></svg>
+                            جهّزلي متجري
+                        </button>
+                    </div>
+                </form>
+
+                <a href="#ai" class="mt-4 inline-flex items-center gap-1 text-[15px] font-semibold text-primary hover:underline">
+                    شوف الذكاء الاصطناعي بيعمل إيه
+                    <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
                 </a>
             </div>
 

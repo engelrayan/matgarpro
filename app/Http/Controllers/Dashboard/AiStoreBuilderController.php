@@ -47,8 +47,13 @@ class AiStoreBuilderController extends Controller
         $showrooms = Store::where('is_demo', true)->get()
             ->mapWithKeys(fn (Store $demo) => [Str::after($demo->slug, 'demo-') => $demo->canonicalUrl()]);
 
+        // The landing page's "بتبيع إيه؟", carried through signup. Pulled, so it
+        // fills the form once and a later visit starts from an empty one.
+        $start = $request->session()->pull('ai_start');
+
         return Inertia::render('ai/StoreBuilder', [
             'storeName' => $store->name,
+            'prefill' => $start['business'] ?? null,
             'moods' => self::MOODS,
             'themes' => collect($themes->all())
                 ->map(fn (array $theme) => [
