@@ -73,6 +73,12 @@ as_user() {
 }
 as_repo() { as_user "$REPO_USER" "$@"; }
 as_app() { as_user "$APP_USER" "$@"; }
+
+# Permission bits are not changes. Giving www-data write access to storage/
+# (`chmod -R 775`) flips the mode of every .gitignore in there, and git would
+# otherwise call each of them "modified" and block the deploy over nothing.
+# Passed per command, so the server's own git config is left alone.
+git_() { as_repo git -c core.fileMode=false "$@"; }
 artisan() { as_app php artisan "$@"; }
 
 echo "Checkout owned by $REPO_USER; app runs as $APP_USER."
@@ -103,26 +109,36 @@ step "Fetching $BRANCH"
 # misleading "you have uncommitted changes".
 # Untracked files (`??`) are ignored: they are not overwritten by a pull, and
 # a server always has a few (backups, a stray log).
-dirty="$(as_repo git status --porcelain --untracked-files=no)"
+#
+# package-lock.json is the one tracked file reset without asking. It is
+# generated, never edited by hand, and a server's copy only drifts when
+# someone runs `npm install` there; this script uses `npm ci`, which installs
+# exactly what the committed lock says.
+if [ -n "$(git_ status --porcelain --untracked-files=no -- package-lock.json)" ]; then
+    echo "package-lock.json was changed by an npm install on this server — restoring the committed one."
+    git_ checkout -- package-lock.json
+fi
+
+dirty="$(git_ status --porcelain --untracked-files=no)"
 if [ -n "$dirty" ]; then
     echo "The checkout has uncommitted changes — commit or discard them first:" >&2
     printf '%s\n' "$dirty" >&2
     exit 1
 fi
 
-OLD_REV="$(as_repo git rev-parse HEAD)"
-as_repo git fetch --quiet origin "$BRANCH"
-as_repo git checkout --quiet "$BRANCH"
-as_repo git merge --ff-only --quiet "origin/$BRANCH"
-NEW_REV="$(as_repo git rev-parse HEAD)"
+OLD_REV="$(git_ rev-parse HEAD)"
+git_ fetch --quiet origin "$BRANCH"
+git_ checkout --quiet "$BRANCH"
+git_ merge --ff-only --quiet "origin/$BRANCH"
+NEW_REV="$(git_ rev-parse HEAD)"
 
 if [ "$OLD_REV" = "$NEW_REV" ]; then
-    echo "Already at $(as_repo git log -1 --format='%h %s'). Rebuilding anyway."
+    echo "Already at $(git_ log -1 --format='%h %s'). Rebuilding anyway."
 else
-    as_repo git log --oneline "$OLD_REV..$NEW_REV" | sed 's/^/  /'
+    git_ log --oneline "$OLD_REV..$NEW_REV" | sed 's/^/  /'
 fi
 
-changed() { [ "$OLD_REV" != "$NEW_REV" ] && as_repo git diff --name-only "$OLD_REV" "$NEW_REV" -- "$@" | grep -q .; }
+changed() { [ "$OLD_REV" != "$NEW_REV" ] && git_ diff --name-only "$OLD_REV" "$NEW_REV" -- "$@" | grep -q .; }
 
 # ── 2. PHP dependencies ──────────────────────────────────────────────────
 step "Installing PHP packages"
@@ -242,4 +258,4 @@ else
 fi
 
 trap - ERR
-printf '\n\033[1;32m✓ Deployed %s\033[0m\n' "$(as_repo git log -1 --format='%h %s')"
+printf '\n\033[1;32m✓ Deployed %s\033[0m\n' "$(git_ log -1 --format='%h %s')"
