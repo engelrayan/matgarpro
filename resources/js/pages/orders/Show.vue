@@ -128,6 +128,7 @@ const WHATSAPP_STATE: Record<string, { label: string; badge: string }> = {
     confirmed: { label: 'العميل أكّد', badge: 'badge-success' },
     cancelled: { label: 'العميل لغى', badge: 'badge-danger' },
     failed: { label: 'الرسالة ماوصلتش', badge: 'badge-danger' },
+    no_reply: { label: 'ماردّش — محتاج مكالمة', badge: 'badge-warning' },
 };
 
 const messaging = ref(false);

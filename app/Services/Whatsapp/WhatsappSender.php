@@ -39,7 +39,12 @@ class WhatsappSender
 
         $message = $this->composer->build($link, $order);
 
-        $result = $this->drivers->make($link)->send($phone, $message['body'], $message['variables']);
+        $driver = $this->drivers->make($link);
+
+        // Buttons where the number can carry them; "reply 1 or 2" elsewhere.
+        $result = $driver instanceof ConfirmsWithButtons
+            ? $driver->sendOrderConfirmation($phone, $message['variables'], $order)
+            : $driver->send($phone, $message['body'], $message['variables']);
 
         WhatsappMessage::create([
             'store_id' => $link->store_id,
@@ -74,6 +79,38 @@ class WhatsappSender
         $link->forceFill(['last_sent_at' => now(), 'last_error' => null])->save();
 
         return ['ok' => true];
+    }
+
+    /**
+     * "Your order is confirmed" — straight after the customer taps.
+     *
+     * Free text, which Meta only delivers inside the 24 hours their tap has
+     * just opened, so only on a number that can send it. Best effort: the
+     * order has already moved, and a missing receipt is not worth a retry
+     * loop.
+     */
+    public function acknowledge(StoreWhatsappIntegration $link, Order $order, string $intent): void
+    {
+        $driver = $this->drivers->make($link);
+        $phone = Phone::e164($order->customer_phone);
+
+        if (! $driver instanceof ConfirmsWithButtons || ! $link->canSend() || $phone === '') {
+            return;
+        }
+
+        $body = PlatformWhatsapp::acknowledgement($intent, (string) $order->number, (string) $order->store->name);
+        $result = $driver->sendText($phone, $body);
+
+        WhatsappMessage::create([
+            'store_id' => $link->store_id,
+            'order_id' => $order->id,
+            'direction' => WhatsappMessage::DIRECTION_OUT,
+            'phone' => $phone,
+            'body' => $body,
+            'provider_message_id' => $result->providerMessageId,
+            'status' => $result->ok ? 'sent' : 'failed',
+            'error' => $result->error,
+        ]);
     }
 
     private function stampFailure(Order $order, string $error): void

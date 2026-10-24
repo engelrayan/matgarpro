@@ -33,8 +33,35 @@ class CloudApiDriver implements WhatsappDriver
 
     public function send(string $phone, string $body, array $variables = []): SendResult
     {
+        return $this->post($this->payload($phone, $body, $variables));
+    }
+
+    /**
+     * A named template with whatever components it needs — buttons included.
+     *
+     * @param  array<int,array<string,mixed>>  $components
+     */
+    public function sendTemplate(string $phone, string $name, string $language, array $components): SendResult
+    {
+        return $this->post([
+            'messaging_product' => 'whatsapp',
+            'to' => $phone,
+            'type' => 'template',
+            'template' => ['name' => $name, 'language' => ['code' => $language], 'components' => $components],
+        ]);
+    }
+
+    /** Free text. Meta only delivers it inside the 24 hours after the customer last wrote. */
+    public function sendText(string $phone, string $body): SendResult
+    {
+        return $this->post(['messaging_product' => 'whatsapp', 'to' => $phone, 'type' => 'text', 'text' => ['body' => $body]]);
+    }
+
+    /** @param array<string,mixed> $payload */
+    private function post(array $payload): SendResult
+    {
         try {
-            $response = $this->request()->post($this->url('messages'), $this->payload($phone, $body, $variables));
+            $response = $this->request()->post($this->url('messages'), $payload);
         } catch (ConnectionException) {
             return SendResult::failed('مقدرناش نوصل لواتساب دلوقتي.', retryable: true);
         }
@@ -170,11 +197,19 @@ class CloudApiDriver implements WhatsappDriver
             return null;
         }
 
+        // What we attached to the button, and which of our messages this
+        // answers. Either one ties a reply to its order without guessing from
+        // the phone number — on a number every store shares, that matters.
+        $payload = data_get($message, 'button.payload') ?? data_get($message, 'interactive.button_reply.id');
+        $replyTo = data_get($message, 'context.id');
+
         return new InboundMessage(
             phone: Phone::e164($from),
             body: trim($body),
             providerMessageId: data_get($message, 'id'),
             fromButton: in_array(data_get($message, 'type'), ['button', 'interactive'], true),
+            payload: is_string($payload) && $payload !== '' ? $payload : null,
+            replyTo: is_string($replyTo) && $replyTo !== '' ? $replyTo : null,
         );
     }
 

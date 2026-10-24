@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\DamanWebhookController;
+use App\Http\Controllers\Api\PlatformWhatsappWebhookController;
 use App\Http\Controllers\Api\TlsCheckController;
 use App\Http\Controllers\Api\WhatsappWebhookController;
 use Illuminate\Support\Facades\Route;
@@ -53,3 +54,17 @@ Route::get('integrations/whatsapp/webhook/{token}', [WhatsappWebhookController::
 Route::post('integrations/whatsapp/webhook/{token}', [WhatsappWebhookController::class, 'handle'])
     ->middleware('throttle:600,1')
     ->name('api.whatsapp.webhook');
+
+/*
+| Replies to the platform's own WhatsApp number, for every store that uses it.
+|
+| One fixed URL, set once in the Meta app. No token in the path: nothing here
+| names a store, and the body is trusted only on Meta's signature.
+*/
+Route::get('integrations/whatsapp/platform', [PlatformWhatsappWebhookController::class, 'verify'])
+    ->middleware('throttle:60,1')
+    ->name('api.whatsapp.platform.verify');
+
+Route::post('integrations/whatsapp/platform', [PlatformWhatsappWebhookController::class, 'handle'])
+    ->middleware('throttle:1200,1')
+    ->name('api.whatsapp.platform.webhook');

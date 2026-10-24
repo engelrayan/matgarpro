@@ -54,6 +54,7 @@ class Order extends Model
             'tracking' => 'array',
             'daman_sent_at' => 'datetime',
             'whatsapp_sent_at' => 'datetime',
+            'whatsapp_reminded_at' => 'datetime',
             'whatsapp_replied_at' => 'datetime',
         ];
     }

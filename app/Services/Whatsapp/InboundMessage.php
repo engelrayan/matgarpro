@@ -18,5 +18,9 @@ class InboundMessage
         public readonly ?string $providerMessageId = null,
         /** True when the customer tapped a quick-reply button rather than typing. */
         public readonly bool $fromButton = false,
+        /** The payload we attached to the button they tapped, if any. */
+        public readonly ?string $payload = null,
+        /** The provider id of our message this one replies to, if the gateway says. */
+        public readonly ?string $replyTo = null,
     ) {}
 }

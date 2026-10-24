@@ -179,6 +179,7 @@ const WHATSAPP_MARK: Record<string, { icon: string; class: string; title: string
     confirmed: { icon: '✓', class: 'text-success', title: 'العميل أكّد على واتساب' },
     cancelled: { icon: '✕', class: 'text-destructive', title: 'العميل لغى على واتساب' },
     failed: { icon: '!', class: 'text-destructive', title: 'رسالة الواتساب ماوصلتش' },
+    no_reply: { icon: '☎', class: 'text-warning', title: 'العميل ماردّش بعد التذكير — محتاج مكالمة' },
 };
 
 const showWhatsapp = computed(() => props.whatsapp_enabled || props.orders.data.some((o) => o.whatsapp));

@@ -33,6 +33,14 @@ class OrderConfirmationMessage
             '{currency}' => (string) $order->store->currency,
         ];
 
+        // Total and currency as one value: the platform template has a single
+        // slot for the amount.
+        $values['{amount}'] = $values['{total}'] . ' ' . $values['{currency}'];
+
+        // The platform's template takes the shop's name, because the message
+        // comes from our number rather than theirs.
+        $slots = $link->isPlatform() ? PlatformWhatsapp::VARIABLE_ORDER : self::VARIABLE_ORDER;
+
         return [
             'body' => strtr($link->template(), $values),
             'variables' => array_map(
@@ -40,7 +48,7 @@ class OrderConfirmationMessage
                 // the whole message for it, and a multi-line item list is the
                 // obvious way to hit that.
                 fn (string $key) => str_replace("\n", ' · ', $values[$key] ?? ''),
-                self::VARIABLE_ORDER,
+                $slots,
             ),
         ];
     }

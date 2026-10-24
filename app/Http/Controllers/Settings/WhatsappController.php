@@ -9,6 +9,7 @@ use App\Models\StoreWhatsappIntegration;
 use App\Models\WhatsappMessage;
 use App\Services\Whatsapp\DriverFactory;
 use App\Services\Whatsapp\OrderConfirmationMessage;
+use App\Services\Whatsapp\PlatformWhatsapp;
 use App\Services\Whatsapp\Whats360Driver;
 use App\Support\Phone;
 use Illuminate\Http\RedirectResponse;
@@ -63,6 +64,22 @@ class WhatsappController extends Controller
 
             'placeholders' => StoreWhatsappIntegration::PLACEHOLDERS,
             'default_template' => StoreWhatsappIntegration::DEFAULT_TEMPLATE,
+
+            // The no-setup option, offered only once the platform number is
+            // configured — and the message it sends, with this shop's name in
+            // it, so the merchant sees what their customers will get.
+            'platform' => [
+                'available' => PlatformWhatsapp::configured(),
+                'preview' => strtr(PlatformWhatsapp::BODY, [
+                    '{name}' => 'سارة',
+                    '{number}' => '1042',
+                    '{store}' => $store->name,
+                    '{items}' => '• 2× قميص قطن (أبيض · L)',
+                    '{amount}' => '798.00 ' . $store->currency,
+                ]),
+                'confirm_label' => PlatformWhatsapp::CONFIRM_LABEL,
+                'cancel_label' => PlatformWhatsapp::CANCEL_LABEL,
+            ],
 
             // What the merchant would otherwise count by hand to know whether
             // any of this is working.
@@ -161,6 +178,40 @@ class WhatsappController extends Controller
         );
 
         return back()->with('status', 'whatsapp-connected');
+    }
+
+    /**
+     * Switch the store onto the platform's own number. One click, no keys.
+     *
+     * Replaces whatever gateway the store had: a store sends from one number,
+     * and two would message the same customer twice. The webhook tokens are
+     * kept, so switching back to the old gateway does not break the URL the
+     * merchant already pasted there.
+     */
+    public function platform(Request $request): RedirectResponse
+    {
+        abort_unless(PlatformWhatsapp::configured(), 404);
+
+        $store = $this->currentStore($request);
+        $existing = $store->whatsappIntegration;
+
+        StoreWhatsappIntegration::updateOrCreate(
+            ['store_id' => $store->id],
+            [
+                'driver' => StoreWhatsappIntegration::DRIVER_PLATFORM,
+                'credentials' => [],
+                'sender_phone' => null,
+                'is_active' => true,
+                // The point of it is that nobody has to press anything.
+                'auto_send' => true,
+                'connected_at' => now(),
+                'last_error' => null,
+                'webhook_token' => $existing?->webhook_token ?? StoreWhatsappIntegration::newToken(),
+                'verify_token' => $existing?->verify_token ?? StoreWhatsappIntegration::newToken(),
+            ],
+        );
+
+        return back()->with('status', 'whatsapp-platform');
     }
 
     /** The wording, and whether a new order sends it by itself. */
@@ -296,6 +347,7 @@ class WhatsappController extends Controller
             'confirmed' => $store->orders()->where('whatsapp_state', 'confirmed')->count(),
             'cancelled' => $store->orders()->where('whatsapp_state', 'cancelled')->count(),
             'failed' => $store->orders()->where('whatsapp_state', 'failed')->count(),
+            'no_reply' => $store->orders()->where('whatsapp_state', 'no_reply')->count(),
         ];
     }
 
