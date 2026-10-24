@@ -64,7 +64,7 @@ class AiStoreBuilderController extends Controller
                 ])
                 ->all(),
             'currentTheme' => $themes->forStore($store)['key'],
-            'triesLeft' => $meter->remainingToday($store, AiFeature::StoreBuilder),
+            'triesLeft' => $meter->remaining($store, AiFeature::StoreBuilder),
         ]);
     }
 

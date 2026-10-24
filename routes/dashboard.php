@@ -91,7 +91,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     // Set the whole store up from a description: plan → review → builder drafts.
     Route::get('ai/store-builder', [AiStoreBuilderController::class, 'index'])->name('ai.store-builder');
     Route::post('ai/store-plans', [AiStoreBuilderController::class, 'store'])
-        ->middleware('throttle:10,1')
+        ->middleware(['throttle:10,1', 'throttle:ai-store-builder'])
         ->name('ai.store-plans.store');
     Route::get('ai/store-plans/{generation}', [AiStoreBuilderController::class, 'show'])->name('ai.store-plans.show');
     Route::post('ai/store-plans/{generation}/apply', [AiStoreBuilderController::class, 'apply'])->name('ai.store-plans.apply');

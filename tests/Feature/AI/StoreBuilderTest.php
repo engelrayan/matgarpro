@@ -9,6 +9,8 @@ use App\Models\Product;
 use App\Models\Store;
 use App\Models\StorePage;
 use App\Models\User;
+use App\Services\AI\AiException;
+use App\Services\AI\AiFeature;
 use App\Services\Builder\PageBuilder;
 use App\Services\Builder\PreviewToken;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -137,7 +139,7 @@ class StoreBuilderTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page->component('ai/StoreBuilder')
                 ->where('currentTheme', 'jade')
-                ->where('triesLeft', 5)
+                ->where('triesLeft', 2)
                 ->has('themes'));
     }
 
@@ -171,7 +173,9 @@ class StoreBuilderTest extends TestCase
             $text = $body['messages'][0]['content'][0]['text'];
             $themeEnum = $body['output_config']['format']['schema']['properties']['theme']['enum'];
 
-            return $body['model'] === 'claude-sonnet-5-5'
+            // Haiku, without fallbacks: it has none, and asking is a 400.
+            return $body['model'] === 'claude-haiku-5-5'
+                && ! array_key_exists('fallbacks', $body)
                 && str_contains($text, 'هدوم رجالي كاجوال')
                 && str_contains($text, 'بنشحن لكل المحافظات')
                 && str_contains($text, 'شنط')
@@ -207,16 +211,67 @@ class StoreBuilderTest extends TestCase
         $this->assertStringNotContainsString('onclick', $draft['story']['body']);
     }
 
-    public function test_the_store_builder_has_its_own_daily_tries(): void
+    public function test_a_store_gets_two_plans_ever_not_two_a_day(): void
     {
-        config(['ai.features.store_builder.daily_limit' => 1]);
         $this->claudeReplies($this->plan());
 
         $this->describe()->assertStatus(202);
+        $this->describe()->assertStatus(202);
+        $this->describe()->assertStatus(429)->assertJson(['message' => AiException::usedUp()->getMessage()]);
+
+        // A new day does not hand out new ones.
+        $this->travel(3)->days();
         $this->describe()->assertStatus(429);
 
-        Http::assertSentCount(1);
-        $this->assertSame('store_builder', AiCall::sole()->feature);
+        Http::assertSentCount(2);
+        $this->assertSame(['store_builder'], AiCall::pluck('feature')->unique()->values()->all());
+
+        $this->actingAs($this->merchant)
+            ->get('/ai/store-builder')
+            ->assertInertia(fn ($page) => $page->where('triesLeft', 0));
+    }
+
+    public function test_a_failed_run_does_not_use_up_a_try(): void
+    {
+        AiCall::create([
+            'store_id' => $this->store->id,
+            'feature' => 'store_builder',
+            'model' => 'claude-haiku-5-5',
+            'status' => AiCall::STATUS_FAILED,
+        ]);
+
+        $this->actingAs($this->merchant)
+            ->get('/ai/store-builder')
+            ->assertInertia(fn ($page) => $page->where('triesLeft', 2));
+    }
+
+    public function test_opening_store_after_store_from_one_network_runs_out(): void
+    {
+        Http::fake();
+
+        // Twenty merchants on one address, each asking once. An empty
+        // description is refused after the throttle has counted it, so this
+        // costs no calls and still uses up the network's day.
+        foreach (range(1, 20) as $_) {
+            $merchant = User::factory()->create();
+            Store::factory()->for($merchant)->create();
+            $this->actingAs($merchant)->postJson('/ai/store-plans', ['business' => ''])->assertStatus(422);
+        }
+
+        $merchant = User::factory()->create();
+        Store::factory()->for($merchant)->create();
+        $this->actingAs($merchant)->postJson('/ai/store-plans', ['business' => 'عطور'])
+            ->assertStatus(429)
+            ->assertJsonFragment(['message' => 'المتاجر اللي اتجهّزت من نفس المكان النهارده كتير. جرّب تاني بكرة.']);
+
+        Http::assertNothingSent();
+    }
+
+    public function test_the_product_writer_keeps_its_daily_limit(): void
+    {
+        // The lifetime cap belongs to the store builder alone.
+        $this->assertNull(AiFeature::ProductWriter->totalLimit());
+        $this->assertSame(2, AiFeature::StoreBuilder->totalLimit());
     }
 
     public function test_a_description_is_required(): void

@@ -53,6 +53,14 @@ enum AiFeature: string
         return (int) ($this->config()['daily_limit'] ?? 0);
     }
 
+    /** Calls per store over its whole life, or null when only the daily limit applies. */
+    public function totalLimit(): ?int
+    {
+        $limit = $this->config()['total_limit'] ?? null;
+
+        return $limit === null ? null : (int) $limit;
+    }
+
     public function usesFallbacks(): bool
     {
         return (bool) ($this->config()['fallbacks'] ?? false);

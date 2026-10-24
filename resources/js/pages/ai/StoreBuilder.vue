@@ -89,11 +89,19 @@ const applyError = ref('');
 
 const { run } = useAiGeneration();
 
+// Runs left for this store, ever (config/ai.php → store_builder.total_limit).
+// Counted down here after each plan so the page agrees with the server
+// without a reload; a failed run is not counted on either side.
+const tries = ref(props.triesLeft);
+const triesLabel = computed(() =>
+    tries.value === 1 ? 'باقي محاولة واحدة' : tries.value === 2 ? 'باقي محاولتين' : `باقي ${tries.value} محاولات`,
+);
+
 const suggestedTheme = computed(() => props.themes.find((t) => t.key === plan.value?.theme) ?? null);
 const isCurrentTheme = computed(() => plan.value?.theme === props.currentTheme);
 
 const ask = async () => {
-    if (!answers.business.trim() || state.value === 'working') return;
+    if (!answers.business.trim() || state.value === 'working' || tries.value === 0) return;
 
     state.value = 'working';
     error.value = '';
@@ -102,6 +110,7 @@ const ask = async () => {
         const result = await run<StorePlan>('/ai/store-plans', JSON.parse(JSON.stringify(answers)));
         plan.value = result.draft;
         planId.value = result.id;
+        tries.value = Math.max(0, tries.value - 1);
         categories.value = result.draft.categories.map((c) => c.name);
         applyTheme.value = !isCurrentTheme.value;
         state.value = 'review';
@@ -262,13 +271,17 @@ const ICONS: Record<string, unknown> = { check: Check, truck: Truck, refresh: Re
                 <p v-if="error" class="field-error mt-0">{{ error }}</p>
 
                 <div class="flex flex-wrap items-center gap-3">
-                    <button type="submit" class="btn-primary" :disabled="!answers.business.trim() || state === 'working' || triesLeft === 0">
+                    <button type="submit" class="btn-primary" :disabled="!answers.business.trim() || state === 'working' || tries === 0">
                         <LoaderCircle v-if="state === 'working'" class="h-4 w-4 animate-spin" />
                         <Sparkles v-else class="h-4 w-4" />
                         {{ state === 'working' ? 'بنجهّز متجرك…' : 'جهّزلي المتجر' }}
                     </button>
                     <span v-if="state === 'working'" class="text-xs text-muted-foreground">ده بياخد أقل من دقيقة.</span>
-                    <span v-else-if="triesLeft === 0" class="text-xs text-muted-foreground">خلصت المحاولات بتاعة النهارده. جرّب تاني بكرة.</span>
+                    <span v-else-if="tries === 0" class="text-xs text-muted-foreground">
+                        استخدمت كل المحاولات المتاحة. تقدر تعدّل كل حاجة بنفسك من
+                        <Link href="/builder" class="font-medium text-primary hover:underline">تصميم المتجر</Link>.
+                    </span>
+                    <span v-else class="text-xs text-muted-foreground">{{ triesLabel }}</span>
                 </div>
             </form>
 
@@ -397,9 +410,9 @@ const ICONS: Record<string, unknown> = { check: Check, truck: Truck, refresh: Re
                             <LoaderCircle v-if="applying" class="h-4 w-4 animate-spin" />
                             حطّه في المتجر كمسودة
                         </button>
-                        <button type="button" class="btn-outline" :disabled="applying" @click="ask">
+                        <button v-if="tries > 0" type="button" class="btn-outline" :disabled="applying" @click="ask">
                             <RotateCcw class="h-4 w-4" />
-                            اكتب تاني
+                            اكتب تاني ({{ triesLabel }})
                         </button>
                         <button type="button" class="btn-ghost" :disabled="applying" @click="state = 'ask'">رجوع للأسئلة</button>
                     </div>

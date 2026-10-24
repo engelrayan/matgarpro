@@ -27,6 +27,11 @@ class AiException extends RuntimeException
         return new self('الخدمة دي مش متاحة دلوقتي. جرّب تاني بعدين.');
     }
 
+    public static function usedUp(): self
+    {
+        return new self('استخدمت كل المحاولات المتاحة. تقدر تعدّل كل حاجة بنفسك من تصميم المتجر.');
+    }
+
     public static function dailyLimit(): self
     {
         return new self('خلصت المحاولات بتاعة النهارده. تقدر تجرّب تاني بكرة.');

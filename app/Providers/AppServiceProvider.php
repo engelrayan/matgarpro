@@ -80,6 +80,22 @@ class AppServiceProvider extends ServiceProvider
                 ->withErrors(['product_id' => 'طلبات كتير من نفس المكان في وقت قصير. استنى شوية وجرّب تاني.'])));
 
         /*
+        | The AI store builder, per network per day.
+        |
+        | Each store gets two runs (config/ai.php), and a store costs nothing
+        | but an email to open — so without this, the cap per store is no cap
+        | at all for someone signing up again and again. Generous on purpose:
+        | Egyptian mobile carriers put whole neighbourhoods behind one address,
+        | and twenty runs on Haiku is still under ten cents.
+        */
+        RateLimiter::for('ai-store-builder', fn (Request $request) => Limit::perDay(20)
+            ->by(self::clientNetwork((string) $request->ip()))
+            ->response(fn () => response()->json(
+                ['message' => 'المتاجر اللي اتجهّزت من نفس المكان النهارده كتير. جرّب تاني بكرة.'],
+                429,
+            )));
+
+        /*
         | The storefront's chrome comes from the builder too.
         |
         | A composer rather than a line in each controller: `thanks` and
