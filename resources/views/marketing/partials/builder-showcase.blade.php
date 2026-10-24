@@ -26,9 +26,9 @@
     ];
 
     /*
-     | Product shots. The drawing itself lives in `builder-shot`, which is the
-     | one place to change the day real photography exists — swap its <svg> for
-     | an <img> and nothing on this page has to move.
+     | Product shots. `builder-shot` decides what each one is: a real photo for
+     | these four kinds, the drawing for anything else — this page only ever
+     | names the kind.
      */
     $shots = [
         ['name' => 'قميص قطن مصري', 'price' => '٣٩٩', 'was' => '٥٩٩', 'hue' => 212, 'kind' => 'shirt'],
@@ -39,12 +39,14 @@
 
 @endphp
 
-<section class="relative overflow-hidden px-5 py-20 md:py-28" id="builder">
+<section class="relative overflow-hidden px-4 py-20 md:px-5 md:py-28" id="builder">
     <div class="mx-auto max-w-6xl">
 
         {{-- ── Heading ──────────────────────────────────────────────── --}}
         <div class="reveal mx-auto max-w-2xl text-center">
-            <span class="badge-gold">جديد</span>
+            {{-- Was "جديد". The builder is the established part now; what it
+                 answers here is "can I still change what the AI made?". --}}
+            <span class="badge-gold">وبعد الذكاء الاصطناعي؟ عدّل براحتك</span>
 
             <h2 class="mt-4 text-balance text-3xl font-bold leading-tight tracking-tight md:text-5xl">
                 أنت اللي بتبني <span class="text-jade-gradient">شكل متجرك</span>
@@ -57,7 +59,7 @@
 
             <div class="mt-7 flex flex-wrap items-center justify-center gap-2.5">
                 @foreach (['اسحب ورتّب', 'شوف النتيجة فوراً', 'انشر لما تكون جاهز', 'من غير كود'] as $pill)
-                    <span class="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-sm shadow-e1">
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-card px-3.5 py-1.5 text-sm shadow-[0_0_0_0.5px_hsl(var(--foreground)/0.1)]">
                         <svg class="size-4 text-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M20 6 9 17l-5-5"/>
                         </svg>
@@ -302,7 +304,8 @@
     background: radial-gradient(120% 90% at 50% 12%, #fff 0%, hsl(40 14% 93%) 78%);
 }
 .bx-shot--lg { width: 4.6rem; }
-.bx-shot svg { width: 100%; height: 100%; display: block; }
+.bx-shot svg,
+.bx-shot img { width: 100%; height: 100%; display: block; object-fit: cover; }
 .bx-off {
     position: absolute; inset-inline-end: .2rem; top: .2rem;
     border-radius: 999px; background: hsl(var(--destructive)); color: #fff;

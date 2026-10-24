@@ -1,9 +1,13 @@
 {{-- The three objections every first-time cash-on-delivery buyer has, answered
-     before they ask. --}}
+     before they ask.
+
+     A grouped list on a phone — icon tile, title, one line under it — the
+     shape of the Settings app, which is the most-read list on an iPhone. On a
+     wide screen the same rows sit side by side. --}}
 @php
     $paths = [
         'check' => 'M20 6 9 17l-5-5',
-        'truck' => 'M5 12h14M12 5l7 7-7 7',
+        'truck' => 'M3 6h11v10H3zM14 10h4l3 3v3h-7M7 19a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM17 19a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z',
         'refresh' => 'M3 12a9 9 0 1 0 9-9M3 12l4-4M3 12l4 4',
         'shield' => 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z',
         'phone' => 'M4 4h5l2 5-3 2a12 12 0 0 0 5 5l2-3 5 2v5a1 1 0 0 1-1 1A17 17 0 0 1 3 5a1 1 0 0 1 1-1z',
@@ -13,19 +17,24 @@
 @endphp
 
 @if ($items->isNotEmpty())
-<section class="border-y border-border">
-    <div class="mx-auto grid max-w-5xl gap-4 px-5 py-6 sm:grid-cols-2 lg:grid-cols-{{ min(4, $items->count()) }}">
+<section class="mx-auto max-w-5xl px-4 py-6 md:px-5 md:py-8">
+    <div @class([
+        'ios-group md:grid',
+        'md:grid-cols-2' => $items->count() === 2,
+        'md:grid-cols-3' => $items->count() === 3,
+        'md:grid-cols-4' => $items->count() >= 4,
+    ])>
         @foreach ($items as $item)
-            <div class="flex items-center gap-3">
-                <span class="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                    <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <div class="ios-row min-h-[60px] md:py-4 md:before:hidden">
+                <span class="ios-tile">
+                    <svg class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <path d="{{ $paths[$item['icon']] ?? $paths['check'] }}"/>
                     </svg>
                 </span>
-                <div>
-                    <p class="text-sm font-semibold">{{ $item['title'] }}</p>
+                <div class="min-w-0">
+                    <p class="text-[15px] font-semibold leading-snug">{{ $item['title'] }}</p>
                     @if ($item['body'])
-                        <p class="text-xs text-muted-foreground">{{ $item['body'] }}</p>
+                        <p class="text-[13px] leading-snug text-muted-foreground">{{ $item['body'] }}</p>
                     @endif
                 </div>
             </div>

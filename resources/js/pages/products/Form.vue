@@ -198,9 +198,9 @@ const submit = () => {
     <AppLayout :breadcrumbs="breadcrumbItems">
         <Head :title="isEdit ? product!.name : 'منتج جديد'" />
 
-        <form @submit.prevent="submit" class="mx-auto max-w-6xl px-4 py-6">
+        <form @submit.prevent="submit" class="mx-auto w-full max-w-6xl px-4 pb-6 md:px-6">
             <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
-                <h1 class="text-2xl font-bold tracking-tight">
+                <h1 class="text-large-title">
                     {{ isEdit ? 'تعديل المنتج' : 'منتج جديد' }}
                 </h1>
 
@@ -220,7 +220,7 @@ const submit = () => {
                  sticky rail on the side showing what those fields produce. One
                  tall column made the page read as empty and buried the money
                  settings below the fold. -->
-            <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+            <div class="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
                 <div class="space-y-6">
                     <AiProductWriter :images="previewImages" :categories="categories" @apply="applyDraft" @add-images="addFiles" />
 
@@ -415,11 +415,11 @@ const submit = () => {
                     <!-- ── Status ───────────────────────────────────────── -->
                     <section class="surface p-5">
                         <p class="text-sm font-medium">حالة المنتج</p>
-                        <div class="mt-3 flex rounded-xl border border-border p-1">
+                        <div class="ios-segmented mt-3 flex w-full">
                             <button v-for="option in [{ v: 'active', l: 'منشور' }, { v: 'draft', l: 'مسودّة' }]" :key="option.v"
                                     type="button"
-                                    class="flex-1 rounded-lg px-3 py-1.5 text-sm transition-colors"
-                                    :class="form.status === option.v ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'"
+                                    class="ios-segment"
+                                    :aria-pressed="form.status === option.v"
                                     @click="form.status = option.v as 'draft' | 'active'">
                                 {{ option.l }}
                             </button>

@@ -3,58 +3,64 @@
 @section('title', 'تم استلام طلبك — ' . $store->name)
 
 @section('content')
-<div class="mx-auto max-w-lg px-5 py-16">
-    <div class="surface-lux p-8 text-center">
-        <span class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-success/10 text-success">
-            <svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>
+{{-- The confirmation, shaped like the sheet Apple Pay leaves behind: a check
+     that lands with a small spring, one sentence of what happens next, and
+     the receipt as a grouped list. The customer's next real moment is a phone
+     call, so the phone number they gave is the most prominent fact here. --}}
+<div class="mx-auto max-w-md px-4 pb-10 pt-10 md:pt-16">
+    <div class="text-center">
+        <span class="animate-ios-pop mx-auto flex size-[72px] items-center justify-center rounded-full bg-success text-success-foreground shadow-[0_10px_30px_-10px_hsl(var(--success)/0.7)]">
+            <svg class="size-9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
         </span>
 
-        <h1 class="mt-6 text-2xl font-bold tracking-tight">وصلنا طلبك</h1>
+        <h1 class="animate-ios-rise mt-6 text-large-title">وصلنا طلبك</h1>
 
-        <p class="mt-3 text-sm text-muted-foreground">
-            هنكلمك على <span class="font-medium text-foreground" dir="ltr">{{ $order->customer_phone }}</span>
+        <p class="animate-ios-rise mx-auto mt-2 max-w-xs text-callout text-muted-foreground [animation-delay:80ms]">
+            هنكلمك على <span class="tabular font-semibold text-foreground" dir="ltr">{{ $order->customer_phone }}</span>
             علشان نأكّد الطلب قبل الشحن.
         </p>
+    </div>
 
-        <div class="mt-7 rounded-xl bg-muted/60 p-4 text-right">
-            <div class="flex items-center justify-between text-sm">
-                <span class="text-muted-foreground">رقم الطلب</span>
-                <span class="tabular font-bold">#{{ $order->number }}</span>
+    <div class="animate-ios-rise mt-8 space-y-6 [animation-delay:140ms]">
+        <div class="ios-group">
+            <div class="ios-row justify-between">
+                <span class="text-[15px] text-muted-foreground">رقم الطلب</span>
+                <span class="tabular text-[17px] font-bold">#{{ $order->number }}</span>
             </div>
 
-            <hr class="my-3 border-border">
-
             @foreach ($order->items as $item)
-                <div class="flex items-start justify-between gap-3 py-1 text-sm">
-                    <span>
+                <div class="ios-row items-start justify-between">
+                    <span class="text-[15px] leading-snug">
                         {{ $item->name }}
                         @if ($item->variant_label)
                             <span class="text-muted-foreground">({{ $item->variant_label }})</span>
                         @endif
-                        <span class="text-muted-foreground">× {{ $item->quantity }}</span>
+                        <span class="tabular text-muted-foreground">× {{ $item->quantity }}</span>
                     </span>
-                    <span class="tabular shrink-0">{{ number_format((float) $item->total, 2) }}</span>
+                    <span class="tabular shrink-0 text-[15px]">{{ number_format((float) $item->total, 2) }}</span>
                 </div>
             @endforeach
 
-            <hr class="my-3 border-border">
-
-            <div class="flex items-center justify-between">
-                <span class="text-sm text-muted-foreground">الإجمالي</span>
-                <span class="tabular text-lg font-bold">
-                    {{ number_format((float) $order->total, 2) }} {{ $store->currency }}
+            <div class="ios-row justify-between">
+                <span class="text-[15px] text-muted-foreground">الإجمالي</span>
+                <span class="tabular text-[20px] font-bold tracking-tight">
+                    {{ number_format((float) $order->total, 2) }} <span class="text-[13px] font-medium text-muted-foreground">{{ $store->currency }}</span>
                 </span>
             </div>
 
-            <p class="mt-2 text-xs text-muted-foreground">الدفع عند الاستلام</p>
+            <div class="ios-row justify-between">
+                <span class="text-[15px] text-muted-foreground">طريقة الدفع</span>
+                <span class="text-[15px] font-medium">الدفع عند الاستلام</span>
+            </div>
         </div>
 
-        <a href="{{ route('storefront.home') }}" class="btn-outline mt-7 w-full">
+        <a href="{{ route('storefront.home') }}" class="ios-btn-lg ios-btn-tinted w-full">
             ارجع للمتجر
         </a>
     </div>
 </div>
 @endsection
+
 
 @push('scripts')
 <script>

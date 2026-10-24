@@ -1,8 +1,8 @@
 @php($items = $data['categories'])
 
 @if ($items->isNotEmpty())
-<section class="mx-auto max-w-6xl px-5 py-10">
-    <h2 class="mb-5 text-lg font-bold tracking-tight">{{ $settings['title'] }}</h2>
+<section class="mx-auto max-w-6xl px-4 py-8 md:px-5 md:py-10">
+    <h2 class="mb-4 text-[20px] font-bold leading-snug md:text-[22px]">{{ $settings['title'] }}</h2>
 
     <div @class([
         'grid gap-3',
@@ -12,7 +12,7 @@
     ])>
         @foreach ($items as $category)
             <a href="{{ route('storefront.category', $category->slug) }}"
-               class="group overflow-hidden rounded-[--radius] border border-border bg-card">
+               class="ios-group pressable group block">
                 {{-- Falls back to the first product in the section. A merchant
                      rarely uploads a category image, and an empty grey panel
                      makes a stocked shop look broken. --}}
@@ -24,8 +24,8 @@
                              class="size-full object-cover transition-transform duration-500 group-hover:scale-[1.04]">
                     @endif
                 </div>
-                <div class="p-3">
-                    <p class="text-sm font-medium">{{ $category->name }}</p>
+                <div class="px-3 pb-3 pt-2.5">
+                    <p class="text-[15px] font-semibold">{{ $category->name }}</p>
                     <p class="mt-0.5 text-xs text-muted-foreground">{{ $category->products_count }} منتج</p>
                 </div>
             </a>

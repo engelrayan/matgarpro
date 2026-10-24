@@ -11,14 +11,14 @@
 @endphp
 
 @if ($items->isNotEmpty())
-<div class="mx-auto max-w-5xl px-5 pt-8">
+<div class="mx-auto max-w-5xl px-4 pt-8 md:px-5">
     <div class="flex justify-center gap-3">
         @foreach ($items as $item)
             {{-- `noopener` on every outbound link: without it the destination
                  page gets a handle on the storefront's window. --}}
             <a href="{{ $item['url'] }}" target="_blank" rel="noopener noreferrer"
                aria-label="{{ $item['platform'] }}"
-               class="flex size-10 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-primary hover:text-primary">
+               class="pressable flex size-11 items-center justify-center rounded-full bg-foreground/[0.06] text-foreground/70 transition-colors hover:bg-primary/10 hover:text-primary">
                 <svg class="size-5" viewBox="0 0 24 24" fill="currentColor">
                     <path d="{{ $icons[$item['platform']] ?? $icons['facebook'] }}"/>
                 </svg>

@@ -107,6 +107,10 @@ class SeedDemoStores extends Command
             // and a half-updated showroom is worse than a rebuilt one.
             $store->products()->forceDelete();
             $store->categories()->delete();
+            // The old images go with the old products: they are full
+            // photographs now, and every rebuild would otherwise leave a
+            // showroom's worth of orphans on the disk.
+            Storage::disk('public')->deleteDirectory("demo/{$store->id}");
 
             $categories = collect($catalogue['categories'])->mapWithKeys(
                 fn (string $name, int $i) => [$name => $store->categories()->create([
@@ -148,27 +152,14 @@ class SeedDemoStores extends Command
     }
 
     /**
-     * Draw and attach the product's artwork.
-     *
-     * Written to the public disk as a real file and attached as an ordinary
-     * ProductImage, so a showroom image travels the same path as a merchant's
-     * upload — the gallery, the card, the Open Graph tag — with no special
-     * cases anywhere downstream.
+     * Attach the product's photo — or its drawing, when the row has none.
      *
      * @param  array<string,mixed>  $row
      */
     private function artworkFor(Product $product, array $row): void
     {
-        $kind = $this->artwork->kindFor($row['name']);
-        $path = "demo/{$product->store_id}/{$product->id}.svg";
-
-        Storage::disk('public')->put(
-            $path,
-            $this->artwork->render($kind, $row['hue'], $row['name']),
-        );
-
         $product->images()->create([
-            'path' => $path,
+            'path' => $this->artwork->store($row, "demo/{$product->store_id}", $product->id),
             'alt' => $row['name'],
             'sort_order' => 0,
         ]);

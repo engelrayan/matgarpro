@@ -2,7 +2,11 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    {{-- Tints Safari's toolbar and the status bar to match the shop's header, so the
+         page reads as one surface instead of a header under a mismatched strip. --}}
+    <meta name="theme-color" content="hsl({{ $theme['palette']['card'] }})">
+    <meta name="color-scheme" content="light">
 
     <title>@yield('title', $store->name)</title>
     <meta name="description" content="@yield('description')">
@@ -70,7 +74,7 @@
     @yield('content')
 </main>
 
-<footer class="mt-16 border-t border-border bg-muted/30">
+<footer class="mt-12 hairline-t bg-muted/40 pb-safe">
     @include('storefront.partials.sections', [
         'sections' => $footerSections ?? [],
         'sectionData' => $chromeData,

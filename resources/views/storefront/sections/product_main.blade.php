@@ -7,32 +7,85 @@
      form-before-description, sticky bar). `$settings` is this section's. The
      two are deliberately separate: the first differs per product, the second
      is the same on every product page in the shop. --}}
-<div class="mx-auto max-w-5xl px-5 py-8">
-    <div class="grid gap-8 md:grid-cols-2 md:gap-12">
+@php
+    $images = $product->images;
+    $saving = $product->compare_at_price && (float) $product->compare_at_price > (float) $product->price
+        ? (float) $product->compare_at_price - (float) $product->price
+        : 0;
 
-        {{-- ── Gallery ──────────────────────────────────────────────────── --}}
-        <div>
-            @if ($product->images->isNotEmpty())
-                <div class="overflow-hidden rounded-2xl border border-border bg-card">
-                    <img
-                        id="mainImage"
-                        src="{{ $product->images->first()->url() }}"
-                        alt="{{ $product->images->first()->alt ?: $product->name }}"
-                        class="aspect-square w-full object-cover"
-                        {{-- The first image is the largest thing above the fold; it
-                             decides the LCP and therefore the ad cost per visit. --}}
-                        fetchpriority="high"
-                        width="800" height="800"
-                    >
+    $checkoutFields = $store->enabledCheckoutFields();
+
+    // Errors that belong to a field are shown on that field. Anything else —
+    // a sold-out variant, an expired form — still needs saying, at the top.
+    $looseErrors = collect($errors->getMessages())
+        ->except(array_keys($checkoutFields))
+        ->flatten();
+
+    // What the phone's autofill knows each field as. One tap fills the whole
+    // form for a returning iPhone customer — the cheapest conversion there is.
+    $autocomplete = [
+        'customer_name' => 'name',
+        'customer_phone' => 'tel',
+        'customer_phone_alt' => 'tel',
+        'customer_email' => 'email',
+        'governorate' => 'address-level1',
+        'city' => 'address-level2',
+        'address' => 'street-address',
+    ];
+@endphp
+
+<div class="mx-auto max-w-5xl md:px-5 md:py-8">
+    <div class="grid md:grid-cols-2 md:gap-12">
+
+        {{-- ── Gallery ──────────────────────────────────────────────────────
+
+             Edge to edge on a phone and swiped with the thumb, the way Photos
+             and every shopping app on the phone already work. Plain CSS scroll
+             snapping — no carousel library on the page the ads pay for. Every
+             image is in the HTML, so the second one is already there when the
+             thumb arrives; only the first is fetched eagerly. --}}
+        <div class="md:sticky md:top-24 md:self-start">
+            @if ($images->isNotEmpty())
+                <div class="relative">
+                    <div class="scrollbar-none flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain bg-muted md:rounded-[calc(var(--radius)+6px)] md:shadow-[0_0_0_0.5px_hsl(var(--foreground)/0.08)]"
+                         data-gallery>
+                        @foreach ($images as $image)
+                            <img
+                                src="{{ $image->url() }}"
+                                alt="{{ $image->alt ?: $product->name }}"
+                                class="aspect-square w-full shrink-0 snap-center object-cover"
+                                width="800" height="800"
+                                decoding="async"
+                                data-slide="{{ $loop->index }}"
+                                {{-- The first image is the largest thing above the
+                                     fold; it decides the LCP and therefore the ad
+                                     cost per visit. --}}
+                                @if ($loop->first) fetchpriority="high" @else loading="lazy" @endif
+                            >
+                        @endforeach
+                    </div>
+
+                    @if ($images->count() > 1)
+                        {{-- Page control, as on the home screen. On a material
+                             capsule so it reads over any photo. --}}
+                        <div class="material pointer-events-none absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full px-2.5 py-1.5 md:hidden" aria-hidden="true">
+                            @foreach ($images as $image)
+                                <span class="size-1.5 rounded-full bg-foreground/25 transition-colors duration-300 data-[active]:bg-foreground/80"
+                                      data-dot="{{ $loop->index }}" @if ($loop->first) data-active @endif></span>
+                            @endforeach
+                        </div>
+                    @endif
                 </div>
 
-                @if ($product->images->count() > 1)
-                    <div class="mt-3 grid grid-cols-5 gap-2">
-                        @foreach ($product->images as $image)
+                @if ($images->count() > 1)
+                    <div class="mt-3 hidden grid-cols-5 gap-2 md:grid">
+                        @foreach ($images as $image)
                             <button
                                 type="button"
-                                class="thumb overflow-hidden rounded-xl border-2 {{ $loop->first ? 'border-primary' : 'border-transparent' }}"
-                                data-src="{{ $image->url() }}"
+                                class="thumb pressable overflow-hidden rounded-[--radius] opacity-60 ring-primary ring-offset-2 ring-offset-background transition-opacity hover:opacity-100 data-[active]:opacity-100 data-[active]:ring-2"
+                                data-thumb="{{ $loop->index }}"
+                                aria-label="صورة {{ $loop->iteration }}"
+                                @if ($loop->first) data-active @endif
                             >
                                 <img src="{{ $image->url() }}" alt="" class="aspect-square w-full object-cover" loading="lazy" width="160" height="160">
                             </button>
@@ -40,7 +93,7 @@
                     </div>
                 @endif
             @else
-                <div class="aspect-square rounded-2xl bg-muted"></div>
+                <div class="aspect-square bg-muted md:rounded-[calc(var(--radius)+6px)]"></div>
             @endif
 
             {{-- The product's own video, when the merchant added one.
@@ -51,38 +104,50 @@
                  a deliberate second look, right where somebody who is still
                  deciding will scroll to. --}}
             @if ($videoId = $product->videoId())
-                <div class="mt-3">
+                <div class="mt-3 px-4 md:px-0">
                     @include('storefront.partials.youtube', ['videoId' => $videoId])
-                    <p class="mt-2 text-center text-xs text-muted-foreground">شوف المنتج بالفيديو</p>
+                    <p class="mt-2 text-center text-footnote text-muted-foreground">شوف المنتج بالفيديو</p>
                 </div>
             @endif
         </div>
 
         {{-- ── Details + order form ─────────────────────────────────────── --}}
-        <div>
+        <div class="px-4 pb-8 pt-5 md:px-0 md:pt-0">
             @if (filled($settings['badge']))
-                <span class="badge-gold mb-3">{{ $settings['badge'] }}</span>
+                <span class="badge mb-2.5 bg-accent/15 text-[13px] font-semibold text-foreground">{{ $settings['badge'] }}</span>
             @endif
 
-            <h1 class="text-2xl font-bold leading-snug tracking-tight md:text-3xl">{{ $product->name }}</h1>
+            <h1 class="text-title-2 md:text-[30px] md:leading-[1.3]">{{ $product->name }}</h1>
 
-            <div class="mt-4 flex flex-wrap items-baseline gap-3">
-                <span id="price" class="tabular text-3xl font-bold text-primary">
+            <div class="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-2">
+                <span id="price" class="tabular text-[30px] font-bold leading-none tracking-tight text-foreground">
                     {{ number_format((float) $product->price, 2) }}
                 </span>
-                <span class="text-sm text-muted-foreground">{{ $store->currency }}</span>
+                <span class="text-[15px] font-medium text-muted-foreground">{{ $store->currency }}</span>
 
                 @if ($product->compare_at_price)
-                    <span class="tabular text-base text-muted-foreground line-through">
+                    <span class="tabular text-[17px] text-muted-foreground line-through decoration-muted-foreground/50">
                         {{ number_format((float) $product->compare_at_price, 2) }}
                     </span>
-                    <span class="badge-danger">خصم {{ $product->discountPercent() }}%</span>
-                @endif
-
-                @if ($productSettings['free_shipping'])
-                    <span class="badge-success">شحن مجاني</span>
                 @endif
             </div>
+
+            @if ($saving > 0 || $productSettings['free_shipping'])
+                <div class="mt-3 flex flex-wrap gap-2">
+                    @if ($saving > 0)
+                        <span class="badge bg-destructive/10 py-1.5 text-[13px] font-semibold text-destructive">
+                            خصم {{ $product->discountPercent() }}% · هتوفّر <span class="tabular">{{ number_format($saving) }}</span> {{ $store->currency }}
+                        </span>
+                    @endif
+
+                    @if ($productSettings['free_shipping'])
+                        <span class="badge bg-success/10 py-1.5 text-[13px] font-semibold text-success">
+                            <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                            شحن مجاني
+                        </span>
+                    @endif
+                </div>
+            @endif
 
             {{-- The merchant chooses the order. A cheap impulse buy converts
                  better with the form first; anything that needs convincing
@@ -92,19 +157,22 @@
                     {{-- Unescaped: stored already sanitised by HtmlSanitizer,
                          which strips every tag and attribute outside its
                          allow-list. --}}
-                    <div class="prose-description mt-5 text-sm leading-relaxed text-muted-foreground">{!! $product->description !!}</div>
+                    <div class="prose-description mt-5 text-callout text-muted-foreground">{!! $product->description !!}</div>
                 @endif
             @endunless
 
-            @if ($errors->any())
-                <div class="mt-6 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
-                    @foreach ($errors->all() as $error)
-                        <p>{{ $error }}</p>
-                    @endforeach
+            @if ($looseErrors->isNotEmpty())
+                <div class="mt-6 flex gap-3 rounded-[calc(var(--radius)+4px)] bg-destructive/10 p-4 text-[15px] text-destructive" role="alert">
+                    <svg class="mt-0.5 size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.01"/></svg>
+                    <div class="space-y-1">
+                        @foreach ($looseErrors as $error)
+                            <p>{{ $error }}</p>
+                        @endforeach
+                    </div>
                 </div>
             @endif
 
-            <form method="POST" action="{{ route('storefront.checkout') }}" class="mt-8 space-y-5" id="orderForm">
+            <form method="POST" action="{{ route('storefront.checkout') }}" class="mt-7 space-y-6" id="orderForm">
                 @csrf
                 <input type="hidden" name="product_id" value="{{ $product->id }}">
                 <input type="hidden" name="variant_id" id="variantId" value="">
@@ -134,92 +202,124 @@
 
                 {{-- Options ------------------------------------------------ --}}
                 @foreach ($product->options ?? [] as $option)
-                    <div>
-                        <label class="field-label">{{ $option['name'] }}</label>
+                    <fieldset>
+                        <legend class="mb-2.5 text-headline">{{ $option['name'] }}</legend>
                         <div class="flex flex-wrap gap-2">
                             @foreach ($option['values'] as $value)
                                 <button
                                     type="button"
-                                    class="opt rounded-xl border border-border px-4 py-2 text-sm transition-colors hover:border-primary"
+                                    class="opt ios-chip"
+                                    aria-pressed="false"
                                     data-option="{{ $option['name'] }}"
                                     data-value="{{ $value }}"
                                 >{{ $value }}</button>
                             @endforeach
                         </div>
-                    </div>
+                    </fieldset>
                 @endforeach
 
                 {{-- Quantity ----------------------------------------------- --}}
-                <div>
-                    <label class="field-label" for="quantity">الكمية</label>
-                    <div class="flex w-32 items-center rounded-xl border border-input bg-card">
-                        <button type="button" class="qty px-3.5 py-2 text-lg leading-none" data-step="-1" aria-label="أقل">−</button>
-                        <input id="quantity" name="quantity" type="text" inputmode="numeric" value="1"
-                               class="tabular w-full border-0 bg-transparent p-0 text-center text-sm focus:outline-none">
-                        <button type="button" class="qty px-3.5 py-2 text-lg leading-none" data-step="1" aria-label="أكتر">+</button>
+                <div class="ios-group">
+                    <div class="ios-row justify-between">
+                        <label class="text-[17px]" for="quantity">الكمية</label>
+                        <div class="ios-stepper">
+                            <button type="button" class="qty" data-step="-1" aria-label="أقل">−</button>
+                            <input id="quantity" name="quantity" type="text" inputmode="numeric" value="1" aria-live="polite"
+                                   class="tabular w-10 border-0 bg-transparent p-0 text-center text-[17px] font-semibold focus:outline-none focus:ring-0">
+                            <button type="button" class="qty" data-step="1" aria-label="أكتر">+</button>
+                        </div>
                     </div>
                 </div>
-
-                <hr class="border-border">
 
                 {{-- Rendered from the store's own form settings, in the order
                      the merchant chose. Every extra field on a COD form costs
                      orders, so the merchant owns that trade-off — but the name
                      and the phone are locked on, because a parcel nobody can
-                     confirm is worth less than no order at all. --}}
-                <div class="space-y-4">
-                    @foreach ($store->enabledCheckoutFields() as $key => $field)
-                        <div>
-                            <label class="field-label" for="{{ $key }}">
-                                {{ $field['label'] }}
-                                @unless ($field['required'])
-                                    <span class="font-normal text-muted-foreground">— اختياري</span>
-                                @endunless
-                            </label>
+                     confirm is worth less than no order at all.
 
-                            @if ($key === 'governorate')
-                                <select id="{{ $key }}" name="{{ $key }}" class="field" @required($field['required'])>
-                                    <option value="">اختار المحافظة</option>
-                                    @foreach (config('egypt.governorates') as $gov)
-                                        <option value="{{ $gov }}" @selected(old('governorate') === $gov)>{{ $gov }}</option>
-                                    @endforeach
-                                </select>
+                     One grouped card, as in an iOS address sheet: a short label
+                     over a borderless field, the focused row ringed in the
+                     theme colour. --}}
+                <div>
+                    <h2 class="ios-caption mb-2 !px-1 text-[15px] font-semibold text-foreground">بيانات التوصيل</h2>
 
-                            @elseif (in_array($key, ['address', 'note'], true))
-                                <textarea id="{{ $key }}" name="{{ $key }}" class="field" rows="3"
-                                          placeholder="{{ $field['placeholder'] }}"
-                                          @required($field['required'])>{{ old($key) }}</textarea>
+                    <div class="ios-group">
+                        @foreach ($checkoutFields as $key => $field)
+                            <div @class(['ios-field-row', 'has-error' => $errors->has($key)])>
+                                <label class="ios-field-label" for="{{ $key }}">
+                                    {{ $field['label'] }}
+                                    @unless ($field['required'])
+                                        <span class="font-normal opacity-75">— اختياري</span>
+                                    @endunless
+                                </label>
 
-                            @else
-                                <input
-                                    id="{{ $key }}"
-                                    name="{{ $key }}"
-                                    class="field"
-                                    value="{{ old($key) }}"
-                                    placeholder="{{ $field['placeholder'] }}"
-                                    @required($field['required'])
-                                    @if (str_contains($key, 'phone')) dir="ltr" inputmode="tel" autocomplete="tel" @endif
-                                    @if ($key === 'customer_email') type="email" dir="ltr" autocomplete="email" @endif
-                                    @if ($key === 'customer_name') autocomplete="name" @endif
-                                >
-                            @endif
-                        </div>
-                    @endforeach
+                                @if ($key === 'governorate')
+                                    <select id="{{ $key }}" name="{{ $key }}" class="ios-input" autocomplete="address-level1" @required($field['required'])>
+                                        <option value="">اختار المحافظة</option>
+                                        @foreach (config('egypt.governorates') as $gov)
+                                            <option value="{{ $gov }}" @selected(old('governorate') === $gov)>{{ $gov }}</option>
+                                        @endforeach
+                                    </select>
+
+                                @elseif (in_array($key, ['address', 'note'], true))
+                                    <textarea id="{{ $key }}" name="{{ $key }}" class="ios-input" rows="2"
+                                              placeholder="{{ $field['placeholder'] }}"
+                                              @if (isset($autocomplete[$key])) autocomplete="{{ $autocomplete[$key] }}" @endif
+                                              @required($field['required'])>{{ old($key) }}</textarea>
+
+                                @else
+                                    <input
+                                        id="{{ $key }}"
+                                        name="{{ $key }}"
+                                        @class(['ios-input', 'text-right' => str_contains($key, 'phone') || $key === 'customer_email'])
+                                        value="{{ old($key) }}"
+                                        placeholder="{{ $field['placeholder'] }}"
+                                        @required($field['required'])
+                                        @if (isset($autocomplete[$key])) autocomplete="{{ $autocomplete[$key] }}" @endif
+                                        {{-- `tel` brings up the dial pad on every phone; the
+                                             number reads left to right inside an RTL row. --}}
+                                        @if (str_contains($key, 'phone')) type="tel" dir="ltr" inputmode="tel" @endif
+                                        @if ($key === 'customer_email') type="email" dir="ltr" @endif
+                                    >
+                                @endif
+
+                                @error($key)
+                                    <p class="text-[13px] text-destructive">{{ $message }}</p>
+                                @enderror
+                            </div>
+                        @endforeach
+                    </div>
                 </div>
 
-                <div class="rounded-xl bg-muted/60 p-4">
-                    <div class="flex items-center justify-between text-sm">
-                        <span class="text-muted-foreground">الإجمالي</span>
-                        <span id="total" class="tabular text-lg font-bold">
+                {{-- Summary ------------------------------------------------ --}}
+                <div class="ios-group">
+                    <div class="ios-row justify-between">
+                        <span class="text-[17px] text-muted-foreground">الإجمالي</span>
+                        <span id="total" class="tabular text-[20px] font-bold tracking-tight">
                             {{ number_format((float) $product->price, 2) }} {{ $store->currency }}
                         </span>
                     </div>
-                    <p class="mt-1.5 text-xs text-muted-foreground">الدفع عند الاستلام</p>
+                    <div class="ios-row justify-between">
+                        <span class="text-[15px] text-muted-foreground">طريقة الدفع</span>
+                        <span class="flex items-center gap-1.5 text-[15px] font-medium">
+                            <svg class="size-[18px] text-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><circle cx="12" cy="12" r="2.5"/></svg>
+                            الدفع عند الاستلام
+                        </span>
+                    </div>
                 </div>
 
-                <button type="submit" class="btn-primary sheen w-full py-3.5 text-base">
-                    {{ $productSettings['buy_button_text'] }}
-                </button>
+                <div>
+                    <button type="submit" class="ios-btn-lg ios-btn-filled w-full shadow-[0_8px_24px_-8px_hsl(var(--primary)/0.55)]">
+                        {{ $productSettings['buy_button_text'] }}
+                    </button>
+
+                    {{-- The single biggest objection on a cash-on-delivery form,
+                         answered right under the button that raises it. --}}
+                    <p class="mt-3 flex items-center justify-center gap-1.5 text-footnote text-muted-foreground">
+                        <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+                        مش هتدفع حاجة دلوقتي — بتدفع لما الطلب يوصلك
+                    </p>
+                </div>
             </form>
 
             @if ($productSettings['form_before_description'] && $product->description)
@@ -227,7 +327,7 @@
                      section on the page — otherwise the customer reads the
                      same paragraph twice. --}}
                 @unless ($hasDescriptionSection ?? false)
-                    <div class="prose-description mt-8 text-sm leading-relaxed text-muted-foreground">{!! $product->description !!}</div>
+                    <div class="prose-description mt-8 text-callout text-muted-foreground">{!! $product->description !!}</div>
                 @endunless
             @endif
         </div>
@@ -237,24 +337,27 @@
 @if ($productSettings['sticky_buy_bar'])
     {{-- Pinned buy bar, phones only. The form sits under a tall image, and a
          customer who has to scroll back up to buy frequently does not. Hidden
-         once the real button is on screen so there are never two at once. --}}
-    <div id="stickyBar" class="glass fixed inset-x-0 bottom-0 z-40 hidden border-t px-4 py-3 md:!hidden">
+         once the real button is on screen so there are never two at once.
+
+         An iOS toolbar: translucent, a hairline on top, and padded clear of
+         the home indicator. --}}
+    <div id="stickyBar" class="material hairline-t pb-safe fixed inset-x-0 bottom-0 z-40 hidden px-4 pt-3 md:!hidden">
         <div class="mx-auto flex max-w-5xl items-center gap-3">
             <div class="min-w-0 flex-1">
-                <p class="truncate text-xs text-muted-foreground">{{ $product->name }}</p>
-                <p class="tabular text-sm font-bold">
+                <p class="truncate text-footnote text-muted-foreground">{{ $product->name }}</p>
+                <p class="tabular text-[17px] font-bold leading-tight tracking-tight">
                     <span id="stickyTotal">{{ number_format((float) $product->price, 2) }}</span>
-                    {{ $store->currency }}
+                    <span class="text-[13px] font-medium text-muted-foreground">{{ $store->currency }}</span>
                 </p>
             </div>
-            <button type="submit" form="orderForm" class="btn-primary shrink-0 px-6">
+            <button type="submit" form="orderForm" class="ios-btn-md ios-btn-filled shrink-0 px-7">
                 {{ $productSettings['buy_button_text'] }}
             </button>
         </div>
     </div>
 
     {{-- Room for the bar so it never covers the last field. --}}
-    <div class="h-20 md:hidden"></div>
+    <div class="h-24 md:hidden"></div>
 @endif
 
 @include('storefront.partials.product-scripts')

@@ -61,8 +61,7 @@
             selected[name] = btn.dataset.value;
 
             document.querySelectorAll(`.opt[data-option="${CSS.escape(name)}"]`).forEach((b) => {
-                b.classList.toggle('border-primary', b === btn);
-                b.classList.toggle('bg-primary/5', b === btn);
+                b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
             });
 
             refresh();
@@ -79,15 +78,39 @@
 
     qtyEl.addEventListener('input', refresh);
 
-    document.querySelectorAll('.thumb').forEach((thumb) => {
-        thumb.addEventListener('click', () => {
-            document.getElementById('mainImage').src = thumb.dataset.src;
-            document.querySelectorAll('.thumb').forEach((t) => {
-                t.classList.toggle('border-primary', t === thumb);
-                t.classList.toggle('border-transparent', t !== thumb);
+    /*
+     * Gallery. The swiping is CSS scroll snapping; all this does is keep the
+     * page dots and the desktop thumbnails in step with whichever photo is
+     * actually on screen, and let a thumbnail scroll to its photo.
+     */
+    const gallery = document.querySelector('[data-gallery]');
+
+    if (gallery && 'IntersectionObserver' in window) {
+        const marks = document.querySelectorAll('[data-dot], [data-thumb]');
+
+        const slideObserver = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                if (!entry.isIntersecting) return;
+                const index = entry.target.dataset.slide;
+                marks.forEach((m) => m.toggleAttribute('data-active', (m.dataset.dot ?? m.dataset.thumb) === index));
+            });
+        }, { root: gallery, threshold: 0.6 });
+
+        gallery.querySelectorAll('[data-slide]').forEach((slide) => slideObserver.observe(slide));
+
+        document.querySelectorAll('[data-thumb]').forEach((thumb) => {
+            thumb.addEventListener('click', () => {
+                const slide = gallery.querySelector(`[data-slide="${thumb.dataset.thumb}"]`);
+                // Offsets rather than scrollIntoView, which would also scroll
+                // the page; and negative in RTL, where the track runs leftward.
+                const rtl = getComputedStyle(gallery).direction === 'rtl';
+                const left = rtl
+                    ? slide.offsetLeft + slide.offsetWidth - gallery.offsetWidth
+                    : slide.offsetLeft;
+                gallery.scrollTo({ left, behavior: 'smooth' });
             });
         });
-    });
+    }
 
     /*
      * Funnel beacon: fired once, the first time the customer actually touches

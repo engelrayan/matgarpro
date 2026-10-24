@@ -7,7 +7,7 @@
 @if ($items->isNotEmpty())
 <section class="mx-auto max-w-6xl px-5 py-6">
     <div @class([
-        'grid gap-4',
+        'grid gap-3 md:gap-5',
         'sm:grid-cols-2' => $settings['layout'] === 'split',
     ])>
         @foreach ($items as $item)

@@ -1,13 +1,13 @@
 @php($items = collect($settings['items'])->filter(fn ($i) => filled($i['text'])))
 
 @if ($items->isNotEmpty())
-<section class="border-y border-border bg-muted/30 px-5 py-12">
+<section class="px-4 py-10 md:px-5 md:py-12">
     <div class="mx-auto max-w-5xl">
-        <h2 class="mb-6 text-center text-lg font-bold tracking-tight">{{ $settings['title'] }}</h2>
+        <h2 class="mb-5 text-center text-[20px] font-bold leading-snug md:text-[22px]">{{ $settings['title'] }}</h2>
 
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             @foreach ($items as $item)
-                <figure class="rounded-[--radius] border border-border bg-card p-5">
+                <figure class="ios-group p-5">
                     <div class="flex gap-0.5 text-gold-500" aria-label="{{ $item['rating'] }} من ٥">
                         @for ($i = 0; $i < 5; $i++)
                             <svg class="size-4 {{ $i < $item['rating'] ? 'opacity-100' : 'opacity-25' }}"
@@ -19,7 +19,7 @@
 
                     <blockquote class="mt-3 text-sm leading-relaxed">{{ $item['text'] }}</blockquote>
 
-                    <figcaption class="mt-4 flex items-center gap-2.5 border-t border-border pt-3">
+                    <figcaption class="mt-4 flex items-center gap-2.5 hairline-t pt-3">
                         @if ($item['image'])
                             <img src="{{ \App\Support\Media::url($item['image']) }}" alt="" loading="lazy"
                                  class="size-8 shrink-0 rounded-full object-cover">

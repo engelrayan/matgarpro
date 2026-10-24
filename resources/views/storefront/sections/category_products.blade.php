@@ -1,10 +1,10 @@
 {{-- The paginated products of the category being viewed. --}}
-<section class="mx-auto max-w-6xl px-5 py-8">
+<section class="mx-auto max-w-6xl px-4 py-6 md:px-5 md:py-8">
     @if ($products->isEmpty())
         <p class="py-20 text-center text-muted-foreground">مفيش منتجات في القسم ده دلوقتي.</p>
     @else
         <div @class([
-            'grid gap-4',
+            'grid gap-3 md:gap-5',
             'grid-cols-2' => $settings['columns'] === '2',
             'grid-cols-2 md:grid-cols-3' => $settings['columns'] === '3',
             'grid-cols-2 md:grid-cols-3 lg:grid-cols-4' => $settings['columns'] === '4',

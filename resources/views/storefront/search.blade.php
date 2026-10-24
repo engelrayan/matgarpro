@@ -8,7 +8,7 @@
 @endpush
 
 @section('content')
-<div class="mx-auto max-w-5xl px-5 py-10">
+<div class="mx-auto max-w-5xl px-4 py-6 md:px-5 md:py-10">
 
     @if ($term === '')
         <div class="py-20 text-center">
@@ -16,7 +16,7 @@
             <p class="mt-2 text-sm text-muted-foreground">اكتب اسم المنتج في خانة البحث فوق.</p>
         </div>
     @else
-        <h1 class="text-xl font-bold tracking-tight">
+        <h1 class="text-title-2">
             نتائج البحث عن «{{ $term }}»
         </h1>
         <p class="mt-1 text-sm text-muted-foreground">
@@ -24,7 +24,7 @@
         </p>
 
         @if ($products->isEmpty())
-            <div class="mt-12 rounded-[--radius] border border-border bg-muted/30 px-6 py-16 text-center">
+            <div class="ios-group mt-8 px-6 py-14 text-center">
                 <p class="font-medium">مفيش نتائج لـ «{{ $term }}»</p>
                 <p class="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
                     جرّب كلمة أقصر أو اتفرّج على الأقسام.
@@ -35,7 +35,7 @@
                     <div class="mt-6 flex flex-wrap justify-center gap-2">
                         @foreach ($navCategories->take(6) as $category)
                             <a href="{{ route('storefront.category', $category->slug) }}"
-                               class="rounded-[--radius] border border-border bg-card px-3 py-1.5 text-sm transition-colors hover:border-primary">
+                               class="ios-chip">
                                 {{ $category->name }}
                             </a>
                         @endforeach
@@ -43,7 +43,7 @@
                 @endif
             </div>
         @else
-            <div class="mt-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+            <div class="mt-5 grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-5 lg:grid-cols-4">
                 @foreach ($products as $product)
                     @include('storefront.partials.product-card')
                 @endforeach

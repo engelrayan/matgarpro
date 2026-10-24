@@ -8,7 +8,6 @@ use App\Models\Store;
 use App\Services\Demo\DemoArtwork;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 
 /**
  * Fills a real merchant's store with a sample catalogue.
@@ -106,15 +105,11 @@ class SeedSampleCatalogue extends Command
                     $product->categories()->attach($category->id);
                 }
 
-                $path = "samples/{$store->id}/{$product->id}.svg";
-
-                Storage::disk('public')->put($path, $this->artwork->render(
-                    $this->artwork->kindFor($row['name']),
-                    $row['hue'],
-                    $row['name'],
-                ));
-
-                $product->images()->create(['path' => $path, 'alt' => $row['name'], 'sort_order' => 0]);
+                $product->images()->create([
+                    'path' => $this->artwork->store($row, "samples/{$store->id}", $product->id),
+                    'alt' => $row['name'],
+                    'sort_order' => 0,
+                ]);
 
                 $this->line("  <fg=green>✓</> {$row['name']}" . ($row['compare'] ? ' <fg=yellow>(عرض)</>' : ''));
             }
