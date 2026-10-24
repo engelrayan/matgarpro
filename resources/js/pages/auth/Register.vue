@@ -3,10 +3,14 @@ import InputError from '@/components/InputError.vue';
 import TextLink from '@/components/TextLink.vue';
 import AuthBase from '@/layouts/AuthLayout.vue';
 import { Head, useForm } from '@inertiajs/vue3';
-import { LoaderCircle } from 'lucide-vue-next';
+import { LoaderCircle, Sparkles } from 'lucide-vue-next';
 import { computed } from 'vue';
 
-defineProps<{ platformDomain: string }>();
+defineProps<{
+    platformDomain: string;
+    /** Set when they came from the landing page's AI box: what they typed there. */
+    aiStart: string | null;
+}>();
 
 const form = useForm({
     name: '',
@@ -46,6 +50,17 @@ const submit = () => {
 <template>
     <AuthBase title="اعمل حسابك" description="دقيقة واحدة ويكون عندك متجر شغّال">
         <Head title="حساب جديد" />
+
+        <!-- Came from the landing page's AI box: say where this goes next. -->
+        <div v-if="aiStart !== null" class="ai-ring mb-6 rounded-[18px]">
+            <div class="rounded-[16.5px] bg-card p-3.5">
+                <p class="flex items-center gap-1.5 text-[13px] font-semibold">
+                    <Sparkles class="size-4 text-primary" />
+                    <span class="ai-text">بعد الحساب على طول، الذكاء الاصطناعي يجهّز متجرك</span>
+                </p>
+                <p v-if="aiStart" class="mt-1.5 line-clamp-2 text-[14px] leading-relaxed text-muted-foreground">«{{ aiStart }}»</p>
+            </div>
+        </div>
 
         <form @submit.prevent="submit" class="space-y-5">
             <div>
