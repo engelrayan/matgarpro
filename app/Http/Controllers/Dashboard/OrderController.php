@@ -8,6 +8,10 @@ use App\Models\Store;
 use App\Services\Customers\ReputationService;
 use App\Services\Shipping\ShippingRates;
 use App\Support\ArabicNumerals;
+use chillerlan\QRCode\Common\EccLevel;
+use chillerlan\QRCode\Output\QRMarkupSVG;
+use chillerlan\QRCode\QRCode;
+use chillerlan\QRCode\QROptions;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,6 +29,9 @@ class OrderController extends Controller
      * governorate, items and total stay — they are what makes topping up worth
      * it — and the people behind them wait for the top-up.
      */
+    /** a4 = two labels a sheet, a5 = one, label = a 10×15 cm thermal sticker. */
+    private const WAYBILL_SIZES = ['a4', 'a5', 'label'];
+
     private const HIDDEN_CUSTOMER = [
         'customer_name' => null,
         'customer_phone' => null,
@@ -79,6 +86,7 @@ class OrderController extends Controller
                 'daman' => $this->damanColumn($o),
                 // Only the state — the grid shows a dot, not a story.
                 'whatsapp' => $o->whatsapp_state,
+                'printed' => $o->waybill_printed_at !== null,
                 'locked' => $o->isLocked(),
             ])
             ->through(fn (array $row) => $row['locked'] ? [...$row, ...self::HIDDEN_CUSTOMER] : $row);
@@ -99,6 +107,13 @@ class OrderController extends Controller
             'daman_enabled' => $this->shipsWithDaman($store),
             'counts' => $this->countsByStatus($store),
             'locked' => $store->lockedOrdersSummary(),
+            // What the two print buttons would print — the same rules the
+            // waybill page applies, so the number on the button is the number
+            // of labels that come out.
+            'printable' => [
+                'today' => $this->printableOrders($store)->where('created_at', '>=', today())->count(),
+                'unprinted' => $this->printableOrders($store)->whereNull('waybill_printed_at')->count(),
+            ],
             'statuses' => collect(Order::STATUSES)
                 ->map(fn ($s) => ['value' => $s, 'label' => (new Order(['status' => $s]))->statusLabel()])
                 ->all(),
@@ -389,25 +404,82 @@ class OrderController extends Controller
     public function waybills(Request $request): View
     {
         $store = $this->currentStore($request);
+        $scope = $request->string('scope')->toString();
+        $size = in_array($request->query('size'), self::WAYBILL_SIZES, true) ? $request->query('size') : 'a5';
 
-        $ids = collect(explode(',', $request->string('ids')->toString()))
-            ->filter(fn ($id) => is_numeric($id))
-            ->take(200);
+        $query = $store->orders()
+            ->with('items')
+            // A waybill is the customer's name, phone and address on paper.
+            ->visible()
+            ->orderBy('number')
+            ->limit(200);
 
-        abort_if($ids->isEmpty(), 404);
+        if ($scope === 'today' || $scope === 'unprinted') {
+            // Orders still to go out — not ones already cancelled, returned or
+            // handed to the courier.
+            $query->whereIn('status', [Order::STATUS_PENDING, Order::STATUS_CONFIRMED])
+                ->when($scope === 'today', fn ($q) => $q->where('created_at', '>=', today()))
+                ->when($scope === 'unprinted', fn ($q) => $q->whereNull('waybill_printed_at'));
+        } else {
+            // Scoped to the merchant's own store: the ids arrive in a URL that
+            // anyone signed in could edit by hand.
+            $ids = collect(explode(',', $request->string('ids')->toString()))
+                ->filter(fn ($id) => is_numeric($id))
+                ->take(200);
+
+            abort_if($ids->isEmpty(), 404);
+
+            $query->whereIn('id', $ids);
+        }
+
+        $orders = $query->get();
+
+        /*
+         | Marked printed on opening. The print dialog tells the server nothing,
+         | so this is the closest honest signal — and it is what lets "print the
+         | ones I haven't printed" not hand the merchant yesterday's labels again.
+         */
+        $store->orders()
+            ->whereIn('id', $orders->pluck('id'))
+            ->whereNull('waybill_printed_at')
+            ->update(['waybill_printed_at' => now()]);
 
         return view('dashboard.waybill', [
             'store' => $store,
-            // Scoped to the merchant's own store: the ids arrive in a URL that
-            // anyone signed in could edit by hand.
-            'orders' => $store->orders()
-                ->with('items')
-                ->whereIn('id', $ids)
-                // A waybill is the customer's name, phone and address on paper.
-                ->visible()
-                ->orderBy('number')
-                ->get(),
+            'orders' => $orders,
+            'size' => $size,
+            'sizes' => self::WAYBILL_SIZES,
+            // Switching size reprints exactly these labels, by id — re-running
+            // "unprinted" would now find nothing, having just marked them.
+            'ids' => $orders->pluck('id')->implode(','),
+            'qr' => $orders->mapWithKeys(fn (Order $o) => [$o->id => $this->waybillQr($o)]),
         ]);
+    }
+
+    /** Orders still to go out, that a merchant can see. */
+    private function printableOrders(Store $store)
+    {
+        return $store->orders()->visible()->whereIn('status', [Order::STATUS_PENDING, Order::STATUS_CONFIRMED]);
+    }
+
+    /**
+     * The QR on a waybill: the order's page in this dashboard.
+     *
+     * Scanned in the warehouse or at the door, it opens the order for whoever
+     * is signed in to the store — and for nobody else, so the label carries no
+     * more than it already prints.
+     */
+    private function waybillQr(Order $order): string
+    {
+        $options = new QROptions([
+            'outputInterface' => QRMarkupSVG::class,
+            'outputBase64' => false,
+            'svgAddXmlHeader' => false,
+            'eccLevel' => EccLevel::M,
+            'addQuietzone' => false,
+        ]);
+
+        return (new QRCode($options))->render(route('orders.show', $order));
     }
 
     /**

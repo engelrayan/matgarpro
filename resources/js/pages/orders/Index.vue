@@ -32,6 +32,8 @@ interface Order {
     daman: DamanCell | null;
     whatsapp: string | null;
     locked: boolean;
+    /** A waybill has been opened for it. */
+    printed: boolean;
 }
 
 interface PaginatorLink {
@@ -47,6 +49,8 @@ const props = defineProps<{
     counts: Record<string, number>;
     /** Orders that arrived past the credit floor, waiting on a top-up. */
     locked: { count: number; value: number };
+    /** How many labels each print button would produce. */
+    printable: { today: number; unprinted: number };
     statuses: { value: string; label: string }[];
     governorates: string[];
     daman_enabled: boolean;
@@ -213,10 +217,33 @@ const columns = computed(() => [
             <div class="flex flex-wrap items-end justify-between gap-3">
                 <h1 class="text-large-title">الطلبات</h1>
 
-                <a :href="exportUrl" class="btn-outline shrink-0 !min-h-[34px] !px-3 !text-[14px]">
-                    <Download class="size-4" />
-                    Excel
-                </a>
+                <div class="flex flex-wrap items-center gap-2">
+                    <!-- The two print runs a merchant does every day: the
+                         morning's orders, and whatever came in since the
+                         last batch went to the courier. -->
+                    <a
+                        v-if="printable.unprinted"
+                        href="/orders/waybills?scope=unprinted"
+                        target="_blank"
+                        class="btn-primary shrink-0 !min-h-[34px] !px-3 !text-[14px]"
+                    >
+                        <Printer class="size-4" />
+                        اطبع اللي ماتطبعش <span class="tabular">({{ printable.unprinted }})</span>
+                    </a>
+                    <a
+                        v-if="printable.today"
+                        href="/orders/waybills?scope=today"
+                        target="_blank"
+                        class="btn-outline shrink-0 !min-h-[34px] !px-3 !text-[14px]"
+                    >
+                        <Printer class="size-4" />
+                        بوالص النهارده <span class="tabular">({{ printable.today }})</span>
+                    </a>
+                    <a :href="exportUrl" class="btn-outline shrink-0 !min-h-[34px] !px-3 !text-[14px]">
+                        <Download class="size-4" />
+                        Excel
+                    </a>
+                </div>
             </div>
 
             <!-- The iOS search field: filled, borderless, the glass on the
@@ -433,6 +460,8 @@ const columns = computed(() => [
                                     <option v-for="s in statuses" :key="s.value" :value="s.value">{{ s.label }}</option>
                                 </select>
 
+                                <Printer v-if="order.printed" class="size-3.5 text-muted-foreground" aria-label="اتطبعتله بوليصة" />
+
                                 <span
                                     v-if="showWhatsapp && order.whatsapp && WHATSAPP_MARK[order.whatsapp]"
                                     class="text-xs font-bold"
@@ -558,6 +587,10 @@ const columns = computed(() => [
                                         >
                                             <option v-for="s in statuses" :key="s.value" :value="s.value">{{ s.label }}</option>
                                         </select>
+
+                                        <span v-if="order.printed" title="اتطبعتله بوليصة">
+                                            <Printer class="size-3.5 text-muted-foreground" />
+                                        </span>
 
                                         <span
                                             v-if="showWhatsapp && order.whatsapp && WHATSAPP_MARK[order.whatsapp]"

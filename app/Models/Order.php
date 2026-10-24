@@ -44,6 +44,7 @@ class Order extends Model
         'ip', 'user_agent', 'tracking', 'locked_at',
     ];
 
+
     protected function casts(): array
     {
         return [
@@ -57,6 +58,7 @@ class Order extends Model
             'whatsapp_reminded_at' => 'datetime',
             'whatsapp_replied_at' => 'datetime',
             'locked_at' => 'datetime',
+            'waybill_printed_at' => 'datetime',
         ];
     }
 
