@@ -19,6 +19,7 @@ class DriverFactory
             StoreWhatsappIntegration::DRIVER_WAPILOT => new WapilotDriver($link),
             StoreWhatsappIntegration::DRIVER_WHATS360 => new Whats360Driver($link),
             StoreWhatsappIntegration::DRIVER_CLOUD_API => new CloudApiDriver($link),
+            StoreWhatsappIntegration::DRIVER_PLATFORM => new PlatformDriver(),
             default => throw new InvalidArgumentException("Unknown WhatsApp driver [{$link->driver}]."),
         };
     }

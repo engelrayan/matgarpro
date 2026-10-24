@@ -89,6 +89,8 @@ Route::middleware('auth')->group(function () {
     */
     Route::get('settings/whatsapp', [WhatsappController::class, 'edit'])->name('whatsapp.edit');
     Route::put('settings/whatsapp', [WhatsappController::class, 'update'])->name('whatsapp.update');
+    // The platform's own number — one click, nothing to paste.
+    Route::post('settings/whatsapp/platform', [WhatsappController::class, 'platform'])->name('whatsapp.platform');
     Route::put('settings/whatsapp/message', [WhatsappController::class, 'message'])->name('whatsapp.message');
     Route::post('settings/whatsapp/test', [WhatsappController::class, 'test'])->name('whatsapp.test');
     Route::patch('settings/whatsapp/toggle', [WhatsappController::class, 'toggle'])->name('whatsapp.toggle');

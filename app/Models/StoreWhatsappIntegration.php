@@ -2,16 +2,18 @@
 
 namespace App\Models;
 
+use App\Services\Whatsapp\PlatformWhatsapp;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
 /**
- * A store's own WhatsApp line.
+ * How a store messages its customers on WhatsApp.
  *
- * The number belongs to the merchant, not to the platform — the customer has to
- * recognise who is messaging them about an order they just placed.
+ * Either the merchant's own line, through a gateway they hold keys for, or the
+ * platform's shared official number (`DRIVER_PLATFORM`), which needs nothing
+ * from them and names their shop in the message instead.
  */
 class StoreWhatsappIntegration extends Model
 {
@@ -23,6 +25,14 @@ class StoreWhatsappIntegration extends Model
 
     public const DRIVER_CLOUD_API = 'cloud_api';
 
+    /**
+     * The platform's own official number. Not in DRIVERS: there are no keys to
+     * paste, so it is switched on from its own button rather than the
+     * gateway form, and the form can never select it.
+     */
+    public const DRIVER_PLATFORM = 'platform';
+
+    /** The gateways a merchant connects with their own keys. */
     public const DRIVERS = [self::DRIVER_WAPILOT, self::DRIVER_WHATS360, self::DRIVER_CLOUD_API];
 
     /**
@@ -98,11 +108,20 @@ class StoreWhatsappIntegration extends Model
         return $this->driver === self::DRIVER_CLOUD_API;
     }
 
+    public function isPlatform(): bool
+    {
+        return $this->driver === self::DRIVER_PLATFORM;
+    }
+
     /** Can this store message a customer right now? */
     public function canSend(): bool
     {
         if (! $this->is_active) {
             return false;
+        }
+
+        if ($this->isPlatform()) {
+            return PlatformWhatsapp::configured();
         }
 
         foreach (self::CREDENTIAL_FIELDS[$this->driver] ?? [] as $field) {
@@ -129,6 +148,12 @@ class StoreWhatsappIntegration extends Model
 
     public function template(): string
     {
+        // Fixed on the platform number: the words are the template Meta
+        // approved, and a merchant's own wording would never be delivered.
+        if ($this->isPlatform()) {
+            return PlatformWhatsapp::BODY;
+        }
+
         return filled($this->message_template) ? $this->message_template : self::DEFAULT_TEMPLATE;
     }
 

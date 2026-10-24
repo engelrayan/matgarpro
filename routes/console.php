@@ -42,3 +42,13 @@ Schedule::command('domains:certify')
 Schedule::command('model:prune', ['--model' => [\App\Models\AiGeneration::class]])
     ->daily()
     ->withoutOverlapping();
+
+/*
+| WhatsApp follow-up on the platform number: one reminder for a customer who
+| has not tapped "تأكيد الطلب", then the call list. Every fifteen minutes so a
+| reminder lands close to its hour; the command does nothing at night.
+*/
+Schedule::command('whatsapp:remind')
+    ->everyFifteenMinutes()
+    ->withoutOverlapping()
+    ->runInBackground();

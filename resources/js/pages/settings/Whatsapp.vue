@@ -10,7 +10,7 @@ import {
 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
-type Driver = 'wapilot' | 'whats360' | 'cloud_api';
+type Driver = 'wapilot' | 'whats360' | 'cloud_api' | 'platform';
 
 interface Connected {
     connected: true;
@@ -45,8 +45,9 @@ const props = defineProps<{
     integration: Connected | { connected: false };
     placeholders: Record<string, string>;
     default_template: string;
-    stats: { sent: number; awaiting: number; confirmed: number; cancelled: number; failed: number };
+    stats: { sent: number; awaiting: number; confirmed: number; cancelled: number; failed: number; no_reply: number };
     recent: RecentMessage[];
+    platform: { available: boolean; preview: string; confirm_label: string; cancel_label: string };
 }>();
 
 const page = usePage();
@@ -54,12 +55,31 @@ const breadcrumbItems: BreadcrumbItem[] = [{ title: 'واتساب', href: '/sett
 
 const link = computed(() => (props.integration.connected ? (props.integration as Connected) : null));
 
+/*
+ * On the platform's own number there are no keys, no wording to edit and no
+ * webhook to paste — so those three sections step aside entirely rather than
+ * sit there disabled, asking a question that has no answer.
+ */
+const isPlatform = computed(() => link.value?.driver === 'platform');
+
+const usingPlatform = ref(false);
+
+const usePlatform = () => {
+    if (link.value && !confirm('هيتوقف الإرسال من رقمك الحالي، والرسايل هتطلع من رقم متجر برو الرسمي. نكمّل؟')) return;
+    router.post(route('whatsapp.platform'), {}, {
+        preserveScroll: true,
+        onStart: () => (usingPlatform.value = true),
+        onFinish: () => (usingPlatform.value = false),
+    });
+};
+
 const FLASH_MESSAGES: Record<string, string> = {
     'whatsapp-connected': 'الواتساب اتربط. جرّب تبعت رسالة تجربة.',
     'whatsapp-message-saved': 'اتحفظ.',
     'whatsapp-enabled': 'الإرسال اشتغل تاني.',
     'whatsapp-disabled': 'الإرسال اتوقف مؤقتًا.',
     'whatsapp-disconnected': 'اتفك الربط.',
+    'whatsapp-platform': 'اشتغل على رقم متجر برو. أي طلب جديد هيوصل لعميله زرار «تأكيد الطلب».',
 };
 
 const flash = computed(() => {
@@ -208,8 +228,8 @@ const TILES = computed(() => [
                     <div class="max-w-2xl">
                         <h1 class="text-2xl font-bold tracking-tight">تأكيد الطلبات على واتساب</h1>
                         <p class="mt-1 text-sm leading-relaxed text-muted-foreground">
-                            أول ما يجيلك طلب، العميل بيوصله رسالة من رقم متجرك. يرد ١ يتأكّد الطلب
-                            لوحده، يرد ٢ يتلغي. اللي مايردش يفضل «قيد المراجعة» عشان تكلّمه.
+                            أول ما يجيلك طلب، العميل بيوصله رسالة على واتساب. يأكّد، والطلب يتأكّد
+                            لوحده. يلغي، والطلب يتلغي. اللي مايردش يفضل «قيد المراجعة» عشان تكلّمه.
                         </p>
                     </div>
 
@@ -221,7 +241,7 @@ const TILES = computed(() => [
                         <span v-else class="badge-neutral">متوقّف</span>
 
                         <span class="badge-info">
-                            {{ DRIVERS.find((d) => d.value === link!.driver)?.label ?? link.driver }}
+                            {{ isPlatform ? 'رقم متجر برو' : (DRIVERS.find((d) => d.value === link!.driver)?.label ?? link.driver) }}
                         </span>
 
                         <span v-if="link.sender_phone" class="tabular font-mono text-xs text-muted-foreground" dir="ltr">
@@ -256,11 +276,57 @@ const TILES = computed(() => [
                      on the right where a glance is enough. -->
                 <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_21rem]">
                     <div class="min-w-0 space-y-5">
+                        <!-- ── The platform number ────────────────────────
+                             First, because for most merchants it is the whole
+                             answer: no gateway account, no keys, no template to
+                             get approved — and the only option with buttons. -->
+                        <section v-if="isPlatform" class="surface p-5">
+                            <h2 class="flex items-center gap-2 font-semibold">
+                                <ShieldCheck class="size-4 text-success" />
+                                شغّال على رقم متجر برو الرسمي
+                            </h2>
+                            <p class="mt-2 text-sm leading-relaxed text-muted-foreground">
+                                كل طلب جديد بيوصل لعميله الرسالة دي من رقم متجر برو الموثّق، وفيها اسم متجرك.
+                                يدوس «{{ platform.confirm_label }}» والطلب يتأكّد هنا لوحده. اللي مايردش بنفكّره
+                                مرة واحدة بعد كام ساعة، ولو برضه ماردّش بيظهر عندك في الطلبات بعلامة ☎ عشان تكلّمه.
+                            </p>
+                            <div class="mt-4 max-w-sm rounded-2xl bg-muted/50 p-3 text-sm leading-relaxed">
+                                <p class="whitespace-pre-line">{{ platform.preview }}</p>
+                                <div class="mt-3 grid gap-1.5 border-t border-border pt-2.5 text-center text-xs font-medium text-info">
+                                    <span>{{ platform.confirm_label }}</span>
+                                    <span>{{ platform.cancel_label }}</span>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section v-else-if="platform.available" class="surface border-primary/40 p-5">
+                            <h2 class="flex items-center gap-2 font-semibold">
+                                <ShieldCheck class="size-4 text-primary" />
+                                الأسهل: رقم متجر برو الرسمي
+                            </h2>
+                            <p class="mt-2 text-sm leading-relaxed text-muted-foreground">
+                                من غير أي إعداد ولا توكن ولا موافقات من ميتا. العميل بيوصله زرار
+                                «{{ platform.confirm_label }}»، ولما يدوس عليه الطلب يتأكّد عندك لوحده.
+                            </p>
+                            <ul class="mt-3 space-y-1.5 text-sm">
+                                <li class="flex items-center gap-2"><Check class="size-4 text-success" /> رقم رسمي، مش هيتحظر</li>
+                                <li class="flex items-center gap-2"><Check class="size-4 text-success" /> زرار تأكيد وزرار إلغاء بدل «رد ١ أو ٢»</li>
+                                <li class="flex items-center gap-2"><Check class="size-4 text-success" /> تذكير تلقائي للي ماردّش، والباقي بيظهرلك تكلّمه</li>
+                            </ul>
+                            <p class="mt-3 text-xs leading-relaxed text-muted-foreground">
+                                الرسالة بتطلع باسم «متجر برو»، وأول سطر فيها اسم متجرك عشان العميل يعرف مين بيكلّمه.
+                            </p>
+                            <button class="btn-primary mt-4" :disabled="usingPlatform" @click="usePlatform">
+                                <LoaderCircle v-if="usingPlatform" class="size-4 animate-spin" />
+                                فعّل على رقم متجر برو
+                            </button>
+                        </section>
+
                         <!-- ── Gateway ────────────────────────────────── -->
-                        <section class="surface p-5">
+                        <section v-if="!isPlatform" class="surface p-5">
                             <h2 class="flex items-center gap-2 font-semibold">
                                 <MessageCircle class="size-4" />
-                                {{ link ? 'الرقم المربوط' : 'اربط رقمك' }}
+                                {{ link ? 'الرقم المربوط' : platform.available ? 'أو اربط رقمك إنت' : 'اربط رقمك' }}
                             </h2>
 
                             <div class="mt-4 grid gap-2 sm:grid-cols-3">
@@ -370,7 +436,7 @@ const TILES = computed(() => [
                         </section>
 
                         <!-- ── The message ────────────────────────────── -->
-                        <section v-if="link" class="surface p-5">
+                        <section v-if="link && !isPlatform" class="surface p-5">
                             <div class="flex flex-wrap items-baseline justify-between gap-2">
                                 <h2 class="font-semibold">الرسالة</h2>
                                 <p class="text-sm text-muted-foreground">اكتبها بلهجتك — الأقواس بتتملي لوحدها.</p>
@@ -453,7 +519,7 @@ const TILES = computed(() => [
                         </section>
 
                         <!-- ── Replies ────────────────────────────────── -->
-                        <section v-if="link" class="surface p-5">
+                        <section v-if="link && !isPlatform" class="surface p-5">
                             <div class="flex flex-wrap items-baseline justify-between gap-2">
                                 <h2 class="font-semibold">استقبال ردود العملاء</h2>
                                 <p class="text-sm text-muted-foreground">

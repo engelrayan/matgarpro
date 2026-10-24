@@ -40,14 +40,41 @@ return [
     ],
 
     /*
-    | WhatsApp. Credentials are per store, not per platform — the number that
-    | messages a customer belongs to the merchant they bought from. Only the
-    | things that are the same for everybody live here.
+    | WhatsApp. A store either brings its own line (credentials on the store)
+    | or uses the platform's official number below, which needs nothing from
+    | the merchant at all.
     */
     'whatsapp' => [
         // Meta pins behaviour to a Graph version; bumping it is a decision, not
         // something that should drift with whatever is newest.
         'cloud_api_version' => env('WHATSAPP_CLOUD_API_VERSION', 'v21.0'),
+
+        /*
+        | The platform's own Cloud API number, shared by every store that
+        | switches it on. Official, so the confirm/cancel buttons work and the
+        | number cannot be banned for "automation"; one approved template,
+        | created once with `php artisan whatsapp:platform-template`.
+        |
+        | Left empty, the option simply does not appear to merchants.
+        */
+        'platform' => [
+            'access_token' => env('PLATFORM_WHATSAPP_TOKEN'),
+            'phone_number_id' => env('PLATFORM_WHATSAPP_PHONE_NUMBER_ID'),
+            // The business account that owns the number — only needed to
+            // create the template, never to send.
+            'business_account_id' => env('PLATFORM_WHATSAPP_WABA_ID'),
+            // Required: on a number every store shares, an unsigned webhook
+            // would let a stranger confirm or cancel anybody's orders.
+            'app_secret' => env('PLATFORM_WHATSAPP_APP_SECRET'),
+            'verify_token' => env('PLATFORM_WHATSAPP_VERIFY_TOKEN'),
+            'template' => env('PLATFORM_WHATSAPP_TEMPLATE', 'order_confirmation'),
+            'template_language' => env('PLATFORM_WHATSAPP_TEMPLATE_LANGUAGE', 'ar'),
+            // One nudge this long after the first message, then — if the
+            // reminder goes unanswered for `give_up_after_hours` too — the
+            // order goes on the merchant's call list. See whatsapp:remind.
+            'remind_after_hours' => (int) env('PLATFORM_WHATSAPP_REMIND_AFTER_HOURS', 3),
+            'give_up_after_hours' => (int) env('PLATFORM_WHATSAPP_GIVE_UP_AFTER_HOURS', 12),
+        ],
     ],
 
     /*
