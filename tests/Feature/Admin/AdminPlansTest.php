@@ -103,7 +103,7 @@ class AdminPlansTest extends TestCase
         $standard = BillingPlan::firstWhere('code', 'standard');
 
         $this->assertSame($standard->id, $store->refresh()->billing_plan_id);
-        $this->assertSame(0.50, $store->priceAfterTrial());
+        $this->assertSame(0.75, $store->basePricePerOrder());
         $this->assertFalse($free->refresh()->is_active);
         $this->assertTrue($standard->is_default);
     }

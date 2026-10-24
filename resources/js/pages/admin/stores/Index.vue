@@ -64,6 +64,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 const PRICE_SOURCE: Record<string, string> = {
+    intro: 'أول ٣ شهور',
     override: 'سعر خاص',
     plan: 'من الخطة',
     default: 'الافتراضي',

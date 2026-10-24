@@ -132,7 +132,7 @@ class DashboardScreensTest extends TestCase
             ->assertSee('متجرك الإلكتروني جاهز في')
             // The two claims the page is built around.
             ->assertSee('شبكة سندباد')
-            ->assertSee('٣ شهور مجانية');
+            ->assertSee('أول ٣ شهور الطلب بنص جنيه');
 
         $this->assertStringNotContainsString(
             'data-page=',

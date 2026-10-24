@@ -43,19 +43,22 @@ class OverviewController extends Controller
                 'logo_url' => $store->logoUrl(),
             ],
             /*
-             | The three free months, counted down where the merchant will
-             | actually see it.
+             | The introductory months, counted down where the merchant will
+             | actually see it, with both prices — today's and the one after.
              |
-             | A trial that ends silently and turns into the first charge is
-             | how a platform loses someone it already won — so the number is
-             | on the front page from day one, not buried in a settings tab
-             | nobody opens.
+             | A cheaper period that ends silently and turns into a bigger
+             | charge is how a platform loses someone it already won — so the
+             | numbers are on the front page from day one, not buried in a
+             | settings tab nobody opens.
              */
             'billing' => [
-                'on_trial' => $store->onTrial(),
-                'trial_days_left' => $store->trialDaysLeft(),
-                'trial_ends_at' => $store->trial_ends_at?->translatedFormat('j F Y'),
-                'price_per_order' => $store->loadMissing('plan')->priceAfterTrial(),
+                'in_intro' => $store->loadMissing('plan')->inIntroPeriod(),
+                'intro_days_left' => $store->introDaysLeft(),
+                'intro_ends_at' => $store->trial_ends_at?->translatedFormat('j F Y'),
+                'price_per_order' => $store->pricePerOrder(),
+                'price_with_confirmation' => $store->pricePerOrder() + $store->confirmationPrice(),
+                'price_after_intro' => $store->basePricePerOrder(),
+                'price_after_intro_with_confirmation' => $store->basePricePerOrder() + $store->confirmationPrice(),
                 'balance' => (float) $store->balance,
             ],
             'range' => $range,

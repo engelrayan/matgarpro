@@ -26,17 +26,17 @@ class StoreFactory extends Factory
             'status' => Store::STATUS_ACTIVE,
             'billing_status' => 'active',
             /*
-             | Past the trial by default, so a billing test is testing billing.
-             | A real store opens with three free months, and leaving that on
-             | here would quietly price every charge in the suite at zero and
-             | turn green into no evidence at all. Use `onTrial()` to test it.
+             | Past the introductory months by default, so a billing test is
+             | testing the plan price. A real store opens with three cheaper
+             | months, and leaving that on here would quietly discount every
+             | charge in the suite. Use `inIntroPeriod()` to test it.
              */
             'trial_ends_at' => null,
         ];
     }
 
-    /** A store inside its free months. */
-    public function onTrial(?int $daysLeft = null): static
+    /** A store inside its introductory months. */
+    public function inIntroPeriod(?int $daysLeft = null): static
     {
         return $this->state([
             'trial_ends_at' => now()->addDays($daysLeft ?? 90),

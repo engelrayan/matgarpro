@@ -20,6 +20,9 @@ class StoreUsageEvent extends Model
 
     public const TYPE_ORDER = 'order';
 
+    /** The WhatsApp confirmation sent for an order; billable is the order. */
+    public const TYPE_WHATSAPP_CONFIRMATION = 'whatsapp_confirmation';
+
     protected $fillable = [
         'store_id',
         'type',

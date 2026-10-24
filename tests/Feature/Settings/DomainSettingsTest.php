@@ -104,13 +104,13 @@ class DomainSettingsTest extends TestCase
         $store = Store::firstOrFail();
 
         $this->assertSame('متجر محمود', $store->name);
-        // Free today because of the trial, not because the store is on a free
-        // plan — the plan must still be attached, or a usage row would record
-        // no plan and nothing would explain a historical charge.
-        $this->assertSame(0.0, $store->pricePerOrder());
-        $this->assertSame('trial', $store->priceSource());
+        // The introductory price comes from the store's own clock, not from a
+        // separate plan — the plan must still be attached, or a usage row would
+        // record no plan and nothing would explain a historical charge.
+        $this->assertSame(0.50, $store->pricePerOrder());
+        $this->assertSame('intro', $store->priceSource());
         $this->assertNotNull($store->billing_plan_id, 'the plan must be attached explicitly');
-        $this->assertSame(0.50, $store->priceAfterTrial());
+        $this->assertSame(0.75, $store->basePricePerOrder());
     }
 
     /**

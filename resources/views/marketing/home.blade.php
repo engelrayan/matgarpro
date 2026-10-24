@@ -1,7 +1,7 @@
 @extends('marketing.layout')
 
 @section('title', 'متجر برو — احكي عن مشروعك، والذكاء الاصطناعي يجهّز متجرك')
-@section('description', 'اكتب سطرين عن اللي بتبيعه، والذكاء الاصطناعي يقترح شكل متجرك ويعمل الأقسام ويكتب الصفحة الرئيسية ووصف منتجاتك — وإنت بتراجع وتنشر. ٣ شهور مجانية وبعدها ٥٠ قرش على الطلب. شحن مع أكتر من ٣٠٠ شركة عبر شبكة سندباد، وتحصيل يومي مع ضمان.')
+@section('description', 'اكتب سطرين عن اللي بتبيعه، والذكاء الاصطناعي يقترح شكل متجرك ويعمل الأقسام ويكتب الصفحة الرئيسية ووصف منتجاتك — وإنت بتراجع وتنشر. أول ٣ شهور الطلب بنص جنيه، من غير اشتراك شهري. شحن مع أكتر من ٣٠٠ شركة عبر شبكة سندباد، وتحصيل يومي مع ضمان.')
 
 @section('content')
 
@@ -48,7 +48,7 @@
             </div>
 
             <p class="reveal mt-4 text-[13px] text-muted-foreground">
-                ٣ شهور مجانية · من غير كارت ائتمان · متجرك يفضل ليك
+                أول ٣ شهور الطلب بنص جنيه · من غير اشتراك شهري · متجرك يفضل ليك
             </p>
         </div>
 
@@ -125,7 +125,7 @@
             ['أقل من دقيقة', 'والذكاء الاصطناعي يجهّز متجرك'],
             ['+٣٠٠', 'شركة شحن'],
             ['كل يوم', 'تحصيل فلوسك'],
-            ['٥٠ قرش', 'على الطلب — بعد ٣ شهور'],
+            ['٥٠ قرش', 'على الطلب — أول ٣ شهور'],
         ] as $stat)
             <div class="reveal px-3 py-6 text-center">
                 <p class="text-foil text-[22px] font-bold md:text-3xl">{{ $stat[0] }}</p>
@@ -318,19 +318,22 @@
     <div class="mx-auto max-w-5xl px-4 md:px-6">
         <div class="mx-auto max-w-2xl text-center">
             <h2 class="reveal text-balance text-3xl font-bold leading-tight tracking-tight md:text-4xl">
-                <span class="text-jade-gradient">٣ شهور مجانية</span>، وبعدها نص جنيه على الطلب
+                <span class="text-jade-gradient">أول ٣ شهور</span> الطلب بنص جنيه
             </h2>
             <p class="reveal mt-4 text-muted-foreground">
-                مافيش اشتراك شهري، ومافيش نسبة من مبيعاتك. بتدفع على الطلب اللي دخلك بس.
+                مافيش اشتراك شهري، ومافيش نسبة من مبيعاتك. بتدفع على الطلب اللي دخلك بس — ونص جنيه زيادة لو اتبعت للعميل تأكيد على واتساب.
             </p>
         </div>
 
         <div class="mt-12 grid gap-5 md:grid-cols-2">
             <div class="reveal surface flex flex-col p-8">
                 <p class="text-sm font-medium text-muted-foreground">أول ٣ شهور</p>
-                <p class="mt-3 text-5xl font-bold tracking-tight text-primary">مجانًا</p>
+                <p class="mt-3 flex items-baseline gap-2">
+                    <span class="tabular text-5xl font-bold tracking-tight text-primary">٠٫٥٠</span>
+                    <span class="text-sm text-muted-foreground">ج.م / طلب</span>
+                </p>
                 <p class="mt-3 text-sm leading-relaxed text-muted-foreground">
-                    كل المميزات، من غير حد على عدد الطلبات ولا المنتجات ولا الزيارات.
+                    و<span class="tabular">١٫٠٠</span> ج.م للطلب اللي اتبعتله تأكيد واتساب. كل المميزات، من غير حد على عدد الطلبات ولا المنتجات ولا الزيارات.
                 </p>
                 <a href="{{ route('register') }}" class="btn-primary mt-auto pt-3">ابدأ دلوقتي</a>
             </div>
@@ -338,11 +341,11 @@
             <div class="reveal surface-lux halo-gold relative flex flex-col p-8">
                 <p class="text-sm font-medium text-muted-foreground">بعد كده</p>
                 <p class="mt-3 flex items-baseline gap-2">
-                    <span class="text-foil tabular text-5xl font-bold tracking-tight">٠٫٥٠</span>
+                    <span class="text-foil tabular text-5xl font-bold tracking-tight">٠٫٧٥</span>
                     <span class="text-sm text-muted-foreground">ج.م / طلب</span>
                 </p>
                 <p class="mt-3 text-sm leading-relaxed text-muted-foreground">
-                    متجر بيعمل ٥٠٠ طلب في الشهر بيدفع <span class="font-semibold text-foreground">٢٥٠ جنيه</span> — وبس.
+                    و<span class="tabular">١٫٢٥</span> ج.م بتأكيد واتساب. متجر بيعمل ٥٠٠ طلب في الشهر وبيأكّدهم كلهم على واتساب بيدفع <span class="font-semibold text-foreground">٦٢٥ جنيه</span> — وبس.
                 </p>
 
                 <ul class="mt-6 space-y-2.5 text-sm text-muted-foreground">
@@ -359,14 +362,14 @@
         {{-- What it would cost THEM. A merchant does this sum in their head
              anyway; doing it here, with their own order count, is the moment
              "half a pound" stops being a slogan. The figures are the page's
-             own: 0.50 an order, against the ~2/order + ~5000/month and the
+             own: 1.25 an order with a WhatsApp confirmation, the most a merchant pays\n             after the first three months, against the ~2/order + ~5000/month and the
              ~1450/month in the table below. Renders the 500-order answer, so
              it is complete with no script. --}}
         <div class="reveal surface mt-5 p-6 md:p-8" data-calc>
             <div class="flex flex-wrap items-end justify-between gap-4">
                 <div>
                     <label for="calc-orders" class="text-[15px] font-semibold">بتعمل كام طلب في الشهر؟</label>
-                    <p class="mt-1 text-[13px] text-muted-foreground">حرّك وشوف هتدفع كام بعد الشهور المجانية.</p>
+                    <p class="mt-1 text-[13px] text-muted-foreground">حرّك وشوف هتدفع كام بعد أول ٣ شهور، بتأكيد واتساب على كل طلب.</p>
                 </div>
                 <p class="tabular text-[28px] font-bold leading-none md:text-[34px]">
                     <span data-calc-orders>٥٠٠</span>
@@ -381,7 +384,7 @@
             <div id="calc-result" class="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3" aria-live="polite">
                 <div class="rounded-[14px] bg-primary/[0.07] p-4">
                     <p class="text-[13px] font-semibold text-primary">متجر برو</p>
-                    <p class="tabular mt-1 text-[26px] font-bold leading-tight text-primary"><span data-calc-us>٢٥٠</span> <span class="text-[13px] font-medium">ج.م</span></p>
+                    <p class="tabular mt-1 text-[26px] font-bold leading-tight text-primary"><span data-calc-us>٦٢٥</span> <span class="text-[13px] font-medium">ج.م</span></p>
                 </div>
                 <div class="rounded-[14px] bg-foreground/[0.04] p-4">
                     <p class="text-[13px] text-muted-foreground">منصة ١</p>
@@ -408,9 +411,8 @@
                 </thead>
                 <tbody class="divide-y divide-border">
                     @foreach ([
-                        ['على كل طلب', '٠٫٥٠ ج.م', '~٢ ج.م', '—'],
+                        ['على كل طلب', '٠٫٧٥ ج.م (١٫٢٥ بتأكيد واتساب)', '~٢ ج.م', '—'],
                         ['اشتراك شهري', 'صفر', '~٥٠٠٠ ج.م', '~١٤٥٠ ج.م'],
-                        ['فترة مجانية', '٣ شهور', 'باقة محدودة', 'أسبوعين'],
                         ['شبكة شحن', '+٣٠٠ شركة', 'تكاملات', 'إضافات'],
                         ['تحصيل يومي', '✓ مع ضمان', '✗', '✗'],
                     ] as $row)
@@ -734,7 +736,7 @@
             <span class="text-foil">والباقي علينا</span>
         </h2>
         <p class="reveal mt-4 text-[17px] text-jade-200/85">
-            ٣ شهور مجانية بالكامل. من غير كارت ائتمان.
+            أول ٣ شهور الطلب بنص جنيه. من غير اشتراك ولا كارت ائتمان.
         </p>
         <a href="{{ route('register') }}" class="reveal btn mt-8 !min-h-[52px] !rounded-full bg-white !px-9 !text-[17px] text-jade-900 hover:bg-jade-50">
             جهّز متجرك مجانًا
@@ -858,7 +860,7 @@
     const update = () => {
         const orders = Number(input.value);
         set('orders', orders);
-        set('us', orders * 0.5);
+        set('us', orders * 1.25);
         set('a', orders * 2 + 5000);
         set('b', 1450);
     };

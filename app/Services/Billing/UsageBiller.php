@@ -35,7 +35,27 @@ class UsageBiller
         return $this->charge($store, StoreUsageEvent::TYPE_ORDER, $order, $description ?? 'رسوم طلب');
     }
 
-    public function charge(Store $store, string $type, Model $billable, string $description): StoreUsageEvent
+    /**
+     * Bill a store for the WhatsApp confirmation sent for one order.
+     *
+     * Its own usage type, so it is charged at most once per order however many
+     * times the merchant presses "send again", and so reports can tell the two
+     * apart. In the wallet it is an order fee: the ledger's type is a fixed
+     * enum, and to the merchant this is part of what that order cost.
+     */
+    public function chargeForConfirmation(Store $store, Model $order, ?string $description = null): StoreUsageEvent
+    {
+        return $this->charge(
+            $store,
+            StoreUsageEvent::TYPE_WHATSAPP_CONFIRMATION,
+            $order,
+            $description ?? 'تأكيد واتساب',
+            $store->confirmationPrice(),
+        );
+    }
+
+    /** @param float|null $unitPrice defaults to the store's price per order */
+    public function charge(Store $store, string $type, Model $billable, string $description, ?float $unitPrice = null): StoreUsageEvent
     {
         $existing = $this->findExisting($store, $type, $billable);
 
@@ -43,7 +63,7 @@ class UsageBiller
             return $existing;
         }
 
-        $unitPrice = $store->pricePerOrder();
+        $unitPrice ??= $store->pricePerOrder();
 
         try {
             return DB::transaction(function () use ($store, $type, $billable, $description, $unitPrice) {

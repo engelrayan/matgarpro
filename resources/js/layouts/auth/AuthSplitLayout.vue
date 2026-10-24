@@ -12,7 +12,7 @@ defineProps<{
 // through from an ad should not land on a blank form that drops the pitch
 // halfway — the reason to sign up has to survive the click.
 const promises = [
-    { icon: Wallet, title: '٣ شهور مجانية', body: 'وبعدها ٥٠ قرش على الطلب — من غير اشتراك شهري ولا نسبة من مبيعاتك.' },
+    { icon: Wallet, title: 'أول ٣ شهور الطلب بنص جنيه', body: 'وبتأكيد واتساب للعميل بجنيه — من غير اشتراك شهري ولا نسبة من مبيعاتك.' },
     { icon: Truck, title: 'شحن مع +٣٠٠ شركة', body: 'عبر شبكة سندباد، وفلوس التحصيل توصلك كل يوم مع ضمان.' },
     { icon: BadgeCheck, title: 'الدفع عند الاستلام', body: 'جاهز من أول لحظة، من غير أي إضافات.' },
 ];

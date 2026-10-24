@@ -5,7 +5,9 @@ namespace App\Services\Whatsapp;
 use App\Models\Order;
 use App\Models\StoreWhatsappIntegration;
 use App\Models\WhatsappMessage;
+use App\Services\Billing\UsageBiller;
 use App\Support\Phone;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Sends one order's confirmation and writes down what happened.
@@ -18,6 +20,7 @@ class WhatsappSender
     public function __construct(
         private readonly DriverFactory $drivers,
         private readonly OrderConfirmationMessage $composer,
+        private readonly UsageBiller $biller,
     ) {}
 
     /**
@@ -73,7 +76,26 @@ class WhatsappSender
 
         $link->forceFill(['last_sent_at' => now(), 'last_error' => null])->save();
 
+        $this->billConfirmation($order);
+
         return ['ok' => true];
+    }
+
+    /**
+     * Charge the confirmation once it has actually gone out — never for a
+     * failed attempt, and once per order however often it is re-sent.
+     *
+     * After the send rather than around it: the customer has the message
+     * either way, and a billing hiccup must not report a delivered message as
+     * a failure the merchant then re-sends.
+     */
+    private function billConfirmation(Order $order): void
+    {
+        try {
+            $this->biller->chargeForConfirmation($order->store, $order, "تأكيد واتساب — طلب رقم {$order->number}");
+        } catch (\Throwable $e) {
+            Log::warning('Failed to bill a WhatsApp confirmation', ['order_id' => $order->id, 'error' => $e->getMessage()]);
+        }
     }
 
     private function stampFailure(Order $order, string $error): void

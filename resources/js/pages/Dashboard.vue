@@ -37,10 +37,13 @@ const props = defineProps<{
         low_stock: { id: number; name: string; stock: number }[];
     };
     billing: {
-        on_trial: boolean;
-        trial_days_left: number | null;
-        trial_ends_at: string | null;
+        in_intro: boolean;
+        intro_days_left: number | null;
+        intro_ends_at: string | null;
         price_per_order: number;
+        price_with_confirmation: number;
+        price_after_intro: number;
+        price_after_intro_with_confirmation: number;
         balance: number;
     };
     setup: { has_product: boolean; has_domain: boolean; has_logo: boolean; has_order: boolean };
@@ -64,12 +67,12 @@ const setRange = (key: string) =>
     router.get('/dashboard', { range: key }, { preserveState: true, preserveScroll: true, replace: true });
 
 /*
- * The trial only becomes urgent near the end. Shown as a calm line for most of
+ * The price rise only becomes urgent near the end. Shown as a calm line for most of
  * the three months and as a warning in the last two weeks — a banner that
  * shouts from day one is one the merchant stops seeing by week two.
  */
 const trialEnding = computed(
-    () => props.billing.on_trial && (props.billing.trial_days_left ?? 0) <= 14,
+    () => props.billing.in_intro && (props.billing.intro_days_left ?? 0) <= 14,
 );
 
 const STATUS_BADGE: Record<string, string> = {
@@ -166,14 +169,13 @@ const copyUrl = async () => {
             </section>
 
             <!--
-                The free months, counted down.
+                The introductory months, counted down.
 
-                The merchant was promised three months and then half a pound an
-                order. Both halves of that sentence live here, so the first
-                charge is a number they have already read rather than a
-                surprise on the day it lands.
+                Both prices live here — today's and the one after — so the
+                later charge is a number the merchant has already read rather
+                than a surprise on the day it lands.
             -->
-            <section v-if="billing.on_trial"
+            <section v-if="billing.in_intro"
                      class="surface flex items-start gap-3 p-4 text-[15px]"
                      :class="trialEnding ? 'bg-warning/[0.06] !shadow-[0_0_0_0.5px_hsl(var(--warning)/0.4)]' : ''">
                 <span class="ios-tile" :class="trialEnding ? 'bg-warning' : 'bg-gold-500'">
@@ -182,11 +184,13 @@ const copyUrl = async () => {
 
                 <p class="min-w-0 flex-1 leading-relaxed text-muted-foreground">
                     <span class="font-semibold" :class="trialEnding ? 'text-warning' : 'text-foreground'">
-                        باقي <span class="tabular">{{ num(billing.trial_days_left ?? 0) }}</span> يوم مجاني
+                        باقي <span class="tabular">{{ num(billing.intro_days_left ?? 0) }}</span> يوم بالسعر المخفّض
                     </span>
-                    — بعد <span class="tabular">{{ billing.trial_ends_at }}</span> هتدفع
-                    <span class="tabular font-medium text-foreground">{{ money(billing.price_per_order) }} {{ store.currency }}</span>
-                    على الطلب. مافيش اشتراك شهري ولا نسبة من مبيعاتك.
+                    — الطلب بـ <span class="tabular font-medium text-foreground">{{ money(billing.price_per_order) }}</span>،
+                    وبتأكيد واتساب بـ <span class="tabular font-medium text-foreground">{{ money(billing.price_with_confirmation) }}</span>
+                    {{ store.currency }}. بعد <span class="tabular">{{ billing.intro_ends_at }}</span>:
+                    <span class="tabular">{{ money(billing.price_after_intro) }}</span> و<span class="tabular">{{ money(billing.price_after_intro_with_confirmation) }}</span>.
+                    <Link href="/billing" class="font-medium text-primary">رصيدك</Link>
                 </p>
             </section>
 

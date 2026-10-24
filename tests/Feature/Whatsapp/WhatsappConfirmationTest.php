@@ -166,6 +166,29 @@ class WhatsappConfirmationTest extends TestCase
         $this->assertSame(Order::STATUS_PENDING, $order->status);
     }
 
+    /** The confirmation is billed when it goes out — and only then. */
+    public function test_a_sent_confirmation_is_charged_and_a_failed_one_is_not(): void
+    {
+        $this->store->update(['price_per_order_override' => 0.75]);
+        $this->link();
+        $sent = $this->order();
+        $failed = $this->order(['customer_phone' => '01001112223']);
+
+        Http::fakeSequence('*/send-message')
+            ->push(['id' => 'wamid.OUT1'])
+            ->push(['message' => 'Session closed'], 400);
+
+        $sender = app(\App\Services\Whatsapp\WhatsappSender::class);
+        (new SendWhatsappOrderConfirmation($sent->id))->handle($sender);
+        (new SendWhatsappOrderConfirmation($failed->id))->handle($sender);
+
+        $charges = \App\Models\StoreUsageEvent::where('type', \App\Models\StoreUsageEvent::TYPE_WHATSAPP_CONFIRMATION)->get();
+
+        $this->assertCount(1, $charges);
+        $this->assertSame($sent->id, (int) $charges->first()->billable_id);
+        $this->assertSame('0.50', (string) $charges->first()->amount);
+    }
+
     public function test_a_customer_is_not_messaged_twice_about_the_same_order(): void
     {
         $this->link();

@@ -64,17 +64,17 @@ class Store extends Model
             $store->billing_plan_id ??= BillingPlan::default()?->id;
 
             /*
-             | The free months start the moment the store exists, and the end
-             | date is written down rather than worked out later — see the note
-             | on `billing.trial_months`.
+             | The introductory months start the moment the store exists, and
+             | the end date is written down rather than worked out later — see
+             | the note on `billing.intro_months`.
              |
              | A showroom never gets one: it cannot take a real order, so a
-             | trial on it is a countdown that means nothing.
+             | countdown on it means nothing.
              */
             $given = array_key_exists('trial_ends_at', $store->getAttributes());
 
             if (! $store->is_demo && ! $given) {
-                $months = (int) config('billing.trial_months', 0);
+                $months = (int) config('billing.intro_months', 0);
 
                 $store->trial_ends_at = $months > 0 ? now()->addMonths($months) : null;
             }
@@ -130,6 +130,12 @@ class Store extends Model
     public function abandonedCarts(): HasMany
     {
         return $this->hasMany(AbandonedCart::class);
+    }
+
+    /** Requests to add money to the balance, oldest first when read in order. */
+    public function topupRequests(): HasMany
+    {
+        return $this->hasMany(StoreTopupRequest::class);
     }
 
     /** The store's link to Daman, if the merchant has connected one. */
@@ -278,36 +284,60 @@ class Store extends Model
         return $this->status === self::STATUS_ACTIVE;
     }
 
-    /** Is this store still inside its free months? */
-    public function onTrial(): bool
+    /**
+     * Is this store still inside its introductory months?
+     *
+     * Kept on `trial_ends_at`, the column from when these months were free.
+     */
+    public function inIntroPeriod(): bool
     {
         return $this->trial_ends_at !== null && $this->trial_ends_at->isFuture();
     }
 
-    /** Whole days left in the trial, or null once it is over or absent. */
-    public function trialDaysLeft(): ?int
+    /** Whole days left at the introductory price, or null once over or absent. */
+    public function introDaysLeft(): ?int
     {
-        return $this->onTrial()
+        return $this->inIntroPeriod()
             ? (int) ceil(now()->diffInDays($this->trial_ends_at, absolute: true))
             : null;
     }
 
-    /** Price this store pays per billable order: trial → override → plan → config. */
+    /**
+     * Price of an order today, before any WhatsApp confirmation:
+     * (override → plan → config), less the introductory discount while it lasts.
+     *
+     * The discount applies to an operator's override too. The introductory
+     * months are a promise made at signup; ending them early is an explicit
+     * act, not a side effect of repricing a store.
+     */
     public function pricePerOrder(): float
     {
-        // The trial wins over everything, including an operator's override. It
-        // is a promise made at signup; ending it early is an explicit act, not
-        // a side effect of repricing a store.
-        return $this->onTrial() ? 0.0 : $this->priceAfterTrial();
+        $base = $this->basePricePerOrder();
+
+        return $this->inIntroPeriod()
+            ? max(0.0, round($base - (float) config('billing.intro_discount'), 2))
+            : $base;
     }
 
     /**
-     * What an order will cost once the free months are over.
+     * What a WhatsApp confirmation adds to an order.
      *
-     * Shown to the merchant during the trial so the first charge is a number
-     * they have already seen, and used as the real price the moment it ends.
+     * Nothing for a store whose orders are free — the founding plan, or an
+     * operator's zero override. Charging those for the message alone would
+     * break the promise their plan is named after.
      */
-    public function priceAfterTrial(): float
+    public function confirmationPrice(): float
+    {
+        return $this->basePricePerOrder() > 0 ? (float) config('billing.whatsapp_confirmation_fee') : 0.0;
+    }
+
+    /**
+     * An order's price once the introductory months are over.
+     *
+     * Shown to the merchant during those months so the later price is a number
+     * they have already seen, and used as the real price the moment they end.
+     */
+    public function basePricePerOrder(): float
     {
         if ($this->price_per_order_override !== null) {
             return (float) $this->price_per_order_override;
@@ -323,8 +353,8 @@ class Store extends Model
     /** Which of the four pricing sources produced pricePerOrder(). */
     public function priceSource(): string
     {
-        if ($this->onTrial()) {
-            return 'trial';
+        if ($this->inIntroPeriod()) {
+            return 'intro';
         }
 
         if ($this->price_per_order_override !== null) {

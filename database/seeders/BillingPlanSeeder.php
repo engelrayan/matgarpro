@@ -14,10 +14,11 @@ use Illuminate\Database\Seeder;
  * only half-pound plan carried a 299 EGP monthly fee that nothing ever
  * charged. Two plans now, both real:
  *
- *  - `standard` is the public offer, and every new store lands on it. The
- *    three free months come from the store's own trial clock, not from a
- *    separate free plan, so nobody has to be migrated between plans on the day
- *    their trial ends.
+ *  - `standard` is the public offer, and every new store lands on it. Its
+ *    price is the one after the introductory months; the cheaper first three
+ *    months come from the store's own clock (`trial_ends_at`) and
+ *    config('billing.intro_discount'), not from a separate plan, so nobody has
+ *    to be migrated between plans on the day the months end.
  *
  *  - `founding` is the design partners — the first merchants who onboarded
  *    while the platform was still being proven, and who were promised no
@@ -31,8 +32,10 @@ class BillingPlanSeeder extends Seeder
             [
                 'code' => 'standard',
                 'name' => 'أساسي',
-                'description' => '٣ شهور مجانية، وبعدها نص جنيه على الطلب. مافيش اشتراك شهري ولا نسبة من مبيعاتك.',
-                'price_per_order' => 0.50,
+                'description' => 'أول ٣ شهور: الطلب بنص جنيه، وبتأكيد واتساب بجنيه. بعدها ٧٥ قرش وجنيه وربع. مافيش اشتراك شهري ولا نسبة من مبيعاتك.',
+                // After the introductory months; config(billing.intro_discount)
+                // takes 0.25 off it until then.
+                'price_per_order' => 0.75,
                 'is_default' => true,
                 'is_public' => true,
                 'sort_order' => 1,

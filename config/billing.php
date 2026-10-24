@@ -23,18 +23,48 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Free trial
+    | Introductory months
     |--------------------------------------------------------------------------
-    | Every new store opens with this many months of orders at no charge, and
-    | the clock is stamped onto the store at creation rather than read from
-    | here at billing time. A merchant who signed up under a three-month offer
-    | keeps three months even if we shorten the offer next week.
+    | Every new store opens with this many months at a lower price per order.
+    | These used to be free months; they stopped being free when every order
+    | could carry a WhatsApp confirmation that costs us money to send.
     |
-    | The trial outranks both the plan and a per-store override: it is a
-    | promise made at signup, and an operator who needs to start charging early
-    | ends the trial explicitly instead of quietly pricing around it.
+    | The clock is stamped onto the store at creation (`trial_ends_at`, a name
+    | kept from the free-months days) rather than read from here at billing
+    | time, so shortening the offer next week does not shorten anybody's.
     */
-    'trial_months' => (int) env('BILLING_TRIAL_MONTHS', 3),
+    'intro_months' => (int) env('BILLING_INTRO_MONTHS', env('BILLING_TRIAL_MONTHS', 3)),
+
+    // Taken off the base order price during the introductory months: 0.75
+    // becomes 0.50. After them, "we add a quarter to each".
+    'intro_discount' => (float) env('BILLING_INTRO_DISCOUNT', 0.25),
+
+    /*
+    |--------------------------------------------------------------------------
+    | WhatsApp confirmation
+    |--------------------------------------------------------------------------
+    | Added to an order's price when a confirmation message is actually sent
+    | for it — automatically or by the merchant's click, once per order. So an
+    | order costs 0.50 without one and 1.00 with one in the introductory
+    | months, then 0.75 and 1.25. A store whose orders are free (the founding
+    | plan, an operator's zero override) pays nothing for these either.
+    */
+    'whatsapp_confirmation_fee' => (float) env('BILLING_WHATSAPP_CONFIRMATION_FEE', 0.50),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Topping up
+    |--------------------------------------------------------------------------
+    | Until there is online payment, a merchant picks an amount, transfers it
+    | by InstaPay, sends the receipt on WhatsApp to the same number, and an
+    | operator confirms the request. The merchant only ever picks from these
+    | amounts — the same screen has to work unchanged when a payment gateway
+    | arrives, and a gateway is never handed a number typed by hand.
+    */
+    'topup' => [
+        'amounts' => [200, 500, 1000, 2000, 5000, 10000],
+        'instapay_number' => env('BILLING_INSTAPAY_NUMBER', '01006262330'),
+    ],
 
     /*
     |--------------------------------------------------------------------------
