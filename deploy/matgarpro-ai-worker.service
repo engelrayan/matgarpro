@@ -1,0 +1,51 @@
+# متجر برو — AI queue worker
+#
+# The AI features (product writer, store generator) queue their Claude calls on
+# the `ai` queue, and matgarpro-worker only listens on `default`. Without this
+# unit those jobs are never picked up: the merchant presses "اكتبهولي" and the
+# card spins until it times out.
+#
+# Its own process rather than `--queue=default,ai` on the main worker: a Claude
+# call holds a worker for up to a minute, and a dozen merchants generating copy
+# at once must not leave WhatsApp confirmations and certificates waiting behind
+# them. See config/ai.php.
+#
+# Install:
+#   sudo cp deploy/matgarpro-ai-worker.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now matgarpro-ai-worker
+#
+# Needs ANTHROPIC_API_KEY in .env. With it empty the jobs still run and the
+# screens say the feature is unavailable, rather than failing.
+
+[Unit]
+Description=matgarpro AI queue worker
+After=network.target mysql.service
+Requires=mysql.service
+
+[Service]
+# Same user as php-fpm and the main worker — see matgarpro-worker.service.
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/matgarpro
+
+# --timeout sits above the job's own 85s (RunAiGeneration::$timeout), which in
+# turn sits inside the queue's 90s retry_after, so a slow call is never handed
+# to a second worker while the first is still waiting on it. --tries is left to
+# the job, which retries only what is worth retrying.
+ExecStart=/usr/bin/php /var/www/matgarpro/artisan queue:work database --queue=ai --sleep=3 --max-time=3600 --timeout=100
+
+# Retired hourly and restarted, so a deploy reaches it — see the main worker.
+Restart=always
+RestartSec=5
+
+# Long enough for a call in flight to come back instead of being cut off and
+# billed for nothing.
+KillSignal=SIGTERM
+TimeoutStopSec=100
+
+StandardOutput=append:/var/log/matgarpro-ai-worker.log
+StandardError=append:/var/log/matgarpro-ai-worker.log
+
+[Install]
+WantedBy=multi-user.target
