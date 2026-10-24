@@ -61,8 +61,16 @@ enum AiFeature: string
         return $limit === null ? null : (int) $limit;
     }
 
+    /**
+     * Whether to ask for server-side fallbacks on a refusal.
+     *
+     * The config says whether the feature wants them; the model decides
+     * whether it can have them. Haiku has none and asking is a 400, so
+     * switching a feature's model in .env never also needs a code change.
+     */
     public function usesFallbacks(): bool
     {
-        return (bool) ($this->config()['fallbacks'] ?? false);
+        return (bool) ($this->config()['fallbacks'] ?? false)
+            && ! str_starts_with($this->model(), 'claude-haiku-');
     }
 }
