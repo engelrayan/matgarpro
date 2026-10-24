@@ -131,4 +131,26 @@ class ShowroomTest extends TestCase
                 ->component('settings/Themes')
                 ->where('themes.0.preview_url', fn ($url) => str_contains((string) $url, 'demo-')));
     }
+
+    public function test_every_theme_card_shows_three_real_products_with_a_photo_on_disk(): void
+    {
+        $user = User::factory()->create();
+        Store::factory()->for($user)->create();
+
+        $themes = $this->actingAs($user)
+            ->get('http://localhost/settings/themes')
+            ->assertOk()
+            ->viewData('page')['props']['themes'];
+
+        foreach ($themes as $theme) {
+            // A photo id in theme_previews that matches no catalogue row would
+            // silently drop that product and leave a gap in the card.
+            $this->assertCount(3, $theme['products'], "Theme {$theme['key']}");
+            $this->assertNotEmpty($theme['font_family']);
+
+            foreach ($theme['products'] as $product) {
+                $this->assertFileExists(public_path($product['image']));
+            }
+        }
+    }
 }
