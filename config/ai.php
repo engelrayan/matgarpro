@@ -55,7 +55,8 @@ return [
     |   total_limit  Calls per store, ever. Replaces daily_limit when set, for
     |                a feature a store needs once rather than every day.
     |   fallbacks    Let the API retry on another model when this one declines
-    |                for policy reasons. Sonnet supports it; Haiku does not.
+    |                for policy reasons. Sonnet supports it; Haiku does not, so
+    |                it is skipped for a Haiku model whatever this says.
     */
     'features' => [
         'product_writer' => [
@@ -77,7 +78,9 @@ return [
          | a fifth of a cent on it against four to seven cents on Sonnet, and a
          | short, structured Arabic brief is well inside what it writes well.
          | Two runs per store, ever — one, and one more if the first missed.
-         | No fallbacks: Haiku has none, and asking for them is a 400.
+         | Fallbacks stay on: they are skipped while the model is Haiku (which
+         | has none) and come back by themselves if AI_STORE_BUILDER_MODEL is
+         | set to a Sonnet.
          */
         'store_builder' => [
             'model' => env('AI_STORE_BUILDER_MODEL', 'claude-haiku-5-5'),
@@ -85,7 +88,7 @@ return [
             'max_tokens' => 6000,
             'daily_limit' => (int) env('AI_STORE_BUILDER_DAILY_LIMIT', 2),
             'total_limit' => (int) env('AI_STORE_BUILDER_TOTAL_LIMIT', 2),
-            'fallbacks' => false,
+            'fallbacks' => true,
         ],
     ],
 

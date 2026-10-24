@@ -245,6 +245,17 @@ class StoreBuilderTest extends TestCase
             ->assertInertia(fn ($page) => $page->where('triesLeft', 2));
     }
 
+    public function test_switching_back_to_sonnet_brings_fallbacks_back_by_itself(): void
+    {
+        config(['ai.features.store_builder.model' => 'claude-sonnet-5-5']);
+        $this->claudeReplies($this->plan());
+
+        $this->describe()->assertStatus(202);
+
+        Http::assertSent(fn (HttpRequest $request) => $request->data()['model'] === 'claude-sonnet-5-5'
+            && ($request->data()['fallbacks'] ?? null) === 'default');
+    }
+
     public function test_opening_store_after_store_from_one_network_runs_out(): void
     {
         Http::fake();
