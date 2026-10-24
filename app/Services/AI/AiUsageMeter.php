@@ -25,8 +25,8 @@ class AiUsageMeter
     /** @throws AiException when the store has used up today's allowance. */
     public function ensureAllowed(Store $store, AiFeature $feature): void
     {
-        if ($this->remainingToday($store, $feature) <= 0) {
-            throw AiException::dailyLimit();
+        if ($this->remaining($store, $feature) <= 0) {
+            throw $feature->totalLimit() === null ? AiException::dailyLimit() : AiException::usedUp();
         }
 
         $cap = (float) config('ai.daily_cost_cap_usd');
@@ -45,13 +45,29 @@ class AiUsageMeter
      */
     public function remainingToday(Store $store, AiFeature $feature): int
     {
-        $used = AiCall::where('store_id', $store->id)
+        return max(0, $feature->dailyLimit() - $this->used($store, $feature, today()));
+    }
+
+    /**
+     * Tries left, on whichever limit the feature has: its lifetime one when
+     * it has one, today's otherwise. The same rule about failed calls holds.
+     */
+    public function remaining(Store $store, AiFeature $feature): int
+    {
+        $total = $feature->totalLimit();
+
+        return $total === null
+            ? $this->remainingToday($store, $feature)
+            : max(0, $total - $this->used($store, $feature));
+    }
+
+    private function used(Store $store, AiFeature $feature, ?\DateTimeInterface $since = null): int
+    {
+        return AiCall::where('store_id', $store->id)
             ->where('feature', $feature->value)
-            ->where('created_at', '>=', today())
+            ->when($since, fn ($q) => $q->where('created_at', '>=', $since))
             ->where('status', '!=', AiCall::STATUS_FAILED)
             ->count();
-
-        return max(0, $feature->dailyLimit() - $used);
     }
 
     public function spentToday(Store $store): float

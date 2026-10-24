@@ -52,6 +52,8 @@ return [
     |   max_tokens   Hard ceiling on one answer, thinking included.
     |   daily_limit  Calls per store per day — the number a merchant sees
     |                ("you have N tries left"), separate from the money cap.
+    |   total_limit  Calls per store, ever. Replaces daily_limit when set, for
+    |                a feature a store needs once rather than every day.
     |   fallbacks    Let the API retry on another model when this one declines
     |                for policy reasons. Sonnet supports it; Haiku does not.
     */
@@ -70,13 +72,20 @@ return [
          | and has to arrive inside the 70s request timeout. If real calls
          | creep towards that, give AI jobs their own queue connection with a
          | longer retry_after before raising either number.
+         |
+         | Haiku, because the store is free to the merchant: a plan costs about
+         | a fifth of a cent on it against four to seven cents on Sonnet, and a
+         | short, structured Arabic brief is well inside what it writes well.
+         | Two runs per store, ever — one, and one more if the first missed.
+         | No fallbacks: Haiku has none, and asking for them is a 400.
          */
         'store_builder' => [
-            'model' => env('AI_STORE_BUILDER_MODEL', 'claude-sonnet-5-5'),
+            'model' => env('AI_STORE_BUILDER_MODEL', 'claude-haiku-5-5'),
             'effort' => env('AI_STORE_BUILDER_EFFORT', 'low'),
             'max_tokens' => 6000,
-            'daily_limit' => (int) env('AI_STORE_BUILDER_DAILY_LIMIT', 5),
-            'fallbacks' => true,
+            'daily_limit' => (int) env('AI_STORE_BUILDER_DAILY_LIMIT', 2),
+            'total_limit' => (int) env('AI_STORE_BUILDER_TOTAL_LIMIT', 2),
+            'fallbacks' => false,
         ],
     ],
 
