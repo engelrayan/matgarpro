@@ -5,7 +5,7 @@ import NavUser from '@/components/NavUser.vue';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/vue3';
-import { Boxes, Globe, LayoutGrid, LayoutList, LayoutTemplate, MessageCircle, Package, Palette, Radio, ScrollText, ShoppingBag, ShoppingCart, Store, TrendingUp, Truck, Wallet } from 'lucide-vue-next';
+import { Boxes, Globe, LayoutGrid, LayoutList, LayoutTemplate, MessageCircle, Package, Palette, Radio, ScrollText, ShoppingBag, ShoppingCart, Sparkles, Store, TrendingUp, Truck, Wallet } from 'lucide-vue-next';
 import AppLogo from './AppLogo.vue';
 
 /*
@@ -35,6 +35,7 @@ const navGroups: NavGroup[] = [
         items: [
             // First in its group on purpose: the builder is where a merchant
             // shapes the shop, and the theme is one decision inside that.
+            { title: 'جهّزلي المتجر', href: '/ai/store-builder', icon: Sparkles },
             { title: 'تصميم المتجر', href: '/builder', icon: LayoutTemplate },
             { title: 'الثيمات', href: '/settings/themes', icon: Palette },
             { title: 'فورم الطلب', href: '/settings/checkout', icon: ScrollText },
