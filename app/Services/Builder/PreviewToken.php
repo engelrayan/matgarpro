@@ -45,12 +45,13 @@ class PreviewToken
     /** A browsable preview URL for one page of one store. */
     public function urlFor(Store $store, string $page, string $token): string
     {
-        $path = match ($page) {
+        $path = match (SectionRegistry::kindOf($page)) {
             // The header and the footer are on every page, so they are
             // previewed on the home page — there is nowhere else to stand.
             'home', 'header', 'footer' => '/',
             'product' => $this->firstProductPath($store),
             'category' => $this->firstCategoryPath($store),
+            SectionRegistry::LANDING => $this->landingPath($store, (int) SectionRegistry::landingProductId($page)),
             default => '/',
         };
 
@@ -67,6 +68,17 @@ class PreviewToken
         $slug = $store->products()->where('status', 'active')->orderBy('sort_order')->value('slug');
 
         return $slug ? '/p/' . $slug : '/';
+    }
+
+    /**
+     * The product's own URL, asking for its landing draft rather than the
+     * shared product layout the same URL also previews.
+     */
+    private function landingPath(Store $store, int $productId): string
+    {
+        $slug = $store->products()->whereKey($productId)->value('slug');
+
+        return $slug ? '/p/' . $slug . '?_landing=1' : '/';
     }
 
     private function firstCategoryPath(Store $store): string

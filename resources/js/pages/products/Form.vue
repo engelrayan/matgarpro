@@ -3,6 +3,7 @@ import HeadingSmall from '@/components/HeadingSmall.vue';
 import InputError from '@/components/InputError.vue';
 import AdvancedSettings, { type ProductSettings } from '@/components/products/AdvancedSettings.vue';
 import AiProductWriter, { type ProductDraft } from '@/components/products/AiProductWriter.vue';
+import LandingCard from '@/components/products/LandingCard.vue';
 import LivePreview from '@/components/products/LivePreview.vue';
 import OfferEditor, { type OfferRow } from '@/components/products/OfferEditor.vue';
 import ProfitCalculator from '@/components/products/ProfitCalculator.vue';
@@ -38,6 +39,8 @@ const props = defineProps<{
     /** Platform defaults, so a new product starts from the same shape. */
     settingDefaults: ProductSettings;
     categories: { id: number; name: string; is_active: boolean }[];
+    /** Only when editing: a landing page needs a product id to hang off. */
+    landing?: { started: boolean; live: boolean; builder_url: string };
 }>();
 
 const isEdit = computed(() => props.product !== null);
@@ -500,6 +503,7 @@ const submit = () => {
                         </div>
                     </section>
 
+                    <LandingCard v-if="landing" v-model:below="form.settings.landing_below_product" :landing="landing" />
                     <AdvancedSettings v-model="form.settings" />
                 </aside>
 

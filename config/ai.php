@@ -90,6 +90,18 @@ return [
             'total_limit' => (int) env('AI_STORE_BUILDER_TOTAL_LIMIT', 2),
             'fallbacks' => true,
         ],
+
+        /*
+         | One product's landing page: up to three photos in, a page of copy
+         | out. Same time budget as the store builder, so the same low effort.
+         */
+        'landing_page' => [
+            'model' => env('AI_LANDING_PAGE_MODEL', 'claude-sonnet-5-5'),
+            'effort' => env('AI_LANDING_PAGE_EFFORT', 'low'),
+            'max_tokens' => 5000,
+            'daily_limit' => (int) env('AI_LANDING_PAGE_DAILY_LIMIT', 10),
+            'fallbacks' => true,
+        ],
     ],
 
     /*

@@ -21,6 +21,9 @@ class StoreWalletTransaction extends Model
 
     public const TYPE_ADJUSTMENT = 'adjustment';
 
+    /** A paid AI service the store used — a written landing page, for one. */
+    public const TYPE_AI_FEE = 'ai_fee';
+
     protected $fillable = [
         'store_id',
         'type',

@@ -37,13 +37,22 @@ class BuilderController extends Controller
 
     public function index(Request $request, string $page = 'home'): Response
     {
-        abort_unless(in_array($page, SectionRegistry::PAGES, true), 404);
-
         $store = $request->user()->currentStore();
+        $product = $this->guardPage($store, $page);
 
         return Inertia::render('builder/Index', [
             'page' => $page,
             'pageLabel' => SectionRegistry::pageLabel($page),
+            // Set only on a product's landing page: which product, and whether
+            // its page is live — the header says so, and offers to take it down.
+            'landing' => $product ? [
+                'product_id' => $product->id,
+                'product_name' => $product->name,
+                'product_url' => $store->canonicalUrl() . '/p/' . $product->slug,
+                'live' => $this->builder->hasLanding($store, $product->id),
+                'ai_available' => filled(config('services.anthropic.key')),
+                'ai_price' => (float) config('billing.ai_landing_page_price'),
+            ] : null,
             'pages' => $this->builder->overview($store),
             'sections' => $this->builder->draft($store, $page),
             // The catalogue for "أضف قسم", already filtered to what may live
@@ -63,6 +72,7 @@ class BuilderController extends Controller
     public function update(Request $request, string $page): RedirectResponse
     {
         $store = $request->user()->currentStore();
+        $this->guardPage($store, $page);
 
         $this->builder->saveDraft($store, $page, (array) $request->input('sections', []));
 
@@ -71,14 +81,20 @@ class BuilderController extends Controller
 
     public function publish(Request $request, string $page): RedirectResponse
     {
-        $this->builder->publish($request->user()->currentStore(), $page);
+        $store = $request->user()->currentStore();
+        $this->guardPage($store, $page);
+
+        $this->builder->publish($store, $page);
 
         return back()->with('status', 'builder-published');
     }
 
     public function discard(Request $request, string $page): RedirectResponse
     {
-        $this->builder->discardDraft($request->user()->currentStore(), $page);
+        $store = $request->user()->currentStore();
+        $this->guardPage($store, $page);
+
+        $this->builder->discardDraft($store, $page);
 
         return back()->with('status', 'builder-discarded');
     }
@@ -86,9 +102,44 @@ class BuilderController extends Controller
     /** Back to the platform's layout — draft side only, so it is still a change. */
     public function reset(Request $request, string $page): RedirectResponse
     {
-        $this->builder->resetDraftToDefaults($request->user()->currentStore(), $page);
+        $store = $request->user()->currentStore();
+        $this->guardPage($store, $page);
+
+        $this->builder->resetDraftToDefaults($store, $page);
 
         return back()->with('status', 'builder-reset');
+    }
+
+    /**
+     * Take a product's landing page down. The product URL goes back to the
+     * shared product layout on the next request; ads keep working throughout.
+     */
+    public function destroyLanding(Request $request, Product $product): RedirectResponse
+    {
+        $store = $request->user()->currentStore();
+        abort_unless((int) $product->store_id === (int) $store->id, 404);
+
+        $this->builder->removeLanding($store, $product->id);
+
+        return to_route('products.edit', $product)->with('status', 'landing-removed');
+    }
+
+    /**
+     * A page key must be one this builder knows, and a landing page must be
+     * for one of the merchant's own products — the key carries a product id,
+     * and nothing else stops it naming somebody else's.
+     */
+    private function guardPage(Store $store, string $page): ?Product
+    {
+        abort_unless(SectionRegistry::isPage($page), 404);
+
+        $productId = SectionRegistry::landingProductId($page);
+
+        if ($productId === null) {
+            return null;
+        }
+
+        return $store->products()->findOrFail($productId);
     }
 
     /**

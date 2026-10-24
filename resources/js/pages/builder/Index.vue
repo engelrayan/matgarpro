@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import BuilderField from '@/components/builder/BuilderField.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
+import { AiGenerationError, useAiGeneration } from '@/composables/useAiGeneration';
+import { csrfHeaders } from '@/lib/csrf';
 import {
-    AlignRight, ArrowRight, Check, Copyright, Eye, EyeOff, Grid3x3, GripVertical,
-    Heading, Image, LayoutGrid, Loader2, Megaphone, MessageCircleQuestion, Monitor, PanelBottom,
-    PanelTop, Plus, Presentation, Quote, RotateCcw, Share2, ShieldCheck, ShoppingCart, Shuffle,
+    Activity, AlignRight, ArrowRight, BadgeCheck, Check, Copyright, ExternalLink, Eye, EyeOff, Grid3x3, GripVertical,
+    Heading, Image, Images, LayoutGrid, Loader2, Megaphone, MessageCircleQuestion, Monitor, PanelBottom,
+    PanelTop, Plus, Presentation, Quote, Rocket, RotateCcw, Scale, Share2, ShieldCheck, ShoppingCart, Shuffle,
     Smartphone, Sparkles, Star, Tablet, Tag, Timer, Trash2, Type, Undo2, Youtube,
 } from 'lucide-vue-next';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
@@ -55,6 +57,7 @@ const props = defineProps<{
     storeUrl: string;
     currency: string;
     categories: { id: number; name: string }[];
+    landing: { product_id: number; product_name: string; product_url: string; live: boolean; ai_available: boolean; ai_price: number } | null;
 }>();
 
 // Only the icons the registry actually names. A wildcard import of
@@ -64,6 +67,53 @@ const ICONS: Record<string, unknown> = {
     Presentation, ShieldCheck, Tag, LayoutGrid, Star, Grid3x3, Image, Type,
     MessageCircleQuestion, Youtube, Quote, Timer, Sparkles, ShoppingCart,
     AlignRight, Shuffle, Heading, Megaphone, PanelTop, PanelBottom, Share2, Copyright,
+    Rocket, Scale, BadgeCheck, Images, Activity,
+};
+
+/* ── A product's landing page ─────────────────────────────────────────────
+ *
+ * The same builder, pointed at one product. The page switcher gives way to
+ * the product's name, and the store-wide "جهّزلي المتجر" to the one thing
+ * this page needs: its words, written from the product.
+ */
+const showWriter = ref(false);
+const writerNotes = ref('');
+const writing = ref(false);
+const writerError = ref<string | null>(null);
+const { run } = useAiGeneration();
+
+const writeLanding = async () => {
+    if (!props.landing) return;
+    if (sections.value.length > 3 && !confirm('هنكتب الصفحة من الأول ونحطها مكان المسودة الحالية. الصفحة المنشورة مش هتتغير لحد ما تدوس نشر.')) return;
+
+    writing.value = true;
+    writerError.value = null;
+
+    try {
+        const { id } = await run<Record<string, unknown>>('/ai/landing-pages', {
+            product_id: props.landing.product_id,
+            notes: writerNotes.value,
+        });
+
+        const response = await fetch(`/ai/landing-pages/${id}/apply`, {
+            method: 'POST',
+            headers: { ...csrfHeaders(), Accept: 'application/json' },
+        });
+        if (!response.ok) throw new AiGenerationError('حصلت مشكلة وإحنا بنحط الصفحة. جرّب تاني.');
+
+        // The draft changed on the server; the simplest true picture of it
+        // is a fresh load of this page.
+        location.reload();
+    } catch (error) {
+        writerError.value = error instanceof AiGenerationError ? error.message || null : 'حصلت مشكلة. جرّب تاني.';
+        writing.value = false;
+    }
+};
+
+const removeLanding = () => {
+    if (!props.landing) return;
+    if (!confirm('صفحة الهبوط هتتشال، ولينك المنتج هيرجع لصفحة المنتج العادية. الإعلانات هتفضل شغالة.')) return;
+    router.delete(`/products/${props.landing.product_id}/landing`);
 };
 
 /*
@@ -246,7 +296,19 @@ const FRAME_WIDTH = { desktop: '100%', tablet: '820px', mobile: '390px' };
                 <ArrowRight class="size-4" />
             </Link>
 
-            <div class="flex items-center gap-1 rounded-xl bg-muted p-1">
+            <div v-if="landing" class="flex min-w-0 items-center gap-2">
+                <Link :href="`/products/${landing.product_id}/edit`" class="min-w-0">
+                    <p class="text-[11px] text-muted-foreground">صفحة هبوط</p>
+                    <p class="truncate text-sm font-semibold">{{ landing.product_name }}</p>
+                </Link>
+                <span v-if="landing.live" class="badge-success shrink-0">منشورة</span>
+                <span v-else class="badge-neutral shrink-0">مش منشورة لسه</span>
+                <a v-if="landing.live" :href="landing.product_url" target="_blank" rel="noopener" class="btn-ghost px-2 py-1" title="افتحها زي الزبون">
+                    <ExternalLink class="size-4" />
+                </a>
+            </div>
+
+            <div v-else class="flex items-center gap-1 rounded-xl bg-muted p-1">
                 <Link
                     v-for="p in pages"
                     :key="p.key"
@@ -261,7 +323,43 @@ const FRAME_WIDTH = { desktop: '100%', tablet: '820px', mobile: '390px' };
                 </Link>
             </div>
 
-            <Link href="/ai/store-builder" class="btn-ghost px-2.5 py-1.5 text-sm">
+            <div v-if="landing" class="relative">
+                <button
+                    class="btn-outline border-primary/40 px-3 py-1.5 text-sm text-primary"
+                    :disabled="!landing.ai_available || writing"
+                    :title="landing.ai_available ? '' : 'الذكاء الاصطناعي مش متاح دلوقتي'"
+                    @click="showWriter = !showWriter"
+                >
+                    <Loader2 v-if="writing" class="size-4 animate-spin" />
+                    <Sparkles v-else class="size-4" />
+                    {{ writing ? 'بنكتب الصفحة…' : 'اكتبهالي بالذكاء الاصطناعي' }}
+                </button>
+
+                <div v-if="showWriter" class="absolute right-0 top-full z-20 mt-2 w-80 rounded-2xl border border-border bg-card p-4 shadow-xl">
+                    <p class="text-sm font-semibold">هنكتب الصفحة كلها من المنتج وصوره</p>
+                    <p class="mt-1 text-xs leading-relaxed text-muted-foreground">
+                        العنوان، المميزات، المقارنة، والأسئلة. لو عندك عرض أو ضمان أو معلومة عن الشحن اكتبها هنا — إحنا مش هنقول حاجة إنت ماقلتهاش.
+                    </p>
+                    <textarea
+                        v-model="writerNotes"
+                        rows="3"
+                        maxlength="800"
+                        class="field mt-3 text-sm"
+                        placeholder="مثلاً: ضمان استرجاع ١٤ يوم، الشحن ٣ أيام، مناسب للبشرة الحساسة"
+                    ></textarea>
+                    <p v-if="writerError" class="mt-2 text-xs text-destructive">{{ writerError }}</p>
+                    <button class="btn-primary mt-3 w-full" :disabled="writing" @click="writeLanding">
+                        <Loader2 v-if="writing" class="size-4 animate-spin" />
+                        <Sparkles v-else class="size-4" />
+                        {{ writing ? 'بنكتب… نص دقيقة تقريباً' : landing.ai_price > 0 ? `اكتب الصفحة — ${landing.ai_price} جنيه من رصيدك` : 'اكتب الصفحة' }}
+                    </button>
+                    <p class="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+                        هتنزل كمسودة هنا. الزباين مش هيشوفوا حاجة لحد ما تدوس نشر.
+                    </p>
+                </div>
+            </div>
+
+            <Link v-else href="/ai/store-builder" class="btn-ghost px-2.5 py-1.5 text-sm">
                 <Sparkles class="size-4" />
                 جهّزلي المتجر
             </Link>
@@ -290,6 +388,9 @@ const FRAME_WIDTH = { desktop: '100%', tablet: '820px', mobile: '390px' };
                 </button>
                 <button class="btn-ghost px-2.5 py-1.5" title="ابدأ من الشكل الجاهز من الأول" @click="resetToDefaults">
                     <RotateCcw class="size-4" />
+                </button>
+                <button v-if="landing" class="btn-ghost px-2.5 py-1.5 text-destructive" title="شيل صفحة الهبوط وارجع لصفحة المنتج العادية" @click="removeLanding">
+                    <Trash2 class="size-4" />
                 </button>
 
                 <button class="btn-primary" :disabled="publishing" @click="publish">

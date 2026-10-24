@@ -8,6 +8,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\ProductRequest;
 use App\Models\Product;
 use App\Models\Store;
+use App\Services\Builder\PageBuilder;
+use App\Services\Builder\SectionRegistry;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -95,6 +97,13 @@ class ProductController extends Controller
             'storeName' => $store->name,
             'settingDefaults' => config('products.defaults'),
             'categories' => $this->categoryOptions($store),
+            // Whether this product has its own landing page yet, and whether
+            // customers are seeing it — the form's landing card says which.
+            'landing' => [
+                'started' => app(PageBuilder::class)->hasLanding($store, $product->id, includeDrafts: true),
+                'live' => app(PageBuilder::class)->hasLanding($store, $product->id),
+                'builder_url' => '/builder/' . SectionRegistry::landingKey($product->id),
+            ],
             'product' => [
                 'id' => $product->id,
                 'name' => $product->name,

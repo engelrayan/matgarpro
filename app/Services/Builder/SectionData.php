@@ -105,8 +105,42 @@ class SectionData
             'featured_products' => ['products' => $this->picked($settings['products'] ?? [])],
             'product_grid' => ['products' => $this->grid($settings)],
             'related_products' => ['products' => $this->related((int) ($settings['limit'] ?? 4))],
+            'live_orders' => $this->liveOrders(),
             default => [],
         };
+    }
+
+    /**
+     * What has really happened to the product on screen, for the "الناس
+     * بتطلب دلوقتي" block: how many ordered it this week, and where the last
+     * few orders came from.
+     *
+     * The store's own orders and nothing else — no names, no numbers, only a
+     * governorate and how long ago. Cancelled orders are left out: an order
+     * the customer called off is not proof that anybody wants this.
+     *
+     * @return array{week: int, recent: Collection}
+     */
+    private function liveOrders(): array
+    {
+        $product = $this->context['product'] ?? null;
+
+        if (! $product) {
+            return ['week' => 0, 'recent' => collect()];
+        }
+
+        $orders = fn () => $this->store->orders()
+            ->where('status', '!=', \App\Models\Order::STATUS_CANCELLED)
+            ->whereHas('items', fn ($q) => $q->where('product_id', $product->id));
+
+        return [
+            'week' => $orders()->where('created_at', '>=', now()->subDays(7))->count(),
+            'recent' => $orders()
+                ->where('created_at', '>=', now()->subHours(72))
+                ->latest('created_at')
+                ->limit(6)
+                ->get(['governorate', 'created_at']),
+        ];
     }
 
     /**

@@ -51,6 +51,34 @@ class PageRenderer
     }
 
     /**
+     * Several pages' sections as one page — the first in full, the rest
+     * without the types named in `except` — sharing one SectionData.
+     *
+     * @param  array<int,string>  $keys
+     * @param  array<string,mixed>  $context
+     * @param  array<int,string>  $except
+     * @return array{sections: array<int,array<string,mixed>>, sectionData: SectionData}
+     */
+    public function combined(Request $request, Store $store, array $keys, array $context = [], array $except = []): array
+    {
+        $sections = [];
+
+        foreach ($keys as $i => $key) {
+            $page = $this->isPreview($request) ? $this->builder->draft($store, $key) : $this->builder->published($store, $key);
+
+            $sections = [...$sections, ...($i === 0 ? $page : array_values(array_filter(
+                $page,
+                fn (array $section) => ! in_array($section['type'], $except, true),
+            )))];
+        }
+
+        return [
+            'sections' => $sections,
+            'sectionData' => new SectionData($store, $sections, $context),
+        ];
+    }
+
+    /**
      * Header and footer, shared by every storefront page.
      *
      * @return array<string,mixed>

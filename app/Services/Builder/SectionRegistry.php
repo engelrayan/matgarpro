@@ -39,6 +39,41 @@ class SectionRegistry
     /** Pages that carry a part list. */
     public const PAGES = ['home', 'product', 'category', 'header', 'footer'];
 
+    /**
+     * A product's own landing page — one per product, keyed `landing-{id}`.
+     *
+     * Not in PAGES: there is one per product rather than one per store, so it
+     * is a *kind* of page. Everything that asks "may this part live here?"
+     * asks it of the kind, through kindOf().
+     */
+    public const LANDING = 'landing';
+
+    public static function landingKey(int $productId): string
+    {
+        return self::LANDING . '-' . $productId;
+    }
+
+    /** The product a landing key belongs to, or null for any other key. */
+    public static function landingProductId(string $page): ?int
+    {
+        return preg_match('/^landing-([1-9]\d{0,11})$/', $page, $m) ? (int) $m[1] : null;
+    }
+
+    /** What sort of page a key is: one of PAGES, LANDING, or null for nonsense. */
+    public static function kindOf(string $page): ?string
+    {
+        if (in_array($page, self::PAGES, true)) {
+            return $page;
+        }
+
+        return self::landingProductId($page) !== null ? self::LANDING : null;
+    }
+
+    public static function isPage(string $page): bool
+    {
+        return self::kindOf($page) !== null;
+    }
+
     public static function pageLabel(string $page): string
     {
         return [
@@ -47,7 +82,8 @@ class SectionRegistry
             'category' => 'صفحة القسم',
             'header' => 'أعلى الصفحة',
             'footer' => 'أسفل الصفحة',
-        ][$page] ?? $page;
+            self::LANDING => 'صفحة الهبوط',
+        ][self::kindOf($page) ?? $page] ?? $page;
     }
 
     /** Shared by every "كام في الصف؟" control, so they cannot drift apart. */
@@ -108,7 +144,7 @@ class SectionRegistry
                 'name' => 'مميزات متجرك',
                 'description' => 'سطور قصيرة بتطمّن الزبون: الدفع عند الاستلام، الشحن، الاستبدال.',
                 'icon' => 'ShieldCheck',
-                'pages' => ['home', 'product', 'category'],
+                'pages' => ['home', 'product', 'category', 'landing'],
                 'limit' => 2,
                 'fields' => [
                     ['key' => 'items', 'type' => 'repeater', 'label' => 'المميزات', 'default' => [
@@ -159,7 +195,7 @@ class SectionRegistry
                 'name' => 'منتجات تختارها بنفسك',
                 'description' => 'أنت اللي بتحدد المنتجات وترتيبها — مش تلقائي.',
                 'icon' => 'Star',
-                'pages' => ['home', 'product', 'category'],
+                'pages' => ['home', 'product', 'category', 'landing'],
                 'limit' => 3,
                 'fields' => [
                     ['key' => 'title', 'type' => 'text', 'label' => 'الكلام اللي فوق', 'default' => 'الأكثر مبيعاً', 'max' => 80],
@@ -195,7 +231,7 @@ class SectionRegistry
                 'name' => 'صورة إعلانية',
                 'description' => 'صورة عريضة أو صورتين جنب بعض، كل واحدة بتودّي لمكان.',
                 'icon' => 'Image',
-                'pages' => ['home', 'product', 'category'],
+                'pages' => ['home', 'product', 'category', 'landing'],
                 'limit' => 4,
                 'fields' => [
                     ['key' => 'layout', 'type' => 'select', 'label' => 'صورة واحدة ولا اتنين؟', 'default' => 'full', 'options' => [
@@ -217,7 +253,7 @@ class SectionRegistry
                 'name' => 'كلام ومعلومات',
                 'description' => 'قصة المتجر، سياسة الاستبدال، أي كلام عايز تقوله للزبون.',
                 'icon' => 'Type',
-                'pages' => ['home', 'product', 'category', 'footer'],
+                'pages' => ['home', 'product', 'category', 'footer', 'landing'],
                 'limit' => 4,
                 'fields' => [
                     ['key' => 'heading', 'type' => 'text', 'label' => 'الكلام اللي فوق', 'default' => '', 'max' => 100],
@@ -237,7 +273,7 @@ class SectionRegistry
                 'name' => 'أسئلة وأجوبة',
                 'description' => 'أسئلة الزبون بتتفتح بالضغط. بتقلل مكالمات التأكيد.',
                 'icon' => 'MessageCircleQuestion',
-                'pages' => ['home', 'product', 'category'],
+                'pages' => ['home', 'product', 'category', 'landing'],
                 'limit' => 2,
                 'fields' => [
                     ['key' => 'title', 'type' => 'text', 'label' => 'الكلام اللي فوق', 'default' => 'أسئلة شائعة', 'max' => 80],
@@ -253,7 +289,7 @@ class SectionRegistry
                 'name' => 'فيديو',
                 'description' => 'فيديو من يوتيوب. مش بيتحمّل غير لما الزبون يدوس عليه.',
                 'icon' => 'Youtube',
-                'pages' => ['home', 'product', 'category'],
+                'pages' => ['home', 'product', 'category', 'landing'],
                 'limit' => 2,
                 'fields' => [
                     ['key' => 'title', 'type' => 'text', 'label' => 'الكلام اللي فوق', 'default' => '', 'max' => 100],
@@ -267,7 +303,7 @@ class SectionRegistry
                 'name' => 'آراء العملاء',
                 'description' => 'رأي زبون باسمه وتقييمه. أقوى بكتير من أي كلام عن نفسك.',
                 'icon' => 'Quote',
-                'pages' => ['home', 'product', 'category'],
+                'pages' => ['home', 'product', 'category', 'landing'],
                 'limit' => 2,
                 'fields' => [
                     ['key' => 'title', 'type' => 'text', 'label' => 'الكلام اللي فوق', 'default' => 'عملاؤنا بيقولوا', 'max' => 80],
@@ -286,7 +322,7 @@ class SectionRegistry
                 'name' => 'عدّاد الوقت الفاضل للعرض',
                 'description' => 'ساعة بتعدّ لحد ما العرض يخلص، وبتختفي لوحدها بعد كده.',
                 'icon' => 'Timer',
-                'pages' => ['home', 'product', 'category'],
+                'pages' => ['home', 'product', 'category', 'landing'],
                 'limit' => 1,
                 'fields' => [
                     ['key' => 'title', 'type' => 'text', 'label' => 'الكلام اللي فوق', 'default' => 'العرض ينتهي خلال', 'max' => 100],
@@ -305,7 +341,7 @@ class SectionRegistry
                 'name' => 'لوجوهات ماركات',
                 'description' => 'صف لوجوهات — ماركات بتبيعها أو جهات بتتعامل معاها.',
                 'icon' => 'Sparkles',
-                'pages' => ['home', 'product'],
+                'pages' => ['home', 'product', 'landing'],
                 'limit' => 1,
                 'fields' => [
                     ['key' => 'title', 'type' => 'text', 'label' => 'الكلام اللي فوق', 'default' => '', 'max' => 80],
@@ -325,7 +361,7 @@ class SectionRegistry
                 'name' => 'صور المنتج وفورم الطلب',
                 'description' => 'الصور والسعر والفورم اللي الزبون بيطلب منه. ده الجزء الأساسي ومايتشالش.',
                 'icon' => 'ShoppingCart',
-                'pages' => ['product'],
+                'pages' => ['product', 'landing'],
                 'limit' => 1,
                 'locked' => true,
                 /*
@@ -341,6 +377,8 @@ class SectionRegistry
                 'fields' => [
                     ['key' => 'badge', 'type' => 'text', 'label' => 'كلمة صغيرة فوق اسم المنتج', 'default' => '', 'max' => 40,
                         'hint' => 'زي «الأكثر مبيعاً». سيبها فاضية وهتختفي.'],
+                    ['key' => 'gallery', 'type' => 'toggle', 'label' => 'اعرض صور المنتج جنب الفورم', 'default' => true,
+                        'hint' => 'في صفحة الهبوط العنوان الكبير بيعرض الصورة، فالأحسن تقفلها هنا.'],
                 ],
             ],
 
@@ -348,7 +386,7 @@ class SectionRegistry
                 'name' => 'تفاصيل المنتج',
                 'description' => 'الوصف اللي كاتبه في صفحة المنتج نفسه.',
                 'icon' => 'AlignRight',
-                'pages' => ['product'],
+                'pages' => ['product', 'landing'],
                 'limit' => 1,
                 'fields' => [
                     ['key' => 'heading', 'type' => 'text', 'label' => 'الكلام اللي فوق', 'default' => 'تفاصيل المنتج', 'max' => 80],
@@ -359,11 +397,156 @@ class SectionRegistry
                 'name' => 'منتجات تانية ممكن تعجبه',
                 'description' => 'منتجات من نفس القسم، عشان الزبون ما يخرجش من غير ما يشوف حاجة تانية.',
                 'icon' => 'Shuffle',
-                'pages' => ['product'],
+                'pages' => ['product', 'landing'],
                 'limit' => 1,
                 'fields' => [
                     ['key' => 'title', 'type' => 'text', 'label' => 'الكلام اللي فوق', 'default' => 'ممكن يعجبك كمان', 'max' => 80],
                     ['key' => 'limit', 'type' => 'number', 'label' => 'كام منتج يتعرض؟', 'default' => 4, 'min' => 2, 'max' => 12],
+                ],
+            ],
+
+            // ── Landing page ──────────────────────────────────────────────
+            /*
+             | A landing page sells one product to somebody who has never heard
+             | of the shop, usually in the eight seconds after an ad. These are
+             | the parts that do that: a promise, the reasons, the comparison,
+             | the guarantee, and proof that real people are buying. Every
+             | button on them scrolls to the order form rather than leaving
+             | the page — the form is the only exit that pays.
+             */
+            'landing_hero' => [
+                'name' => 'العنوان الكبير',
+                'description' => 'أول حاجة الزبون يشوفها: وعد المنتج في جملة، صورة، وزرار يودّيه للطلب.',
+                'icon' => 'Rocket',
+                'pages' => ['landing'],
+                'limit' => 1,
+                'fields' => [
+                    ['key' => 'badge', 'type' => 'text', 'label' => 'كلمة صغيرة فوق العنوان', 'default' => '', 'max' => 40,
+                        'hint' => 'زي «عرض لفترة محدودة». سيبها فاضية وهتختفي.'],
+                    ['key' => 'headline', 'type' => 'text', 'label' => 'العنوان', 'default' => '', 'max' => 120,
+                        'hint' => 'الفايدة مش اسم المنتج: «شعر أقل، من غير وجع» أقوى من «جهاز إزالة الشعر».'],
+                    ['key' => 'subheadline', 'type' => 'textarea', 'label' => 'الكلام اللي تحته', 'default' => '', 'max' => 300],
+                    ['key' => 'image', 'type' => 'image', 'label' => 'الصورة',
+                        'hint' => 'سيبها فاضية وهنحط أول صورة للمنتج.'],
+                    ['key' => 'points', 'type' => 'repeater', 'label' => 'نقط سريعة تحت العنوان', 'default' => [], 'max' => 4,
+                        'item_label' => 'text', 'fields' => [
+                            ['key' => 'text', 'type' => 'text', 'label' => 'النقطة', 'default' => '', 'max' => 60],
+                        ]],
+                    ['key' => 'show_price', 'type' => 'toggle', 'label' => 'اعرض السعر', 'default' => true],
+                    ['key' => 'button', 'type' => 'text', 'label' => 'كلام الزرار', 'default' => 'اطلب دلوقتي', 'max' => 40],
+                    ['key' => 'style', 'type' => 'select', 'label' => 'الشكل', 'default' => 'soft', 'options' => [
+                        ['value' => 'soft', 'label' => 'هادي بلون المتجر'],
+                        ['value' => 'bold', 'label' => 'لون المتجر كامل'],
+                        ['value' => 'plain', 'label' => 'أبيض'],
+                    ]],
+                ],
+            ],
+
+            'benefits' => [
+                'name' => 'مميزات المنتج',
+                'description' => 'كروت فيها ليه المنتج ده يستاهل: صورة أو رسمة، عنوان، وسطر.',
+                'icon' => 'Sparkles',
+                'pages' => ['landing', 'product'],
+                'limit' => 3,
+                'fields' => [
+                    ['key' => 'title', 'type' => 'text', 'label' => 'العنوان', 'default' => 'ليه هتحبه؟', 'max' => 100],
+                    ['key' => 'subtitle', 'type' => 'textarea', 'label' => 'سطر تحت العنوان', 'default' => '', 'max' => 240],
+                    ['key' => 'items', 'type' => 'repeater', 'label' => 'المميزات', 'default' => [], 'max' => 8,
+                        'item_label' => 'title', 'fields' => [
+                            ['key' => 'image', 'type' => 'image', 'label' => 'صورة (اختياري)'],
+                            ['key' => 'icon', 'type' => 'select', 'label' => 'أو رسمة', 'default' => 'sparkle', 'options' => [
+                                ['value' => 'sparkle', 'label' => 'لمعة'],
+                                ['value' => 'check', 'label' => 'صح'],
+                                ['value' => 'bolt', 'label' => 'سرعة'],
+                                ['value' => 'heart', 'label' => 'قلب'],
+                                ['value' => 'shield', 'label' => 'حماية'],
+                                ['value' => 'leaf', 'label' => 'طبيعي'],
+                                ['value' => 'clock', 'label' => 'وقت'],
+                                ['value' => 'gift', 'label' => 'هدية'],
+                            ]],
+                            ['key' => 'title', 'type' => 'text', 'label' => 'العنوان', 'default' => '', 'max' => 60],
+                            ['key' => 'body', 'type' => 'textarea', 'label' => 'الشرح', 'default' => '', 'max' => 220],
+                        ]],
+                    $this->columnsField('2'),
+                    ['key' => 'button', 'type' => 'text', 'label' => 'زرار تحت الكروت', 'default' => '', 'max' => 40,
+                        'hint' => 'سيبه فاضي ومش هيظهر.'],
+                ],
+            ],
+
+            'comparison' => [
+                'name' => 'مقارنة',
+                'description' => 'جدول صح وغلط: منتجك قدام البدائل اللي الزبون بيفكر فيها.',
+                'icon' => 'Scale',
+                'pages' => ['landing', 'product'],
+                'limit' => 1,
+                'fields' => [
+                    ['key' => 'title', 'type' => 'text', 'label' => 'العنوان', 'default' => 'الفرق واضح', 'max' => 100],
+                    ['key' => 'us_label', 'type' => 'text', 'label' => 'اسم عمودك', 'default' => '', 'max' => 30,
+                        'hint' => 'سيبه فاضي وهيكتب اسم المنتج.'],
+                    ['key' => 'them_1', 'type' => 'text', 'label' => 'البديل الأول', 'default' => 'البدائل التانية', 'max' => 30],
+                    ['key' => 'them_2', 'type' => 'text', 'label' => 'البديل التاني', 'default' => '', 'max' => 30,
+                        'hint' => 'سيبه فاضي لو مقارنة بحاجة واحدة بس.'],
+                    ['key' => 'rows', 'type' => 'repeater', 'label' => 'المقارنات', 'default' => [], 'max' => 8,
+                        'item_label' => 'feature', 'fields' => [
+                            ['key' => 'feature', 'type' => 'text', 'label' => 'الميزة', 'default' => '', 'max' => 80],
+                            ['key' => 'us', 'type' => 'toggle', 'label' => 'منتجك فيه كده', 'default' => true],
+                            ['key' => 'them_1', 'type' => 'toggle', 'label' => 'البديل الأول فيه كده', 'default' => false],
+                            ['key' => 'them_2', 'type' => 'toggle', 'label' => 'البديل التاني فيه كده', 'default' => false],
+                        ]],
+                ],
+            ],
+
+            'guarantee' => [
+                'name' => 'الضمان',
+                'description' => 'الوعد اللي بيشيل الخوف من أول طلب: استرجاع، استبدال، أو ضمان.',
+                'icon' => 'BadgeCheck',
+                'pages' => ['landing', 'product', 'home'],
+                'limit' => 1,
+                'fields' => [
+                    ['key' => 'badge', 'type' => 'text', 'label' => 'الكلمة اللي في الختم', 'default' => '', 'max' => 16,
+                        'hint' => 'زي «١٤ يوم». اكتب بس اللي فعلاً بتعمله.'],
+                    ['key' => 'title', 'type' => 'text', 'label' => 'العنوان', 'default' => '', 'max' => 80],
+                    ['key' => 'body', 'type' => 'textarea', 'label' => 'التفاصيل', 'default' => '', 'max' => 400],
+                    ['key' => 'button', 'type' => 'text', 'label' => 'كلام الزرار', 'default' => '', 'max' => 40,
+                        'hint' => 'سيبه فاضي ومش هيظهر.'],
+                ],
+            ],
+
+            'image_stack' => [
+                'name' => 'صور ورا بعض',
+                'description' => 'صور مصمّمة بعرض الصفحة لازقة في بعض — زي البوستات اللي في الإعلان.',
+                'icon' => 'Images',
+                'pages' => ['landing', 'product', 'home'],
+                'limit' => 4,
+                'fields' => [
+                    ['key' => 'images', 'type' => 'repeater', 'label' => 'الصور', 'default' => [], 'max' => 12,
+                        'item_label' => 'alt', 'fields' => [
+                            ['key' => 'image', 'type' => 'image', 'label' => 'الصورة'],
+                            ['key' => 'alt', 'type' => 'text', 'label' => 'وصف قصير للصورة', 'default' => '', 'max' => 120,
+                                'hint' => 'مش هيظهر — بيساعد جوجل والناس اللي بتقرا بالصوت.'],
+                        ]],
+                    ['key' => 'width', 'type' => 'select', 'label' => 'العرض', 'default' => 'narrow', 'options' => [
+                        ['value' => 'narrow', 'label' => 'عرض الموبايل في النص'],
+                        ['value' => 'full', 'label' => 'عرض الصفحة كله'],
+                    ]],
+                ],
+            ],
+
+            /*
+             | Social proof from the store's own orders, never invented. The
+             | section asks nothing of the merchant but whether to show it, and
+             | renders nothing at all until there is something true to say.
+             */
+            'live_orders' => [
+                'name' => 'الناس بتطلب دلوقتي',
+                'description' => 'من طلباتك الحقيقية: كام واحد طلب المنتج ده، ومنين — من غير أسماء ولا أرقام.',
+                'icon' => 'Activity',
+                'pages' => ['landing', 'product'],
+                'limit' => 1,
+                'fields' => [
+                    ['key' => 'show_count', 'type' => 'toggle', 'label' => 'اعرض عدد الطلبات آخر ٧ أيام', 'default' => true],
+                    ['key' => 'show_recent', 'type' => 'toggle', 'label' => 'اعرض آخر الطلبات ومنين', 'default' => true],
+                    ['key' => 'toasts', 'type' => 'toggle', 'label' => 'إشعار صغير بيظهر تحت لما حد يطلب', 'default' => true],
                 ],
             ],
 
@@ -512,8 +695,10 @@ class SectionRegistry
      */
     public function forPage(string $page): array
     {
+        $kind = self::kindOf($page);
+
         return collect($this->all())
-            ->filter(fn (array $section) => in_array($page, $section['pages'], true))
+            ->filter(fn (array $section) => in_array($kind, $section['pages'], true))
             ->map(fn (array $section, string $key) => [...$section, 'type' => $key])
             ->values()
             ->all();
@@ -521,7 +706,7 @@ class SectionRegistry
 
     public function allowedOn(string $type, string $page): bool
     {
-        return in_array($page, $this->find($type)['pages'] ?? [], true);
+        return in_array(self::kindOf($page), $this->find($type)['pages'] ?? [], true);
     }
 
     public function isLocked(string $type): bool

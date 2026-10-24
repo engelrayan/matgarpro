@@ -119,20 +119,38 @@ class PageBuilder
      */
     public function defaults(string $page): array
     {
-        $sections = match ($page) {
+        $sections = match (SectionRegistry::kindOf($page)) {
             'home' => ['hero', 'deals', 'trust_bar', 'categories', 'product_grid'],
             'product' => ['product_main', 'product_description', 'trust_bar', 'related_products'],
             'category' => ['category_header', 'category_products'],
             'header' => ['announcement_bar', 'header_nav'],
             'footer' => ['footer_main', 'footer_note'],
+            /*
+             | The order a one-product page sells in: the promise and the price
+             | above the fold, the reasons, then the form while the reader is
+             | still convinced — and only after it, for the ones who scroll on,
+             | the proof, the guarantee and the answers. Empty parts render
+             | nothing, so a fresh landing page is already the product's hero,
+             | its form and its real orders until the merchant (or the AI)
+             | fills the rest.
+             */
+            SectionRegistry::LANDING => [
+                'landing_hero', 'trust_bar', 'benefits', 'product_main', 'live_orders', 'comparison', 'guarantee', 'faq',
+            ],
             default => [],
         };
+
+        // On a landing page the hero already shows the product, so the form
+        // starts without a second copy of the same photos.
+        $overrides = SectionRegistry::kindOf($page) === SectionRegistry::LANDING
+            ? ['product_main' => ['gallery' => false]]
+            : [];
 
         return array_map(fn (string $type) => [
             'id' => Str::lower(Str::random(12)),
             'type' => $type,
             'visible' => true,
-            'settings' => $this->registry->defaultSettings($type),
+            'settings' => [...$this->registry->defaultSettings($type), ...($overrides[$type] ?? [])],
         ], $sections);
     }
 
@@ -163,9 +181,32 @@ class PageBuilder
             ->all();
     }
 
+    /**
+     * Does this product have a landing page — published, or (for a preview)
+     * at least started? The product URL serves it instead of the shared
+     * product layout when it does.
+     */
+    public function hasLanding(Store $store, int $productId, bool $includeDrafts = false): bool
+    {
+        return StorePage::where('store_id', $store->id)
+            ->where('key', SectionRegistry::landingKey($productId))
+            ->when(! $includeDrafts, fn ($q) => $q->whereNotNull('published_sections'))
+            ->exists();
+    }
+
+    /**
+     * Throw a landing page away entirely; the product goes back to the shared
+     * product layout on the very next request. Only landing pages: the store's
+     * own pages fall back to defaults, which is what reset is for.
+     */
+    public function removeLanding(Store $store, int $productId): void
+    {
+        StorePage::where('store_id', $store->id)->where('key', SectionRegistry::landingKey($productId))->delete();
+    }
+
     private function row(Store $store, string $page, bool $create): ?StorePage
     {
-        abort_unless(in_array($page, SectionRegistry::PAGES, true), 404);
+        abort_unless(SectionRegistry::isPage($page), 404);
 
         $query = StorePage::where('store_id', $store->id)->where('key', $page);
 

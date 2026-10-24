@@ -9,6 +9,7 @@ export interface ProductSettings {
     hide_header: boolean;
     free_shipping: boolean;
     hide_when_out_of_stock: boolean;
+    landing_below_product: boolean;
 }
 
 const settings = defineModel<ProductSettings>({ required: true });

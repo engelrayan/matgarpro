@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Storefront;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Store;
+use App\Services\Builder\PageBuilder;
 use App\Services\Builder\PageRenderer;
+use App\Services\Builder\SectionRegistry;
 use App\Services\Storefront\FunnelTracker;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
@@ -16,6 +18,7 @@ class ProductController extends Controller
     public function __construct(
         private readonly FunnelTracker $funnel,
         private readonly PageRenderer $renderer,
+        private readonly PageBuilder $builder,
     ) {}
 
     public function __invoke(Request $request, Store $store, string $slug): View
@@ -39,7 +42,29 @@ class ProductController extends Controller
 
         $settings = $product->pageSettings();
 
-        $page = $this->renderer->page($request, $store, 'product', ['product' => $product]);
+        /*
+         | Its own landing page, when the merchant has published one — on the
+         | same URL, so the ads already running on it start selling with the
+         | new page the moment it goes live, and stop the moment it is removed.
+         |
+         | A builder preview asks for it explicitly (`_landing`), because the
+         | same product URL also previews the shared product layout.
+         */
+        $useLanding = $this->renderer->isPreview($request)
+            ? $request->boolean('_landing')
+            : $this->builder->hasLanding($store, $product->id);
+
+        $context = ['product' => $product];
+        $landingKey = SectionRegistry::landingKey($product->id);
+
+        $page = match (true) {
+            ! $useLanding => $this->renderer->page($request, $store, 'product', $context),
+            // "Under the product page": the usual page first, then the landing
+            // page's own parts — without its form, which the product page
+            // already has, and two forms on one page is two different totals.
+            (bool) $settings['landing_below_product'] => $this->renderer->combined($request, $store, ['product', $landingKey], $context, except: ['product_main']),
+            default => $this->renderer->page($request, $store, $landingKey, $context),
+        };
 
         return view('storefront.product', [
             /*

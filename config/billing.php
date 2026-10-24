@@ -86,4 +86,15 @@ return [
     */
     'low_balance_threshold' => (float) env('BILLING_LOW_BALANCE_THRESHOLD', 50),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Paid AI services
+    |--------------------------------------------------------------------------
+    | Taken from the wallet once per landing page actually written into the
+    | builder — not per attempt, so a call that fails costs the merchant
+    | nothing. Full price in the introductory months too: the discount is on
+    | orders, and this is a service we pay for per use. 0 makes it free.
+    */
+    'ai_landing_page_price' => (float) env('BILLING_AI_LANDING_PAGE_PRICE', 50),
+
 ];

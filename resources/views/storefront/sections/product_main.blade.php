@@ -43,8 +43,12 @@
     ];
 @endphp
 
-<div class="mx-auto max-w-5xl md:px-5 md:py-8">
-    <div class="grid md:grid-cols-2 md:gap-12">
+{{-- Without the gallery — on a landing page whose hero already showed the
+     product — the form stands alone, centred at reading width. --}}
+@php($withGallery = $settings['gallery'] ?? true)
+
+<div @class(['mx-auto md:px-5 md:py-8', 'max-w-5xl' => $withGallery, 'max-w-xl' => ! $withGallery])>
+    <div @class(['grid md:gap-12', 'md:grid-cols-2' => $withGallery])>
 
         {{-- ── Gallery ──────────────────────────────────────────────────────
 
@@ -53,7 +57,7 @@
              snapping — no carousel library on the page the ads pay for. Every
              image is in the HTML, so the second one is already there when the
              thumb arrives; only the first is fetched eagerly. --}}
-        <div class="md:sticky md:top-24 md:self-start">
+        <div @class(['md:sticky md:top-24 md:self-start', 'hidden' => ! $withGallery])>
             @if ($images->isNotEmpty())
                 <div class="relative">
                     <div class="scrollbar-none flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain bg-muted md:rounded-[calc(var(--radius)+6px)] md:shadow-[0_0_0_0.5px_hsl(var(--foreground)/0.08)]"

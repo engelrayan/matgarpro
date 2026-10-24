@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Dashboard\BuilderController;
 use App\Http\Controllers\Dashboard\AbandonedCartController;
+use App\Http\Controllers\Dashboard\AiLandingPageController;
 use App\Http\Controllers\Dashboard\AiProductDraftController;
 use App\Http\Controllers\Dashboard\AiStoreBuilderController;
 use App\Http\Controllers\Dashboard\BillingController;
@@ -58,6 +59,10 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::post('builder/{page}/discard', [BuilderController::class, 'discard'])->name('builder.discard');
     Route::post('builder/{page}/reset', [BuilderController::class, 'reset'])->name('builder.reset');
 
+    // A product's own landing page: designed at builder/landing-{id}, taken
+    // down here, written by AI below.
+    Route::delete('products/{product}/landing', [BuilderController::class, 'destroyLanding'])->name('products.landing.destroy');
+
     Route::get('reports/profit', ProfitController::class)->name('reports.profit');
 
     Route::get('carts', [AbandonedCartController::class, 'index'])->name('carts.index');
@@ -103,4 +108,11 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
         ->middleware('throttle:10,1')
         ->name('billing.topups.store');
     Route::delete('billing/topups/{topup}', [BillingController::class, 'destroy'])->name('billing.topups.destroy');
+
+    // A product's landing page, written into its builder draft.
+    Route::post('ai/landing-pages', [AiLandingPageController::class, 'store'])
+        ->middleware('throttle:10,1')
+        ->name('ai.landing-pages.store');
+    Route::get('ai/landing-pages/{generation}', [AiLandingPageController::class, 'show'])->name('ai.landing-pages.show');
+    Route::post('ai/landing-pages/{generation}/apply', [AiLandingPageController::class, 'apply'])->name('ai.landing-pages.apply');
 });

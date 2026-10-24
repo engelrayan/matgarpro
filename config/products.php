@@ -44,6 +44,15 @@ return [
          | customer ask, while a vanished page reads as a broken link.
          */
         'hide_when_out_of_stock' => false,
+
+        /*
+         | What a published landing page does to the product URL. Off: it
+         | replaces the product page outright — the page an ad should land on.
+         | On: the usual product page stays, and the landing page's parts are
+         | added under it, for a shop whose product pages also get organic
+         | visitors who expect the familiar layout first.
+         */
+        'landing_below_product' => false,
     ],
 
 ];

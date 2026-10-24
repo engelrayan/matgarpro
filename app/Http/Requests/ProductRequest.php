@@ -83,6 +83,7 @@ class ProductRequest extends FormRequest
             'settings.hide_header' => ['boolean'],
             'settings.free_shipping' => ['boolean'],
             'settings.hide_when_out_of_stock' => ['boolean'],
+            'settings.landing_below_product' => ['boolean'],
 
             // Ownership is re-checked when saving; this only bounds the shape.
             'categories' => ['nullable', 'array', 'max:20'],
