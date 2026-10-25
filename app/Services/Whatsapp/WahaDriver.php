@@ -37,23 +37,39 @@ class WahaDriver implements ConfirmsWithButtons, ReportsSessionStatus, WhatsappD
     }
 
     /**
-     * The message, then the poll under it. The poll's id is the one kept:
-     * a vote names the poll it belongs to.
+     * One message: the poll itself, its title carrying the order. Two (text,
+     * then a poll asking about it) read as a bot talking twice, and the
+     * customer has to scroll between the details and the buttons.
      */
     public function sendOrderConfirmation(string $phone, string $body, array $variables, Order $order): SendResult
     {
-        $text = $this->send($phone, $body);
-
-        if (! $text->ok) {
-            return $text;
-        }
-
         return $this->attempt(fn () => $this->client->sendPoll(
             $this->link,
             $phone,
-            "تأكّد طلبك رقم #{$order->number}؟",
+            self::pollTitle($body),
             [self::CONFIRM_OPTION, self::CANCEL_OPTION],
         ));
+    }
+
+    /** WhatsApp refuses a poll title longer than this. */
+    public const POLL_TITLE_LIMIT = 255;
+
+    /**
+     * The message as a poll title: within WhatsApp's limit, cut at the last
+     * whole word with «…» rather than mid-word or by WhatsApp refusing it.
+     */
+    public static function pollTitle(string $body): string
+    {
+        $body = trim($body);
+
+        if (mb_strlen($body) <= self::POLL_TITLE_LIMIT) {
+            return $body;
+        }
+
+        $cut = mb_substr($body, 0, self::POLL_TITLE_LIMIT - 1);
+        $space = mb_strrpos($cut, ' ');
+
+        return rtrim($space > 200 ? mb_substr($cut, 0, $space) : $cut) . '…';
     }
 
     public function sendText(string $phone, string $body): SendResult

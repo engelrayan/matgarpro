@@ -41,6 +41,14 @@ class OrderConfirmationMessage
         // comes from our number rather than theirs.
         $slots = $link->isPlatform() ? PlatformWhatsapp::VARIABLE_ORDER : self::VARIABLE_ORDER;
 
+        // On WAHA the whole message is a poll title, which WhatsApp caps: the
+        // products go on one line, and if the order is long it is the list
+        // that gets shortened — never the "please confirm" the merchant wrote
+        // after it.
+        if ($link->isWaha()) {
+            $values['{items}'] = $this->itemsFitting($order, $link->template(), $values);
+        }
+
         return [
             'body' => strtr($link->template(), $values),
             'variables' => array_map(
@@ -51,6 +59,35 @@ class OrderConfirmationMessage
                 $slots,
             ),
         ];
+    }
+
+    /**
+     * The products on one line, as long as the poll title has room for:
+     * whole items while they fit, then «و N كمان».
+     *
+     * @param  array<string,string>  $values
+     */
+    private function itemsFitting(Order $order, string $template, array $values): string
+    {
+        $room = WahaDriver::POLL_TITLE_LIMIT - mb_strlen(strtr($template, [...$values, '{items}' => '']));
+
+        $names = $order->items->map(fn ($item) => $item->quantity . '× ' . $item->name
+            . ($item->variant_label ? " ({$item->variant_label})" : ''))->values();
+
+        for ($shown = $names->count(); $shown > 0; $shown--) {
+            $line = $names->take($shown)->implode('، ');
+
+            if ($shown < $names->count()) {
+                $line .= ' و' . ($names->count() - $shown) . ' كمان';
+            }
+
+            if (mb_strlen($line) <= $room) {
+                return $line;
+            }
+        }
+
+        // Not even one item fits: the count alone.
+        return $names->count() . ' منتج';
     }
 
     private function items(Order $order): string
