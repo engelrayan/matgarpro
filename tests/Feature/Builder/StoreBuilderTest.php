@@ -99,6 +99,29 @@ class StoreBuilderTest extends TestCase
         $this->get($this->storefront())->assertOk()->assertSee('أهلاً بيك', escape: false);
     }
 
+    public function test_publishing_one_page_leaves_the_others_drafts_and_all_publishes_every_draft(): void
+    {
+        $builder = app(PageBuilder::class);
+        $builder->saveDraft($this->store, 'home', [
+            ['type' => 'rich_text', 'visible' => true, 'settings' => ['heading' => 'أهلاً بيك', 'body' => '', 'align' => 'right', 'width' => 'narrow']],
+        ]);
+        $builder->saveDraft($this->store, 'header', [
+            ['type' => 'announcement_bar', 'visible' => true, 'settings' => ['text' => 'شحن مجاني النهارده']],
+            ['type' => 'header_nav', 'visible' => true, 'settings' => []],
+        ]);
+
+        $this->actingAs($this->merchant)->post('/builder/home/publish');
+
+        $dirty = fn () => collect($builder->overview($this->store->fresh()))->where('dirty', true)->pluck('key')->all();
+        $this->assertSame(['header'], $dirty(), 'the header is still a draft');
+
+        $this->actingAs($this->merchant)->post('/builder/home/publish', ['all' => true])
+            ->assertSessionHas('status', 'builder-published');
+
+        $this->assertSame([], $dirty());
+        $this->get($this->storefront())->assertSee('شحن مجاني النهارده', escape: false);
+    }
+
     public function test_discarding_goes_back_to_what_is_published(): void
     {
         $this->actingAs($this->merchant)->put('/builder/home', [

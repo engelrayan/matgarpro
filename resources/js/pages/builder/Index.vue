@@ -283,12 +283,38 @@ const onDrop = () => {
 // ── Publish ──────────────────────────────────────────────────────────────
 const publishing = ref(false);
 
-const publish = () =>
-    router.post(`/builder/${props.page}/publish`, {}, {
+// Other pages with unpublished work. Header and footer are pages of their
+// own, so a home page published alone can go live under an old top bar —
+// which is exactly what the AI store builder's drafts set up.
+const otherDrafts = computed(() => props.pages.filter((p) => p.dirty && p.key !== props.page));
+const askAll = ref(false);
+
+// What just went live, for the confirmation; null when there is nothing to say.
+const justPublished = ref<string[] | null>(null);
+let publishedTimer: ReturnType<typeof setTimeout> | undefined;
+
+// Where the merchant goes to see it: the product for a landing page, the
+// shop for everything else.
+const liveUrl = computed(() => props.landing?.product_url ?? props.storeUrl);
+
+const publish = (all = false) => {
+    askAll.value = false;
+    const labels = [props.pageLabel, ...(all ? otherDrafts.value.map((p) => p.label) : [])];
+
+    router.post(`/builder/${props.page}/publish`, all ? { all: true } : {}, {
         preserveScroll: true,
         onStart: () => (publishing.value = true),
+        onSuccess: () => {
+            justPublished.value = labels;
+            clearTimeout(publishedTimer);
+            publishedTimer = setTimeout(() => (justPublished.value = null), 15000);
+        },
         onFinish: () => (publishing.value = false),
     });
+};
+
+const onPublishClick = () => (otherDrafts.value.length ? (askAll.value = !askAll.value) : publish());
+onUnmounted(() => clearTimeout(publishedTimer));
 
 const discard = () => {
     if (!confirm('هترجع لآخر نسخة منشورة وتلغي كل اللي عملته. تمام؟')) return;
@@ -419,12 +445,55 @@ const FRAME_WIDTH = { desktop: '100%', tablet: '820px', mobile: '390px' };
                     <Trash2 class="size-4" />
                 </button>
 
-                <button class="btn-primary" :disabled="publishing" @click="publish">
-                    <Loader2 v-if="publishing" class="size-4 animate-spin" />
-                    نشر
-                </button>
+                <div class="relative">
+                    <button class="btn-primary" :disabled="publishing" :aria-expanded="askAll" @click="onPublishClick">
+                        <Loader2 v-if="publishing" class="size-4 animate-spin" />
+                        نشر
+                    </button>
+
+                    <!-- Other pages have drafts too: say which, and let the
+                         merchant put the whole shop live in one go. -->
+                    <div
+                        v-if="askAll"
+                        class="absolute left-0 top-full z-30 mt-2 w-72 rounded-2xl bg-card p-4 text-sm shadow-[0_0_0_0.5px_hsl(var(--foreground)/0.12),0_12px_32px_-8px_hsl(var(--foreground)/0.25)]"
+                    >
+                        <p class="font-semibold">فيه تعديلات مش منشورة كمان</p>
+                        <p class="mt-1 text-muted-foreground">في {{ otherDrafts.map((p) => p.label).join('، ') }}.</p>
+                        <div class="mt-3 flex flex-col gap-2">
+                            <button class="btn-primary w-full" @click="publish(true)">انشر كل حاجة</button>
+                            <button class="btn-ghost w-full" @click="publish(false)">انشر {{ pageLabel }} بس</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </header>
+
+        <!-- Published: say so, and give the way to go and look. -->
+        <Transition
+            enter-active-class="transition duration-300 ease-[var(--ease-ios)]"
+            enter-from-class="translate-y-4 opacity-0"
+            leave-active-class="transition duration-200"
+            leave-to-class="translate-y-4 opacity-0"
+        >
+            <div
+                v-if="justPublished"
+                role="status"
+                class="fixed bottom-6 left-1/2 z-40 flex w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 items-center gap-3 rounded-2xl bg-foreground px-4 py-3 text-background shadow-[0_16px_40px_-12px_hsl(var(--foreground)/0.5)]"
+            >
+                <span class="grid size-8 shrink-0 place-items-center rounded-full bg-success text-white"><Check class="size-4" /></span>
+                <p class="min-w-0 flex-1 text-sm leading-snug">
+                    <span class="font-semibold">اتنشر!</span>
+                    الزباين بيشوفوا {{ justPublished.join(' و') }} دلوقتي.
+                </p>
+                <a :href="liveUrl" target="_blank" rel="noopener" class="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-background px-3 py-1.5 text-sm font-semibold text-foreground">
+                    <ExternalLink class="size-4" />
+                    {{ landing ? 'افتح المنتج' : 'افتح المتجر' }}
+                </a>
+                <button class="shrink-0 rounded-lg p-1 opacity-70 hover:opacity-100" title="إغلاق" @click="justPublished = null">
+                    <X class="size-4" />
+                </button>
+            </div>
+        </Transition>
 
         <div class="flex min-h-0 flex-1">
             <!-- ── Sections ─────────────────────────────────────────────── -->

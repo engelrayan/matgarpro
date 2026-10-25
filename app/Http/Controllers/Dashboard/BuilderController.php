@@ -94,6 +94,20 @@ class BuilderController extends Controller
 
         $this->builder->publish($store, $page);
 
+        /*
+         | `all`: every page with unpublished work, not just this one. The
+         | header and footer are separate pages, so publishing the home page
+         | alone after the AI store builder (which drafts all three) left the
+         | old top bar and footer live under the new home page.
+         */
+        if ($request->boolean('all')) {
+            foreach ($this->builder->overview($store) as $other) {
+                if ($other['dirty']) {
+                    $this->builder->publish($store, $other['key']);
+                }
+            }
+        }
+
         return back()->with('status', 'builder-published');
     }
 
