@@ -135,34 +135,87 @@ class StarterPhotos
         }
     }
 
-    /** @param array<int|string,true> $used */
+    /**
+     * Words that describe a thing without saying what it is. They help pick
+     * between two photos of the right thing, but never make a match on their
+     * own: "black t-shirt" must not land on a black watch.
+     */
+    private const QUALIFIERS = [
+        'black', 'white', 'brown', 'blue', 'pink', 'red', 'green', 'gold', 'silver', 'beige', 'grey', 'gray',
+        'men', 'women', 'set', 'small', 'luxury', 'classic', 'natural', 'box', 'gift', 'bottle', 'jar', 'cup',
+        'bowl', 'bag', 'pot', 'case', 'holder', 'home', 'clothes', 'oriental', 'vintage', 'travel', 'sport',
+    ];
+
+    /**
+     * The words the library's photos can be found by — what the model is
+     * told to search with, so its searches have something to match.
+     *
+     * @return array<int,string>
+     */
+    public function vocabulary(): array
+    {
+        return collect((array) config('demo.photo_library'))
+            ->flatMap(fn (string $tags) => explode(' ', $tags))
+            ->reject(fn (string $word) => in_array($word, self::QUALIFIERS, true))
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * The library photo sharing most words with the search, if one shares a
+     * word that names the thing (see QUALIFIERS). Plurals are folded, so
+     * "nuts" finds "nut" and "beans" finds "bean".
+     *
+     * @param  array<int|string,true>  $used
+     */
     private function fromLibrary(string $query, string $path, array &$used): ?string
     {
-        $words = collect(preg_split('/[^a-z\-]+/', Str::lower($query)) ?: [])->filter()->all();
+        $words = $this->words($query);
+        $qualifiers = $this->words(implode(' ', self::QUALIFIERS));
+        $best = null;
+        $bestScore = 0;
 
-        $catalogue = collect((array) config('demo.catalogue_keywords'))
-            ->map(fn (array $keywords) => count(array_intersect($words, $keywords)))
-            ->filter()
-            ->sortDesc()
-            ->keys()
-            ->first();
+        foreach ((array) config('demo.photo_library') as $id => $tags) {
+            if (isset($used["library:{$id}"]) || ! is_file(resource_path("demo/photos/{$id}.jpg"))) {
+                continue;
+            }
 
-        if ($catalogue === null) {
+            $shared = array_unique(array_intersect($words, $this->words($tags)));
+            $naming = array_diff($shared, $qualifiers);
+
+            if ($naming === []) {
+                continue;
+            }
+
+            // A naming word counts double; the first of a photo's tags is
+            // what it is a photo of, so matching it settles a tie.
+            $score = count($naming) * 2 + count($shared) + (in_array($this->words($tags)[0] ?? '', $shared, true) ? 1 : 0);
+
+            if ($score > $bestScore) {
+                [$best, $bestScore] = [$id, $score];
+            }
+        }
+
+        if ($best === null) {
             return null;
         }
 
-        $photo = collect((array) config("demo.catalogues.{$catalogue}.products"))
-            ->pluck('photo')
-            ->filter()
-            ->first(fn ($id) => ! isset($used["library:{$id}"]) && is_file(resource_path("demo/photos/{$id}.jpg")));
-
-        if ($photo === null) {
-            return null;
-        }
-
-        Storage::disk('public')->put($path, file_get_contents(resource_path("demo/photos/{$photo}.jpg")));
-        $used["library:{$photo}"] = true;
+        Storage::disk('public')->put($path, file_get_contents(resource_path("demo/photos/{$best}.jpg")));
+        $used["library:{$best}"] = true;
 
         return $path;
+    }
+
+    /** @return array<int,string> */
+    private function words(string $text): array
+    {
+        return collect(preg_split('/[^a-z]+/', Str::lower(str_replace('-', '', $text))) ?: [])
+            ->filter(fn (string $w) => strlen($w) > 1)
+            // Plural to singular, crudely: enough for "nuts", "beans", "glasses".
+            ->map(fn (string $w) => strlen($w) > 3 && str_ends_with($w, 's') && ! str_ends_with($w, 'ss') ? substr($w, 0, -1) : $w)
+            ->values()
+            ->all();
     }
 }

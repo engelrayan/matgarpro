@@ -400,21 +400,53 @@ class StoreBuilderTest extends TestCase
         $this->assertSame('quantum gizmo', $products[2]['photo_query'], 'only plain words go to the photo search');
     }
 
-    public function test_without_a_pexels_key_photos_come_from_the_library_or_not_at_all(): void
+    public function test_without_a_photo_api_each_product_takes_the_library_photo_that_names_it(): void
     {
         Storage::fake('public');
-        config(['services.pexels.key' => null]);
-        $this->claudeReplies($this->plan(['products' => $this->starters()]));
+        config(['services.pixabay.key' => null, 'services.pexels.key' => null]);
+        $this->claudeReplies($this->plan(['products' => [
+            ...array_slice($this->starters(), 0, 2),
+            ['name' => 'كاجو محمص', 'price' => 300, 'compare_at_price' => 0, 'description' => '', 'category' => '', 'photo_query' => 'roasted cashew nuts'],
+            ['name' => 'مبخرة نحاس', 'price' => 800, 'compare_at_price' => 0, 'description' => '', 'category' => '', 'photo_query' => 'brass incense burner'],
+            // Shares only "black" and "gold" with the library: a colour names nothing.
+            ['name' => 'حاجة', 'price' => 100, 'compare_at_price' => 0, 'description' => '', 'category' => '', 'photo_query' => 'black gold gizmo'],
+        ]]));
 
         $images = array_column($this->describe()->json('draft.products'), 'image');
+        $library = fn (int $id) => file_get_contents(resource_path("demo/photos/{$id}.jpg"));
 
-        // A t-shirt and a jacket match the fashion library; a "gizmo" matches
-        // nothing and gets no photo rather than a wrong one.
-        $this->assertStringEndsWith('/0.jpg', $images[0]);
-        $this->assertStringEndsWith('/1.jpg', $images[1]);
-        $this->assertNull($images[2]);
-        Storage::disk('public')->assertExists($images[0]);
+        $this->assertSame($library(3649765), Storage::disk('public')->get($images[1]), 'denim jacket → the denim jacket');
+        $this->assertContains(Storage::disk('public')->get($images[2]), [$library(6803749), $library(36631827)], 'cashew nuts → one of the cashew photos');
+        $this->assertSame($library(774378), Storage::disk('public')->get($images[3]), 'brass incense burner → the brass mabkhara');
+        $this->assertNull($images[4]);
         Http::assertSentCount(1);
+    }
+
+    public function test_the_model_is_given_the_words_the_library_can_be_searched_by(): void
+    {
+        $this->claudeReplies($this->plan());
+
+        $this->describe();
+
+        Http::assertSent(function (HttpRequest $request) {
+            $text = $request->data()['messages'][0]['content'][0]['text'];
+
+            return preg_match('/<photo_words>(.*?)<\/photo_words>/', $text, $m)
+                && str_contains($m[1], 'cashew') && str_contains($m[1], 'incense')
+                // Qualifiers are not offered as things to search for.
+                && ! preg_match('/\bblack\b/', $m[1]);
+        });
+    }
+
+    public function test_every_library_photo_is_on_disk_and_described(): void
+    {
+        $tagged = array_map('strval', array_keys((array) config('demo.photo_library')));
+        $files = array_map(fn ($f) => basename($f, '.jpg'), glob(resource_path('demo/photos/*.jpg')));
+
+        sort($tagged);
+        sort($files);
+
+        $this->assertSame($files, $tagged, 'a photo with no words is never chosen; words with no photo are a broken promise');
     }
 
     public function test_with_a_pexels_key_each_product_gets_its_own_photo(): void
