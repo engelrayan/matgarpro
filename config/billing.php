@@ -54,14 +54,14 @@ return [
     | …priced by the channel it went out on, because they cost us differently:
     |
     |   meta   the platform's official number — Meta bills us per template
-    |          message. 0.75: an order is 1.25 with it in the introductory
-    |          months (0.50 + 0.75), 1.50 after.
+    |          message. 1.00: an order is 1.50 with it in the introductory
+    |          months (0.50 + 1.00), 1.75 after.
     |   waha   the store's own number through our WAHA server — no per-message
     |          bill, only the server it runs on. 0.50: an order is 1.00 with
     |          it in the introductory months, 1.25 after.
     */
     'whatsapp_fees' => [
-        'meta' => (float) env('BILLING_WHATSAPP_FEE_META', 0.75),
+        'meta' => (float) env('BILLING_WHATSAPP_FEE_META', 1.00),
         'waha' => (float) env('BILLING_WHATSAPP_FEE_WAHA', 0.50),
     ],
 
