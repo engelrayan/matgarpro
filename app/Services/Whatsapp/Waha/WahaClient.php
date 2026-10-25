@@ -26,7 +26,7 @@ class WahaClient
     public const FAILED = 'FAILED';
 
     /** The events a store's session reports back. */
-    private const EVENTS = ['message', 'poll.vote', 'session.status'];
+    private const EVENTS = ['message.any', 'message.ack', 'poll.vote', 'session.status'];
 
     /** Is there a WAHA server to use? Without one the option is not offered. */
     public static function configured(): bool

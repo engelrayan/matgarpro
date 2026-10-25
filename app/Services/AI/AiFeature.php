@@ -17,6 +17,8 @@ enum AiFeature: string
 
     case LandingPage = 'landing_page';
 
+    case InboxAssistant = 'inbox_assistant';
+
     /**
      * What writes this feature's draft, for features the merchant waits on
      * screen for. Null for features that run inside other jobs.
@@ -27,6 +29,7 @@ enum AiFeature: string
             self::ProductWriter => app(ProductWriter\ProductDraftWriter::class),
             self::StoreBuilder => app(StoreBuilder\StorePlanWriter::class),
             self::LandingPage => app(LandingPage\LandingPageWriter::class),
+            self::InboxAssistant => app(Inbox\ConversationAssistant::class),
         };
     }
 

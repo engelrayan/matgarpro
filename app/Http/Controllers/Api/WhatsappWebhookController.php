@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\StoreWhatsappIntegration;
+use App\Models\WhatsappMessage;
 use App\Services\Whatsapp\DriverFactory;
 use App\Services\Whatsapp\InboundReplyHandler;
+use App\Services\Whatsapp\ReportsDeliveries;
 use App\Services\Whatsapp\ReportsSessionStatus;
 use App\Services\Whatsapp\Waha\WahaClient;
 use Illuminate\Http\Request;
@@ -84,6 +86,19 @@ class WhatsappWebhookController extends Controller
                     default => $link->last_error,
                 },
             ])->save();
+
+            return response('ok', 200);
+        }
+
+        // Ticks on a message we sent. Only ever forwards: a late "delivered"
+        // must not take a "read" back.
+        if ($driver instanceof ReportsDeliveries && ($delivery = $driver->deliveryUpdate($request))) {
+            WhatsappMessage::query()
+                ->where('store_id', $link->store_id)
+                ->where('direction', WhatsappMessage::DIRECTION_OUT)
+                ->where('provider_message_id', 'like', '%' . $delivery['key'])
+                ->whereIn('status', $delivery['status'] === 'read' ? ['sent', 'delivered'] : ['sent'])
+                ->update(['status' => $delivery['status']]);
 
             return response('ok', 200);
         }

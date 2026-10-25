@@ -29,11 +29,15 @@ export interface NavItem {
     href: string;
     icon?: LucideIcon;
     isActive?: boolean;
+    /** A count beside the title — unread conversations, say. Hidden at 0. */
+    badge?: number;
 }
 
 export interface SharedData {
     name: string;
     flash: { status?: string; error?: string };
+    /** Conversations with unread WhatsApp messages. */
+    inbox_unread?: number;
     auth: Auth;
     ziggy: {
         location: string;

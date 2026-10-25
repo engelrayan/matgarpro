@@ -8,6 +8,7 @@ use App\Http\Controllers\Dashboard\AiStoreBuilderController;
 use App\Http\Controllers\Dashboard\BillingController;
 use App\Http\Controllers\Dashboard\CategoryController;
 use App\Http\Controllers\Dashboard\DamanShipmentController;
+use App\Http\Controllers\Dashboard\InboxController;
 use App\Http\Controllers\Dashboard\OrderController;
 use App\Http\Controllers\Dashboard\OrderWhatsappController;
 use App\Http\Controllers\Dashboard\ProductController;
@@ -65,6 +66,25 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::delete('products/{product}/landing', [BuilderController::class, 'destroyLanding'])->name('products.landing.destroy');
 
     Route::get('reports/profit', ProfitController::class)->name('reports.profit');
+
+    // The WhatsApp inbox. The page polls `conversations` and the open thread.
+    Route::get('inbox', [InboxController::class, 'index'])->name('inbox.index');
+    Route::get('inbox/conversations', [InboxController::class, 'conversations'])->name('inbox.conversations');
+    Route::post('inbox/quick-replies', [InboxController::class, 'storeQuickReply'])->name('inbox.quick-replies.store');
+    Route::delete('inbox/quick-replies/{reply}', [InboxController::class, 'destroyQuickReply'])->name('inbox.quick-replies.destroy');
+    Route::delete('inbox/notes/{note}', [InboxController::class, 'destroyNote'])->name('inbox.notes.destroy');
+    Route::get('inbox/{conversation}', [InboxController::class, 'show'])->name('inbox.show');
+    Route::post('inbox/{conversation}/messages', [InboxController::class, 'reply'])
+        ->middleware('throttle:30,1')
+        ->name('inbox.reply');
+    Route::patch('inbox/{conversation}/unread', [InboxController::class, 'markUnread'])->name('inbox.unread');
+    Route::put('inbox/{conversation}/tags', [InboxController::class, 'tags'])->name('inbox.tags');
+    Route::post('inbox/{conversation}/notes', [InboxController::class, 'storeNote'])->name('inbox.notes.store');
+    Route::patch('inbox/{conversation}/orders/{order}', [InboxController::class, 'orderStatus'])->name('inbox.orders.status');
+    Route::post('inbox/{conversation}/ai', [InboxController::class, 'assist'])
+        ->middleware('throttle:20,1')
+        ->name('inbox.ai.store');
+    Route::get('inbox/{conversation}/ai/{generation}', [InboxController::class, 'assistance'])->name('inbox.ai.show');
 
     Route::get('carts', [AbandonedCartController::class, 'index'])->name('carts.index');
     Route::patch('carts/{cart}/contacted', [AbandonedCartController::class, 'contacted'])->name('carts.contacted');

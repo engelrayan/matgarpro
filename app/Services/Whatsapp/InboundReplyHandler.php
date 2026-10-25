@@ -23,15 +23,27 @@ class InboundReplyHandler
     /** @return array{matched: bool, intent: string, order_id: ?int} */
     public function handle(StoreWhatsappIntegration $link, InboundMessage $message): array
     {
+        if ($message->fromMe) {
+            $this->recordFromPhone($link, $message);
+
+            return ['matched' => false, 'intent' => WhatsappMessage::INTENT_UNKNOWN, 'order_id' => null];
+        }
+
         $order = $this->awaitingReplyFrom($link, $message->phone);
-        $intent = $this->interpreter->read($message->body);
+
+        // A photo or a voice note says nothing we can read as yes or no.
+        $intent = $message->kind === WhatsappMessage::KIND_MEDIA
+            ? WhatsappMessage::INTENT_UNKNOWN
+            : $this->interpreter->read($message->body);
 
         WhatsappMessage::create([
             'store_id' => $link->store_id,
             'order_id' => $order?->id,
             'direction' => WhatsappMessage::DIRECTION_IN,
+            'kind' => $message->kind ?? ($message->fromButton ? WhatsappMessage::KIND_VOTE : WhatsappMessage::KIND_TEXT),
             'phone' => $message->phone,
             'body' => $message->body,
+            'meta' => $message->pushName ? ['push_name' => $message->pushName] : null,
             'provider_message_id' => $message->providerMessageId,
             'status' => 'received',
             'intent' => $intent,
@@ -196,6 +208,40 @@ class InboundReplyHandler
             ->whereRaw('RIGHT(REPLACE(customer_phone, " ", ""), 9) = ?', [substr($phone, -9)])
             ->latest('id')
             ->first();
+    }
+
+    /**
+     * Something the merchant typed on the linked phone itself.
+     *
+     * WAHA reports our own API sends the same way, so a message we already
+     * recorded is skipped — matched on WhatsApp's message key, since the chat
+     * part of the id may be a number one time and a hidden @lid id the next.
+     */
+    private function recordFromPhone(StoreWhatsappIntegration $link, InboundMessage $message): void
+    {
+        $key = WhatsappMessage::providerKey($message->providerMessageId);
+
+        $known = $key && WhatsappMessage::query()
+            ->where('store_id', $link->store_id)
+            ->where('phone', $message->phone)
+            ->where('direction', WhatsappMessage::DIRECTION_OUT)
+            ->where('provider_message_id', 'like', '%' . $key)
+            ->exists();
+
+        if ($known) {
+            return;
+        }
+
+        WhatsappMessage::create([
+            'store_id' => $link->store_id,
+            'direction' => WhatsappMessage::DIRECTION_OUT,
+            'kind' => $message->kind ?? WhatsappMessage::KIND_TEXT,
+            'phone' => $message->phone,
+            'body' => $message->body,
+            'meta' => ['source' => 'phone'],
+            'provider_message_id' => $message->providerMessageId,
+            'status' => 'sent',
+        ]);
     }
 
     private function apply(Order $order, string $intent): void

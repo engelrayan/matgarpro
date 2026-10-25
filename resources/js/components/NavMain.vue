@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
+import { SidebarGroup, SidebarGroupLabel, SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
 
@@ -42,6 +42,11 @@ const isActive = (href: string): boolean => {
                         <span>{{ item.title }}</span>
                     </Link>
                 </SidebarMenuButton>
+                <!-- Left, not the component's right: in RTL the title starts
+                     at the right edge and the count would sit on top of it. -->
+                <SidebarMenuBadge v-if="item.badge" class="right-auto left-1 rounded-full bg-primary text-primary-foreground peer-hover/menu-button:text-primary-foreground peer-data-[active=true]/menu-button:text-primary-foreground">
+                    {{ item.badge > 99 ? '99+' : item.badge }}
+                </SidebarMenuBadge>
             </SidebarMenuItem>
         </SidebarMenu>
     </SidebarGroup>

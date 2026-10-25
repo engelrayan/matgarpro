@@ -22,5 +22,15 @@ class InboundMessage
         public readonly ?string $payload = null,
         /** The provider id of our message this one replies to, if the gateway says. */
         public readonly ?string $replyTo = null,
+        /** The name on the customer's WhatsApp profile, when the gateway sends it. */
+        public readonly ?string $pushName = null,
+        /** text | vote | media — see WhatsappMessage's KIND_ constants. */
+        public readonly ?string $kind = null,
+        /**
+         * Written by the store itself on the linked phone (WAHA). Not a reply:
+         * it goes into the conversation as an outgoing message and decides
+         * nothing about any order.
+         */
+        public readonly bool $fromMe = false,
     ) {}
 }

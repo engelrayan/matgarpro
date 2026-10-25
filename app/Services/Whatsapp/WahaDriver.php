@@ -4,6 +4,7 @@ namespace App\Services\Whatsapp;
 
 use App\Models\Order;
 use App\Models\StoreWhatsappIntegration;
+use App\Models\WhatsappMessage;
 use App\Services\Whatsapp\Waha\WahaClient;
 use App\Services\Whatsapp\Waha\WahaException;
 use Illuminate\Http\Request;
@@ -20,7 +21,7 @@ use Illuminate\Http\Request;
  * looks automated. So it sends only what an order makes necessary, and the
  * settings screen says so before the merchant links anything.
  */
-class WahaDriver implements ConfirmsWithButtons, ReportsSessionStatus, WhatsappDriver
+class WahaDriver implements ConfirmsWithButtons, ReportsDeliveries, ReportsSessionStatus, WhatsappDriver
 {
     public const CONFIRM_OPTION = '✅ تأكيد الطلب';
 
@@ -96,8 +97,9 @@ class WahaDriver implements ConfirmsWithButtons, ReportsSessionStatus, WhatsappD
     }
 
     /**
-     * Typed replies and poll votes, as one kind of reply. Our own messages,
-     * groups and status updates are not replies and are skipped.
+     * Typed messages and poll votes. `message.any` also carries what the
+     * merchant writes on the linked phone, which comes back marked fromMe
+     * for the inbox; groups and status updates are skipped.
      *
      * @return array<int,InboundMessage>
      */
@@ -106,10 +108,32 @@ class WahaDriver implements ConfirmsWithButtons, ReportsSessionStatus, WhatsappD
         $payload = (array) $request->input('payload', []);
 
         return match ($request->input('event')) {
-            'message' => $this->typed($payload),
+            'message' => ($payload['fromMe'] ?? false) ? [] : $this->typed($payload),
+            'message.any' => $this->typed($payload),
             'poll.vote' => $this->vote($payload),
             default => [],
         };
+    }
+
+    /**
+     * Delivered and read ticks for a message we sent.
+     *
+     * @return array{key: string, status: string}|null
+     */
+    public function deliveryUpdate(Request $request): ?array
+    {
+        if ($request->input('event') !== 'message.ack') {
+            return null;
+        }
+
+        $status = match ((int) $request->input('payload.ack')) {
+            2 => 'delivered',
+            3, 4 => 'read',
+            default => null,
+        };
+        $key = WhatsappMessage::providerKey($request->input('payload.id'));
+
+        return $status && $key ? ['key' => $key, 'status' => $status] : null;
     }
 
     /**
@@ -157,17 +181,67 @@ class WahaDriver implements ConfirmsWithButtons, ReportsSessionStatus, WhatsappD
             ?? $this->client->phoneForLid($this->link, $from);
     }
 
+    /**
+     * The customer a message the store wrote went to — the same hiding
+     * applies, with `RecipientAlt` in place of `SenderAlt`.
+     */
+    private function recipient(array $payload): ?string
+    {
+        $to = $payload['to'] ?? data_get($payload, '_data.Info.Chat');
+
+        if ($phone = WahaClient::phoneFromJid($to)) {
+            return $phone;
+        }
+
+        if (! is_string($to) || ! str_ends_with($to, '@lid')) {
+            return null;
+        }
+
+        return WahaClient::phoneFromJid(data_get($payload, '_data.Info.RecipientAlt'))
+            ?? $this->client->phoneForLid($this->link, $to);
+    }
+
     /** @return array<int,InboundMessage> */
     private function typed(array $payload): array
     {
-        $phone = $this->sender($payload, $payload['from'] ?? null);
+        $fromMe = (bool) ($payload['fromMe'] ?? false);
+        $phone = $fromMe ? $this->recipient($payload) : $this->sender($payload, $payload['from'] ?? null);
         $body = trim((string) ($payload['body'] ?? ''));
+        $media = ($payload['hasMedia'] ?? false) ? $this->mediaLabel($payload) : null;
 
-        if (($payload['fromMe'] ?? false) || $phone === null || $body === '') {
+        if ($media !== null) {
+            $body = trim($media . ($body !== '' ? "\n" . $body : ''));
+        }
+
+        if ($phone === null || $body === '') {
             return [];
         }
 
-        return [new InboundMessage(phone: $phone, body: $body, providerMessageId: $payload['id'] ?? null)];
+        return [new InboundMessage(
+            phone: $phone,
+            body: $body,
+            providerMessageId: $payload['id'] ?? null,
+            pushName: $fromMe ? null : (data_get($payload, '_data.Info.PushName') ?: null),
+            kind: $media !== null ? WhatsappMessage::KIND_MEDIA : WhatsappMessage::KIND_TEXT,
+            fromMe: $fromMe,
+        )];
+    }
+
+    /**
+     * What arrived, in words — the file itself stays on the phone for now.
+     * The caption, if any, follows on the next line.
+     */
+    private function mediaLabel(array $payload): string
+    {
+        $type = (string) (data_get($payload, '_data.Info.MediaType') ?: data_get($payload, 'media.mimetype') ?: '');
+
+        return match (true) {
+            str_contains($type, 'ptt'), str_contains($type, 'audio') => '🎤 رسالة صوتية',
+            str_contains($type, 'image') => '📷 صورة',
+            str_contains($type, 'video') => '🎬 فيديو',
+            str_contains($type, 'sticker') => '🙂 ملصق',
+            default => '📎 ملف',
+        };
     }
 
     /** @return array<int,InboundMessage> */

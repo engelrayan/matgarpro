@@ -2,7 +2,7 @@
 import { useSidebar } from '@/components/ui/sidebar';
 import { type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
-import { Ellipsis, LayoutGrid, LayoutTemplate, Package, ShoppingBag } from 'lucide-vue-next';
+import { Ellipsis, LayoutGrid, MessagesSquare, Package, ShoppingBag } from 'lucide-vue-next';
 
 /*
  * The phone's tab bar.
@@ -17,7 +17,9 @@ const tabs = [
     { title: 'الرئيسية', href: '/dashboard', icon: LayoutGrid },
     { title: 'الطلبات', href: '/orders', icon: ShoppingBag },
     { title: 'المنتجات', href: '/products', icon: Package },
-    { title: 'التصميم', href: '/builder', icon: LayoutTemplate },
+    // The chats, not the builder: a merchant answers customers from the
+    // phone all day and designs the shop from a computer, once.
+    { title: 'المحادثات', href: '/inbox', icon: MessagesSquare },
 ];
 
 const page = usePage<SharedData>();
@@ -43,7 +45,15 @@ const isActive = (href: string) => {
             :class="isActive(tab.href) ? 'text-primary' : 'text-muted-foreground'"
             :aria-current="isActive(tab.href) ? 'page' : undefined"
         >
-            <component :is="tab.icon" class="size-6" :stroke-width="isActive(tab.href) ? 2.3 : 1.8" />
+            <span class="relative">
+                <component :is="tab.icon" class="size-6" :stroke-width="isActive(tab.href) ? 2.3 : 1.8" />
+                <span
+                    v-if="tab.href === '/inbox' && page.props.inbox_unread"
+                    class="absolute -top-1 -left-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-success px-1 text-[9.5px] font-semibold text-white"
+                >
+                    {{ page.props.inbox_unread > 99 ? '99+' : page.props.inbox_unread }}
+                </span>
+            </span>
             {{ tab.title }}
         </Link>
 
