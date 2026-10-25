@@ -119,14 +119,38 @@ class DamanClient
     }
 
     /**
+     * What the merchant should do, by the field Daman complained about.
+     *
+     * Only used when Daman's own sentence is in English — its Arabic ones
+     * (no carrier linked, no collection agreement) already say what to do.
+     */
+    private const ADVICE = [
+        'pricing' => 'شركة الشحن بتاعتك في ضمان مش محدّد لها سعر للمحافظة دي. ضيف سعر المحافظة من حسابك في ضمان، أو اربط شركة شحن بتغطيها، وبعدين ابعت الطلب تاني.',
+        'credit_limit' => 'وصلت للحد اليومي المسموح بيه في ضمان. ابعت الطلب بكرة، أو كلّم ضمان يزوّدوا الحد.',
+        'governorate' => 'ضمان مش عارف المحافظة اللي في الطلب. عدّل المحافظة من صفحة الطلب وابعته تاني.',
+        'governorate_id' => 'ضمان مش عارف المحافظة اللي في الطلب. عدّل المحافظة من صفحة الطلب وابعته تاني.',
+        'governorate_name' => 'ضمان مش عارف المحافظة اللي في الطلب. عدّل المحافظة من صفحة الطلب وابعته تاني.',
+        'customer_name' => 'اسم العميل ناقص أو قصير (٣ حروف على الأقل). عدّله من صفحة الطلب وابعته تاني.',
+        'customer_phone' => 'رقم موبايل العميل مش مظبوط. عدّله من صفحة الطلب وابعته تاني.',
+        'customer_address' => 'العنوان ناقص أو قصير. اكتبه بالتفصيل من صفحة الطلب وابعته تاني.',
+        'cod_amount' => 'مبلغ التحصيل مرفوض من ضمان. راجع إجمالي الطلب وابعته تاني.',
+        'shipping_company_id' => 'شركة الشحن المطلوبة مش مربوطة بحسابك في ضمان. اربطها من حسابك في ضمان وابعت الطلب تاني.',
+    ];
+
+    /**
      * Daman returns validation errors keyed by field. Merchants do not read
-     * JSON, so we flatten it into the sentence they will actually act on.
+     * JSON — or, for some of these, English — so each becomes the Arabic
+     * sentence they will actually act on.
      */
     private function rowError(mixed $result): string
     {
         $errors = collect((array) ($result['errors'] ?? []))
-            ->flatten()
-            ->filter(fn ($line) => is_string($line) && $line !== '')
+            ->map(fn ($messages, $field) => $this->explain(
+                (string) $field,
+                collect((array) $messages)->first(fn ($line) => is_string($line) && $line !== ''),
+            ))
+            ->filter()
+            ->unique()
             ->take(2);
 
         return $errors->isNotEmpty()
@@ -134,13 +158,53 @@ class DamanClient
             : 'ضمان رفض الطلب من غير ما يقول السبب.';
     }
 
+    /**
+     * One of Daman's complaints, in Arabic. An English one we have no advice
+     * for is still said in Arabic, with Daman's words kept in brackets for
+     * whoever the merchant forwards it to.
+     */
+    private function explain(string $field, ?string $message): ?string
+    {
+        if ($message === null) {
+            // Daman also returns data under the errors key (the governorates
+            // a carrier does cover); there is nothing to say about those.
+            return null;
+        }
+
+        if ($this->isArabic($message)) {
+            return $message;
+        }
+
+        return self::ADVICE[$field] ?? "ضمان رفض الطلب ({$message}).";
+    }
+
     private function globalError(Response $response): string
     {
+        // A whole-request refusal still carries per-field errors when it is a
+        // validation failure — those are what the merchant can act on.
+        $errors = $response->json('errors');
+
+        if (is_array($errors) && $errors !== []) {
+            return $this->rowError(['errors' => $errors]);
+        }
+
         $message = $response->json('message');
 
-        return is_string($message) && $message !== ''
-            ? $message
-            : 'ضمان رد بخطأ (' . $response->status() . ').';
+        if (is_string($message) && $message !== '') {
+            return $this->isArabic($message) ? $message : "ضمان رد بخطأ ({$message}).";
+        }
+
+        return 'ضمان رد بخطأ (' . $response->status() . '). جرّب تاني بعد شوية.';
+    }
+
+    /**
+     * Written in Arabic, judged by its first letter: an English sentence can
+     * quote an Arabic governorate back ("Could not resolve governorate from
+     * 'الإسكندرية'") and is still English to the merchant reading it.
+     */
+    private function isArabic(string $message): bool
+    {
+        return (bool) preg_match('/^[^\p{L}]*\p{Arabic}/u', $message);
     }
 
     /**

@@ -234,7 +234,53 @@ class DamanShippingTest extends TestCase
 
         $this->assertSame(Order::STATUS_CONFIRMED, $order->status);
         $this->assertNull($order->daman_shipment_id);
-        $this->assertStringContainsString('governorate', $order->daman_error);
+        $this->assertStringContainsString('عدّل المحافظة من صفحة الطلب', $order->daman_error);
+    }
+
+    /**
+     * What Daman says, in Arabic and as something to do: its English
+     * sentences get advice, its Arabic ones are kept, and an English one we
+     * have no advice for is still introduced in Arabic.
+     *
+     * @return array<string,array{0:array<string,mixed>,1:string,2?:string}>
+     */
+    public static function damanRefusals(): array
+    {
+        return [
+            'no carrier price' => [
+                ['pricing' => ['Carrier has no price configured for this governorate.']],
+                'ضيف سعر المحافظة من حسابك في ضمان',
+            ],
+            'credit limit' => [
+                ['credit_limit' => ['Daily credit limit exceeded.']],
+                'للحد اليومي المسموح بيه',
+            ],
+            'already Arabic, with data under errors' => [
+                ['governorate' => ['لا توجد شركة شحن مرتبطة بحسابك تخدم هذه المحافظة.'], 'covered_governorate_ids' => [1, 2]],
+                'لا توجد شركة شحن مرتبطة بحسابك تخدم هذه المحافظة.',
+            ],
+            'unknown English' => [
+                ['reference' => ['The reference field must not be greater than 100 characters.']],
+                'ضمان رفض الطلب (The reference field',
+            ],
+        ];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('damanRefusals')]
+    public function test_daman_refusals_reach_the_merchant_in_arabic(array $errors, string $expected): void
+    {
+        $this->link();
+        $order = $this->order();
+
+        Http::fake(['*/shipments' => Http::response([
+            'data' => ['results' => [['status' => 'failed', 'index' => 0, 'errors' => $errors]]],
+        ], 422)]);
+
+        $this->actingAs($this->user)->post('http://localhost/orders-bulk/daman', ['ids' => [$order->id]]);
+
+        $error = $order->fresh()->daman_error;
+        $this->assertStringContainsString($expected, $error);
+        $this->assertDoesNotMatchRegularExpression('/^[A-Za-z]/', $error);
     }
 
     public function test_an_order_with_no_governorate_never_reaches_daman(): void
