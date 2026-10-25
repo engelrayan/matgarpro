@@ -70,6 +70,32 @@ class StorePlanApplier
     }
 
     /**
+     * Starter products still waiting as drafts — what a publish can offer to
+     * put live with the pages.
+     */
+    public function starterDrafts(Store $store): int
+    {
+        $ids = (array) data_get($store->settings, self::SAMPLES_SETTING, []);
+
+        return $ids === [] ? 0 : $store->products()->whereIn('id', $ids)->where('status', Product::STATUS_DRAFT)->count();
+    }
+
+    /**
+     * Put the starter products live, when the merchant ticked it at publish:
+     * a shop published without them is a shop with nothing to buy. Only the
+     * plan's own products, and only those still drafts.
+     */
+    public function activateStarters(Store $store): int
+    {
+        $ids = (array) data_get($store->settings, self::SAMPLES_SETTING, []);
+
+        return $ids === [] ? 0 : $store->products()
+            ->whereIn('id', $ids)
+            ->where('status', Product::STATUS_DRAFT)
+            ->update(['status' => Product::STATUS_ACTIVE]);
+    }
+
+    /**
      * The plan's example products, as drafts with photos.
      *
      * A second plan replaces the first one's examples rather than piling more

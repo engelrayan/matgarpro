@@ -161,7 +161,7 @@ class AiStoreBuilderController extends Controller
      * The plan as a shop: the real storefront, drafts and starter products
      * and all, in the theme the plan suggested — before any of it is live.
      */
-    public function preview(Request $request, AiGeneration $generation, PreviewToken $tokens, ThemeResolver $themes, AiUsageMeter $meter): Response|RedirectResponse
+    public function preview(Request $request, AiGeneration $generation, PreviewToken $tokens, ThemeResolver $themes, AiUsageMeter $meter, StorePlanApplier $applier): Response|RedirectResponse
     {
         $generation = $this->ownedGeneration($request, $generation, AiFeature::StoreBuilder);
         $store = $request->user()->currentStore();
@@ -181,6 +181,7 @@ class AiStoreBuilderController extends Controller
             'theme' => ['key' => $theme['key'], 'name' => $theme['name'], 'reason' => $plan['theme_reason'] ?? ''],
             'headsUp' => $plan['heads_up'] ?? '',
             'productCount' => count((array) ($plan['products'] ?? [])),
+            'starterDrafts' => $applier->starterDrafts($store),
             'published' => filled($plan['published_at'] ?? null),
             'triesLeft' => $meter->remaining($store, AiFeature::StoreBuilder),
         ]);
@@ -189,10 +190,10 @@ class AiStoreBuilderController extends Controller
     /**
      * Everything the plan drafted, made live in one go: home, header and
      * footer published, and the shop switched to the suggested theme. The
-     * starter products stay drafts — they are examples until the merchant
-     * gives each a real photo and price.
+     * starter products go live too when the merchant ticked it (the screen
+     * says they will be sold at those prices); otherwise they stay drafts.
      */
-    public function publish(Request $request, AiGeneration $generation, PageBuilder $builder): RedirectResponse
+    public function publish(Request $request, AiGeneration $generation, PageBuilder $builder, StorePlanApplier $applier): RedirectResponse
     {
         $generation = $this->ownedGeneration($request, $generation, AiFeature::StoreBuilder);
         $store = $request->user()->currentStore();
@@ -206,6 +207,10 @@ class AiStoreBuilderController extends Controller
 
         if (array_key_exists($plan['theme'] ?? '', (array) config('themes.themes'))) {
             $store->update(['settings' => [...(array) $store->settings, 'theme' => $plan['theme']]]);
+        }
+
+        if ($request->boolean('activate_samples')) {
+            $applier->activateStarters($store);
         }
 
         $generation->update(['result' => [...$plan, 'published_at' => now()->toIso8601String()]]);

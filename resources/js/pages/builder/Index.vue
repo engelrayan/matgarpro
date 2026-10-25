@@ -51,6 +51,8 @@ const props = defineProps<{
     page: string;
     pageLabel: string;
     pages: { key: string; label: string; published: string | null; dirty: boolean }[];
+    /** The AI store builder's starter products still waiting as drafts. */
+    starterDrafts: number;
     sections: Section[];
     catalogue: Definition[];
     previewUrl: string;
@@ -297,11 +299,17 @@ let publishedTimer: ReturnType<typeof setTimeout> | undefined;
 // shop for everything else.
 const liveUrl = computed(() => props.landing?.product_url ?? props.storeUrl);
 
+// The starter products go live with the pages unless the merchant unticks it:
+// a shop published with nothing in it is the empty shelf the AI was there
+// to fill. The box says plainly that customers can order them.
+const activateSamples = ref(true);
+
 const publish = (all = false) => {
     askAll.value = false;
-    const labels = [props.pageLabel, ...(all ? otherDrafts.value.map((p) => p.label) : [])];
+    const samples = props.starterDrafts > 0 && activateSamples.value;
+    const labels = [props.pageLabel, ...(all ? otherDrafts.value.map((p) => p.label) : []), ...(samples ? ['منتجات المثال'] : [])];
 
-    router.post(`/builder/${props.page}/publish`, all ? { all: true } : {}, {
+    router.post(`/builder/${props.page}/publish`, { ...(all ? { all: true } : {}), ...(samples ? { activate_samples: true } : {}) }, {
         preserveScroll: true,
         onStart: () => (publishing.value = true),
         onSuccess: () => {
@@ -313,7 +321,7 @@ const publish = (all = false) => {
     });
 };
 
-const onPublishClick = () => (otherDrafts.value.length ? (askAll.value = !askAll.value) : publish());
+const onPublishClick = () => (otherDrafts.value.length || props.starterDrafts ? (askAll.value = !askAll.value) : publish());
 onUnmounted(() => clearTimeout(publishedTimer));
 
 const discard = () => {
@@ -457,11 +465,31 @@ const FRAME_WIDTH = { desktop: '100%', tablet: '820px', mobile: '390px' };
                         v-if="askAll"
                         class="absolute left-0 top-full z-30 mt-2 w-72 rounded-2xl bg-card p-4 text-sm shadow-[0_0_0_0.5px_hsl(var(--foreground)/0.12),0_12px_32px_-8px_hsl(var(--foreground)/0.25)]"
                     >
-                        <p class="font-semibold">فيه تعديلات مش منشورة كمان</p>
-                        <p class="mt-1 text-muted-foreground">في {{ otherDrafts.map((p) => p.label).join('، ') }}.</p>
+                        <template v-if="otherDrafts.length">
+                            <p class="font-semibold">فيه تعديلات مش منشورة كمان</p>
+                            <p class="mt-1 text-muted-foreground">في {{ otherDrafts.map((p) => p.label).join('، ') }}.</p>
+                        </template>
+
+                        <label
+                            v-if="starterDrafts"
+                            class="flex items-start gap-2.5 rounded-xl bg-muted/60 p-3"
+                            :class="otherDrafts.length ? 'mt-3' : ''"
+                        >
+                            <input v-model="activateSamples" type="checkbox" class="mt-0.5 size-4 shrink-0 accent-[hsl(var(--primary))]" />
+                            <span>
+                                <span class="font-semibold">فعّل منتجات المثال كمان ({{ starterDrafts }})</span>
+                                <span class="mt-0.5 block text-[12px] leading-relaxed text-muted-foreground">
+                                    هتظهر للزبون بالصور والأسعار دي ويقدر يطلبها. تقدر تعدّلها أو تشيلها من المنتجات في أي وقت.
+                                </span>
+                            </span>
+                        </label>
+
                         <div class="mt-3 flex flex-col gap-2">
-                            <button class="btn-primary w-full" @click="publish(true)">انشر كل حاجة</button>
-                            <button class="btn-ghost w-full" @click="publish(false)">انشر {{ pageLabel }} بس</button>
+                            <template v-if="otherDrafts.length">
+                                <button class="btn-primary w-full" @click="publish(true)">انشر كل حاجة</button>
+                                <button class="btn-ghost w-full" @click="publish(false)">انشر {{ pageLabel }} بس</button>
+                            </template>
+                            <button v-else class="btn-primary w-full" @click="publish(false)">انشر</button>
                         </div>
                     </div>
                 </div>

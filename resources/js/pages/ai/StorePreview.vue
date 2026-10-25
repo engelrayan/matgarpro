@@ -22,6 +22,8 @@ const props = defineProps<{
     theme: { key: string; name: string; reason: string };
     headsUp: string;
     productCount: number;
+    /** Starter products still drafts: what «انشر المتجر» can put live too. */
+    starterDrafts: number;
     published: boolean;
     triesLeft: number;
 }>();
@@ -39,9 +41,12 @@ const triesLabel = computed(() =>
     props.triesLeft === 1 ? 'باقي محاولة واحدة' : props.triesLeft === 2 ? 'باقي محاولتين' : `باقي ${props.triesLeft} محاولات`,
 );
 
+// Ticked by default: published without them the shop has nothing to buy.
+const activateSamples = ref(true);
+
 const publish = () => {
     publishing.value = true;
-    router.post(`/ai/store-plans/${props.generationId}/publish`, {}, {
+    router.post(`/ai/store-plans/${props.generationId}/publish`, props.starterDrafts && activateSamples.value ? { activate_samples: true } : {}, {
         preserveScroll: true,
         onFinish: () => (publishing.value = false),
     });
@@ -91,9 +96,21 @@ const publish = () => {
                 </div>
             </section>
 
+            <label v-if="!published && starterDrafts" class="surface flex cursor-pointer items-start gap-3 p-4 text-[14px] leading-relaxed">
+                <input v-model="activateSamples" type="checkbox" class="mt-1 size-[18px] shrink-0 accent-[hsl(var(--primary))]" />
+                <span class="min-w-0">
+                    <span class="font-semibold">انشر منتجات المثال مع المتجر ({{ starterDrafts }})</span>
+                    <span class="block text-muted-foreground">
+                        عشان متجرك يتفتح مليان. هتظهر للزبون بالصور والأسعار اللي شايفها ويقدر يطلبها — تقدر تعدّلها أو تشيلها من
+                        <Link href="/products" class="font-medium text-primary hover:underline">المنتجات</Link>
+                        في أي وقت. لو شلت العلامة، هتفضل مسودة.
+                    </span>
+                </span>
+            </label>
+
             <!-- ── Notes worth reading before نشر ──────────────────────── -->
             <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <div v-if="productCount" class="surface flex items-start gap-3 p-4 text-[14px] leading-relaxed">
+                <div v-if="productCount && starterDrafts" class="surface flex items-start gap-3 p-4 text-[14px] leading-relaxed">
                     <span class="ios-tile bg-primary text-primary-foreground"><Package class="size-[18px]" /></span>
                     <p class="min-w-0 text-muted-foreground">
                         <span class="font-semibold text-foreground">{{ productCount }} منتجات مثال بصور حقيقية</span>

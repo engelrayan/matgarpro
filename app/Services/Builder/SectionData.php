@@ -87,9 +87,11 @@ class SectionData
         return $this->categories ??= $this->store->categories()
             ->where('is_active', true)
             // An empty category is a dead end the customer paid attention to
-            // reach, so it is never offered anywhere.
-            ->has('products')
-            ->withCount('products')
+            // reach, so it is never offered anywhere — and a category of
+            // drafts is empty to a customer: counting every product put
+            // "٢ منتج" over a blank card that opened onto nothing.
+            ->whereHas('products', fn ($q) => $this->shown($q))
+            ->withCount(['products' => fn ($q) => $this->shown($q)])
             ->with(['products' => fn ($q) => $this->shown($q)
                 ->with('images')->orderBy('sort_order')->limit(1)])
             ->orderBy('sort_order')
