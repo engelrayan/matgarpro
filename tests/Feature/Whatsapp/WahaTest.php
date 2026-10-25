@@ -200,7 +200,8 @@ class WahaTest extends TestCase
             && str_contains($request['poll']['name'], 'سارة')
             && str_contains($request['poll']['name'], '#' . $order->number)
             && str_contains($request['poll']['name'], '1× قميص')
-            && str_contains($request['poll']['name'], 'متجر الأناقة')
+            && str_contains($request['poll']['name'], 'من متجر الأناقة')
+            && ! str_contains($request['poll']['name'], 'متجر متجر')
             && str_contains($request['poll']['name'], 'برجاء تأكيد الطلب')
             && $request['poll']['options'] === [WahaDriver::CONFIRM_OPTION, WahaDriver::CANCEL_OPTION]);
         Http::assertNotSent(fn ($request) => str_ends_with($request->url(), '/api/sendText'));
