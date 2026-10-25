@@ -89,8 +89,13 @@ return [
     | more than the pound we are owed — but past this point an order's
     | customer details wait for a top-up (Store::hidesNewOrders,
     | OrderUnlocker), and that is what makes topping up worth doing.
+    |
+    | 0: no credit at all. A wallet at zero hides the very next order, so a
+    | merchant tops up before the first customer's details show. It was 25
+    | (some fifty orders on credit at 0.50) until a merchant could run a shop
+    | for weeks without ever topping up.
     */
-    'overdraft_limit' => (float) env('BILLING_OVERDRAFT_LIMIT', 25),
+    'overdraft_limit' => (float) env('BILLING_OVERDRAFT_LIMIT', 0),
 
     /*
     |--------------------------------------------------------------------------

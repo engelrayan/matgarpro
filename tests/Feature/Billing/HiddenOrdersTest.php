@@ -90,6 +90,38 @@ class HiddenOrdersTest extends TestCase
         $this->assertSame('-30.00', (string) $this->store->refresh()->balance);
     }
 
+    /**
+     * The platform's setting: no credit. A merchant who never topped up sees
+     * their first order arrive hidden, and topping up is what opens it.
+     */
+    public function test_with_no_credit_a_wallet_at_zero_hides_the_very_first_order(): void
+    {
+        config()->set('billing.overdraft_limit', 0);
+        $this->assertSame('0.00', (string) $this->store->refresh()->balance);
+
+        $this->order()->assertRedirect();
+
+        $order = Order::sole();
+        $this->assertTrue($order->isLocked());
+        $this->assertSame(0, StoreUsageEvent::where('type', StoreUsageEvent::TYPE_ORDER)->count());
+
+        $this->actingAs(Admin::factory()->create(), 'admin')
+            ->post("http://localhost/admin/stores/{$this->store->id}/wallet", ['direction' => 'credit', 'amount' => 100, 'note' => 'شحن'])
+            ->assertSessionHasNoErrors();
+
+        $this->assertFalse($order->fresh()->isLocked());
+    }
+
+    public function test_a_free_plan_never_hides_an_order_whatever_the_balance(): void
+    {
+        config()->set('billing.overdraft_limit', 0);
+        $this->store->update(['billing_plan_id' => BillingPlan::factory()->create(['price_per_order' => 0])->id]);
+
+        $this->order()->assertRedirect();
+
+        $this->assertFalse(Order::sole()->isLocked());
+    }
+
     public function test_inside_the_buffer_the_order_is_visible_and_billed(): void
     {
         $this->balance(-24);
