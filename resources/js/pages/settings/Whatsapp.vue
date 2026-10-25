@@ -593,6 +593,21 @@ const TILES = computed(() => [
                                             <div class="max-w-[22rem] rounded-2xl rounded-tr-sm bg-success/10 p-3 text-sm leading-relaxed whitespace-pre-wrap">
                                                 {{ preview }}
                                             </div>
+
+                                            <!-- On our WAHA gateway the reply is a poll sent right
+                                                 under the message — drawn here so the merchant sees
+                                                 that the customer taps, not types. -->
+                                            <div v-if="isWaha" class="mt-1.5 max-w-[22rem] rounded-2xl rounded-tr-sm bg-success/10 p-3 text-sm">
+                                                <p class="font-semibold">تأكّد طلبك رقم #1042؟</p>
+                                                <p class="mt-0.5 text-[11px] text-muted-foreground">اختار إجابة واحدة</p>
+                                                <div class="mt-2.5 space-y-2">
+                                                    <div v-for="option in ['✅ تأكيد الطلب', '❌ إلغاء الطلب']" :key="option" class="flex items-center gap-2">
+                                                        <span class="size-4 shrink-0 rounded-full border-2 border-muted-foreground/40"></span>
+                                                        <span>{{ option }}</span>
+                                                    </div>
+                                                </div>
+                                                <p class="mt-2.5 border-t border-border pt-2 text-center text-[11px] text-info">العميل بيدوس على اختيار — من غير ما يكتب حاجة</p>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
