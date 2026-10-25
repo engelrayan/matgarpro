@@ -75,6 +75,28 @@ return [
             'remind_after_hours' => (int) env('PLATFORM_WHATSAPP_REMIND_AFTER_HOURS', 3),
             'give_up_after_hours' => (int) env('PLATFORM_WHATSAPP_GIVE_UP_AFTER_HOURS', 12),
         ],
+
+        /*
+        | WAHA — our own WhatsApp gateway, self-hosted (devlikeapro/waha, GOWS
+        | engine). Each store links its own number by scanning a QR code in
+        | the dashboard, one WAHA session per store, no third-party account.
+        |
+        | `url` is where the app reaches WAHA (keep it on the private network —
+        | its API can read and send every linked number's messages).
+        | `callback_url` is where WAHA reaches the app with webhooks, which on a
+        | local Docker setup is not the browser's URL.
+        |
+        | Left empty, the option simply does not appear to merchants.
+        */
+        'waha' => [
+            'url' => env('WAHA_URL'),
+            'api_key' => env('WAHA_API_KEY'),
+            // Signs every webhook (HMAC-SHA512). Required: these webhooks move
+            // orders, and the URL token alone is not enough for that.
+            'webhook_secret' => env('WAHA_WEBHOOK_SECRET'),
+            'callback_url' => env('WAHA_CALLBACK_URL', env('APP_URL')),
+            'engine' => env('WAHA_ENGINE', 'GOWS'),
+        ],
     ],
 
     /*

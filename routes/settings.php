@@ -91,6 +91,10 @@ Route::middleware('auth')->group(function () {
     Route::put('settings/whatsapp', [WhatsappController::class, 'update'])->name('whatsapp.update');
     // The platform's own number — one click, nothing to paste.
     Route::post('settings/whatsapp/platform', [WhatsappController::class, 'platform'])->name('whatsapp.platform');
+    // The store's own number by QR, through our WAHA server; the screen polls
+    // the status for the QR and for the moment the phone is linked.
+    Route::post('settings/whatsapp/waha', [WhatsappController::class, 'waha'])->name('whatsapp.waha');
+    Route::get('settings/whatsapp/waha/status', [WhatsappController::class, 'wahaStatus'])->name('whatsapp.waha.status');
     Route::put('settings/whatsapp/message', [WhatsappController::class, 'message'])->name('whatsapp.message');
     Route::post('settings/whatsapp/test', [WhatsappController::class, 'test'])->name('whatsapp.test');
     Route::patch('settings/whatsapp/toggle', [WhatsappController::class, 'toggle'])->name('whatsapp.toggle');

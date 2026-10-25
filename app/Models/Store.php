@@ -320,15 +320,34 @@ class Store extends Model
     }
 
     /**
-     * What a WhatsApp confirmation adds to an order.
+     * What a WhatsApp confirmation adds to an order — on the store's own
+     * channel, or the one named.
      *
      * Nothing for a store whose orders are free — the founding plan, or an
      * operator's zero override. Charging those for the message alone would
      * break the promise their plan is named after.
      */
-    public function confirmationPrice(): float
+    public function confirmationPrice(?string $driver = null): float
     {
-        return $this->basePricePerOrder() > 0 ? (float) config('billing.whatsapp_confirmation_fee') : 0.0;
+        if ($this->basePricePerOrder() <= 0) {
+            return 0.0;
+        }
+
+        return self::confirmationFeeFor($driver ?? $this->whatsappIntegration?->driver);
+    }
+
+    /**
+     * A confirmation's price on a given channel — see billing.whatsapp_fees.
+     * Shared with the settings screen, which shows each channel's price
+     * before the merchant picks one.
+     */
+    public static function confirmationFeeFor(?string $driver): float
+    {
+        return (float) match ($driver) {
+            StoreWhatsappIntegration::DRIVER_PLATFORM => config('billing.whatsapp_fees.meta'),
+            StoreWhatsappIntegration::DRIVER_WAHA => config('billing.whatsapp_fees.waha'),
+            default => config('billing.whatsapp_confirmation_fee'),
+        };
     }
 
     /**

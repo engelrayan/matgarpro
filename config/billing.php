@@ -52,6 +52,22 @@ return [
     'whatsapp_confirmation_fee' => (float) env('BILLING_WHATSAPP_CONFIRMATION_FEE', 0.50),
 
     /*
+    | …priced by the channel it went out on, because they cost us differently:
+    |
+    |   meta   the platform's official number — Meta bills us per template
+    |          message, so this is the default fee above.
+    |   waha   the store's own number through our WAHA server — no per-message
+    |          bill, only the server it runs on, so it is cheaper.
+    |
+    | A store on a gateway it pays for itself (its own Cloud API keys, Wapilot,
+    | Whats360) pays the default fee, as before.
+    */
+    'whatsapp_fees' => [
+        'meta' => (float) env('BILLING_WHATSAPP_FEE_META', env('BILLING_WHATSAPP_CONFIRMATION_FEE', 0.50)),
+        'waha' => (float) env('BILLING_WHATSAPP_FEE_WAHA', 0.25),
+    ],
+
+    /*
     |--------------------------------------------------------------------------
     | Topping up
     |--------------------------------------------------------------------------

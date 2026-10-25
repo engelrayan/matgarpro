@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Services\Whatsapp\PlatformWhatsapp;
+use App\Services\Whatsapp\Waha\WahaClient;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -31,6 +32,13 @@ class StoreWhatsappIntegration extends Model
      * gateway form, and the form can never select it.
      */
     public const DRIVER_PLATFORM = 'platform';
+
+    /**
+     * The store's own number through our self-hosted WAHA gateway, linked by
+     * scanning a QR code. Not in DRIVERS either: nothing to paste, and its
+     * one credential — the session's last status — is ours to write.
+     */
+    public const DRIVER_WAHA = 'waha';
 
     /** The gateways a merchant connects with their own keys. */
     public const DRIVERS = [self::DRIVER_WAPILOT, self::DRIVER_WHATS360, self::DRIVER_CLOUD_API];
@@ -68,6 +76,13 @@ class StoreWhatsappIntegration extends Model
         . "{items}\n"
         . "الإجمالي: {total} {currency} — الدفع عند الاستلام\n\n"
         . "ردّ بـ ١ عشان نأكّد الطلب، أو ٢ لو عايز تلغيه.";
+
+    /** On WAHA the reply is a poll under the message, so the message says to tap it. */
+    public const WAHA_TEMPLATE = "أهلاً {name} 👋\n"
+        . "طلبك رقم #{number} من {store} وصلنا:\n"
+        . "{items}\n"
+        . "الإجمالي: {total} {currency} — الدفع عند الاستلام\n\n"
+        . 'اختار «تأكيد الطلب» من الاستطلاع اللي تحت عشان نجهّزه ونشحنه.';
 
     protected $fillable = [
         'store_id', 'driver', 'credentials', 'sender_phone', 'is_active',
@@ -113,6 +128,11 @@ class StoreWhatsappIntegration extends Model
         return $this->driver === self::DRIVER_PLATFORM;
     }
 
+    public function isWaha(): bool
+    {
+        return $this->driver === self::DRIVER_WAHA;
+    }
+
     /** Can this store message a customer right now? */
     public function canSend(): bool
     {
@@ -122,6 +142,12 @@ class StoreWhatsappIntegration extends Model
 
         if ($this->isPlatform()) {
             return PlatformWhatsapp::configured();
+        }
+
+        // Only while the scanned number is actually linked: a logged-out
+        // session would take the order's one confirmation and drop it.
+        if ($this->isWaha()) {
+            return WahaClient::configured() && $this->credential('status') === WahaClient::WORKING;
         }
 
         foreach (self::CREDENTIAL_FIELDS[$this->driver] ?? [] as $field) {
@@ -136,7 +162,7 @@ class StoreWhatsappIntegration extends Model
     /** True for the gateways that drive a real WhatsApp session over QR. */
     public function isSessionGateway(): bool
     {
-        return in_array($this->driver, [self::DRIVER_WAPILOT, self::DRIVER_WHATS360], true);
+        return in_array($this->driver, [self::DRIVER_WAPILOT, self::DRIVER_WHATS360, self::DRIVER_WAHA], true);
     }
 
     public function credential(string $key): ?string
@@ -154,7 +180,11 @@ class StoreWhatsappIntegration extends Model
             return PlatformWhatsapp::BODY;
         }
 
-        return filled($this->message_template) ? $this->message_template : self::DEFAULT_TEMPLATE;
+        if (filled($this->message_template)) {
+            return $this->message_template;
+        }
+
+        return $this->isWaha() ? self::WAHA_TEMPLATE : self::DEFAULT_TEMPLATE;
     }
 
     public function webhookUrl(): string
