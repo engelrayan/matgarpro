@@ -263,4 +263,15 @@ class WahaTest extends TestCase
         $this->assertFalse($link->canSend());
         $this->assertStringContainsString('امسح', (string) $link->last_error);
     }
+
+    /** While the first QR is on screen, "waiting for a scan" is not a fault. */
+    public function test_the_first_scan_is_not_reported_as_a_disconnection(): void
+    {
+        $link = $this->linked('STARTING');
+
+        $this->webhook($link, ['event' => 'session.status', 'payload' => ['status' => 'SCAN_QR_CODE']])->assertOk();
+
+        $this->assertNull($link->fresh()->last_error);
+        $this->assertSame('SCAN_QR_CODE', $link->fresh()->credential('status'));
+    }
 }

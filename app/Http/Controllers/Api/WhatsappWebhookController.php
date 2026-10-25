@@ -70,11 +70,19 @@ class WhatsappWebhookController extends Controller
          */
         if ($driver instanceof ReportsSessionStatus && ($status = $driver->sessionStatus($request))) {
             $working = $status['status'] === WahaClient::WORKING;
+            // "Disconnected" only for a number that had been linked. During
+            // the first scan the screen is already showing the QR, and a red
+            // "your number dropped" banner beside it reads as a fault.
+            $wasLinked = $link->credential('status') === WahaClient::WORKING;
 
             $link->forceFill([
                 'credentials' => [...(array) $link->credentials, 'status' => $status['status']],
                 'sender_phone' => $status['phone'] ?? $link->sender_phone,
-                'last_error' => $working ? null : $this->statusMessage($status['status']),
+                'last_error' => match (true) {
+                    $working => null,
+                    $wasLinked => $this->statusMessage($status['status']),
+                    default => $link->last_error,
+                },
             ])->save();
 
             return response('ok', 200);
