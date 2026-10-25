@@ -137,10 +137,30 @@ class WahaDriver implements ConfirmsWithButtons, ReportsSessionStatus, WhatsappD
         ];
     }
 
+    /**
+     * Who wrote, as a phone number. WhatsApp often hides it behind a `@lid`
+     * id; the number then rides along in `SenderAlt`, and failing that WAHA
+     * can look it up. Without this a vote from such a customer matched no
+     * order and confirmed nothing.
+     */
+    private function sender(array $payload, ?string $from): ?string
+    {
+        if ($phone = WahaClient::phoneFromJid($from)) {
+            return $phone;
+        }
+
+        if (! is_string($from) || ! str_ends_with($from, '@lid')) {
+            return null;
+        }
+
+        return WahaClient::phoneFromJid(data_get($payload, '_data.Info.SenderAlt'))
+            ?? $this->client->phoneForLid($this->link, $from);
+    }
+
     /** @return array<int,InboundMessage> */
     private function typed(array $payload): array
     {
-        $phone = WahaClient::phoneFromJid($payload['from'] ?? null);
+        $phone = $this->sender($payload, $payload['from'] ?? null);
         $body = trim((string) ($payload['body'] ?? ''));
 
         if (($payload['fromMe'] ?? false) || $phone === null || $body === '') {
@@ -153,7 +173,7 @@ class WahaDriver implements ConfirmsWithButtons, ReportsSessionStatus, WhatsappD
     /** @return array<int,InboundMessage> */
     private function vote(array $payload): array
     {
-        $phone = WahaClient::phoneFromJid(data_get($payload, 'vote.from'));
+        $phone = $this->sender($payload, data_get($payload, 'vote.from'));
         $choice = trim((string) (data_get($payload, 'vote.selectedOptions.0') ?? ''));
 
         // An emptied vote — the customer took their choice back — says nothing.
