@@ -52,3 +52,18 @@ Schedule::command('whatsapp:remind')
     ->everyFifteenMinutes()
     ->withoutOverlapping()
     ->runInBackground();
+
+/*
+| Heartbeats for the admin's health page: the scheduler says it ran, and each
+| queue gets a job that says a worker picked it up. Without them a stopped
+| worker has no symptom until a merchant asks why nothing was sent.
+*/
+Schedule::call(fn () => \App\Support\Heartbeat::beat(\App\Support\Heartbeat::SCHEDULER))
+    ->everyMinute()
+    ->name('heartbeat:scheduler');
+
+foreach (array_unique(['default', (string) config('ai.queue')]) as $queue) {
+    Schedule::job(new \App\Jobs\QueueHeartbeat($queue), $queue)
+        ->everyMinute()
+        ->name("heartbeat:{$queue}");
+}
