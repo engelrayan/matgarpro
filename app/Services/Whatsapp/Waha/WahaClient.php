@@ -76,7 +76,13 @@ class WahaClient
         }
 
         $this->call(fn (PendingRequest $http) => $http->put("/api/sessions/{$name}", ['config' => $config]));
-        $this->call(fn (PendingRequest $http) => $http->post("/api/sessions/{$name}/start"));
+
+        // A linked number is left alone. Anything else is restarted, not just
+        // started: a session whose QR codes ran out sits in FAILED, and
+        // "start" on it does nothing — restart is what hands out fresh codes.
+        if (data_get($existing, 'status') !== self::WORKING) {
+            $this->call(fn (PendingRequest $http) => $http->post("/api/sessions/{$name}/restart"));
+        }
     }
 
     /**

@@ -133,6 +133,21 @@ const useWaha = () => {
     });
 };
 
+/** The codes ran out with nobody scanning — WAHA parks the session. */
+const wahaExpired = computed(() => wahaStatus.value === 'FAILED' || wahaStatus.value === 'STOPPED');
+
+// Same request as the first link; on an existing session the server
+// restarts it, which is what issues a fresh set of codes.
+const renewWaha = () => {
+    wahaQr.value = null;
+    router.post(route('whatsapp.waha'), {}, {
+        preserveScroll: true,
+        onStart: () => (startingWaha.value = true),
+        onFinish: () => (startingWaha.value = false),
+        onSuccess: () => pollWaha(),
+    });
+};
+
 const money = (amount: number) => (amount > 0 ? `${amount} ${props.currency} للطلب` : 'ببلاش');
 
 const FLASH_MESSAGES: Record<string, string> = {
@@ -407,7 +422,19 @@ const TILES = computed(() => [
 
                             <div v-else class="mt-4 flex flex-wrap items-start gap-5">
                                 <div class="flex size-56 shrink-0 items-center justify-center rounded-2xl border border-border bg-white p-2">
-                                    <img v-if="wahaQr" :src="`data:image/png;base64,${wahaQr}`" alt="كود ربط واتساب" class="size-full" />
+                                    <!-- WAHA hands out a handful of codes over about two
+                                         minutes, then gives up. Saying so, with a way to
+                                         start again, beats a spinner that never ends. -->
+                                    <div v-if="wahaExpired" class="px-4 text-center">
+                                        <p class="text-sm font-medium text-foreground">الكود خلص وقته</p>
+                                        <p class="mt-1 text-xs text-muted-foreground">محدش مسحه في الوقت. اعمل كود جديد وامسحه على طول.</p>
+                                        <button class="btn-primary mt-3 text-sm" :disabled="startingWaha" @click="renewWaha">
+                                            <LoaderCircle v-if="startingWaha" class="size-4 animate-spin" />
+                                            <QrCode v-else class="size-4" />
+                                            كود جديد
+                                        </button>
+                                    </div>
+                                    <img v-else-if="wahaQr" :src="`data:image/png;base64,${wahaQr}`" alt="كود ربط واتساب" class="size-full" />
                                     <LoaderCircle v-else class="size-6 animate-spin text-muted-foreground" />
                                 </div>
                                 <ol class="min-w-0 flex-1 list-decimal space-y-2 pr-4 text-sm leading-relaxed">
