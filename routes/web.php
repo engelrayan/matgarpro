@@ -6,6 +6,8 @@ use Inertia\Inertia;
 // Marketing site. Blade rather than Inertia: it is the page ad traffic lands
 // on, so it ships no application JS at all.
 Route::view('/', 'marketing.home')->name('home');
+// Public, and required by Meta before the platform's WhatsApp number can go live.
+Route::view('privacy', 'marketing.privacy')->name('privacy');
 Route::post('start', \App\Http\Controllers\StartWithAiController::class)
     ->middleware('throttle:20,1')
     ->name('start');

@@ -56,6 +56,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Contact
+    |--------------------------------------------------------------------------
+    | Where a merchant or a shopper reaches the platform — printed on the
+    | privacy page, which Meta and the data-protection law both require to
+    | name a way to ask about, correct or delete personal data.
+    */
+
+    'support_whatsapp' => env('SUPPORT_WHATSAPP', '01006262330'),
+    'support_email' => env('SUPPORT_EMAIL'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |

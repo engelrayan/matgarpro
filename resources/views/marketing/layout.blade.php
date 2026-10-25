@@ -28,6 +28,10 @@
 </head>
 <body class="bg-background font-sans text-foreground antialiased [&_section[id]]:scroll-mt-16">
 
+{{-- The section links (#ai, #pricing…) live on the home page. From any other
+     marketing page they need its address in front, or they go nowhere. --}}
+@php($home = request()->routeIs('home') ? '' : route('home'))
+
 {{-- A translucent bar, as on apple.com: thin, and the page visibly scrolls
      underneath it. Sticky now that the page is long enough to need the sign-up
      button within reach; anchored sections set `scroll-margin-top` so a jump
@@ -40,9 +44,9 @@
         </a>
 
         <nav class="hidden items-center gap-1 text-[14px] text-muted-foreground md:flex">
-            <a href="#ai" class="rounded-lg px-3 py-1.5 transition-colors hover:text-foreground">الذكاء الاصطناعي</a>
-            <a href="#shipping" class="rounded-lg px-3 py-1.5 transition-colors hover:text-foreground">الشحن والتحصيل</a>
-            <a href="#pricing" class="rounded-lg px-3 py-1.5 transition-colors hover:text-foreground">الأسعار</a>
+            <a href="{{ $home }}#ai" class="rounded-lg px-3 py-1.5 transition-colors hover:text-foreground">الذكاء الاصطناعي</a>
+            <a href="{{ $home }}#shipping" class="rounded-lg px-3 py-1.5 transition-colors hover:text-foreground">الشحن والتحصيل</a>
+            <a href="{{ $home }}#pricing" class="rounded-lg px-3 py-1.5 transition-colors hover:text-foreground">الأسعار</a>
         </nav>
 
         <nav class="flex items-center gap-1.5">
@@ -79,10 +83,10 @@
             <div>
                 <p class="text-[13px] font-semibold">المنصة</p>
                 <ul class="mt-3 space-y-2 text-[14px] text-muted-foreground">
-                    <li><a href="#ai" class="hover:text-foreground">الذكاء الاصطناعي</a></li>
-                    <li><a href="#builder" class="hover:text-foreground">تصميم المتجر</a></li>
-                    <li><a href="#shipping" class="hover:text-foreground">الشحن والتحصيل</a></li>
-                    <li><a href="#pricing" class="hover:text-foreground">الأسعار</a></li>
+                    <li><a href="{{ $home }}#ai" class="hover:text-foreground">الذكاء الاصطناعي</a></li>
+                    <li><a href="{{ $home }}#builder" class="hover:text-foreground">تصميم المتجر</a></li>
+                    <li><a href="{{ $home }}#shipping" class="hover:text-foreground">الشحن والتحصيل</a></li>
+                    <li><a href="{{ $home }}#pricing" class="hover:text-foreground">الأسعار</a></li>
                 </ul>
             </div>
 
@@ -101,6 +105,7 @@
 
         <div class="hairline-t mt-10 flex flex-col items-center justify-between gap-2 pt-6 text-[12px] text-muted-foreground sm:flex-row">
             <p>© {{ date('Y') }} متجر برو</p>
+            <a href="{{ route('privacy') }}" class="hover:text-foreground">سياسة الخصوصية</a>
             <p>صُنع في مصر</p>
         </div>
     </div>
