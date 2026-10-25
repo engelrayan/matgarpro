@@ -6,26 +6,20 @@ import { type BreadcrumbItem } from '@/types';
 import { avatarTone, initial, listTime, type ConversationItem } from '@/components/inbox/types';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import {
-    AlertTriangle, Check, CheckCheck, Copy, Link2Off,
-    LoaderCircle, MessageCircle, QrCode, Send, ShieldCheck, Smartphone, X,
+    AlertTriangle, Check, CheckCheck, Link2Off,
+    LoaderCircle, QrCode, Send, ShieldCheck, Smartphone, X,
 } from 'lucide-vue-next';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
-type Driver = 'wapilot' | 'whats360' | 'cloud_api' | 'platform' | 'waha';
+type Driver = 'platform' | 'waha';
 
 interface Connected {
     connected: true;
     driver: Driver;
-    base_url: string | null;
     sender_phone: string | null;
     is_active: boolean;
     auto_send: boolean;
     message_template: string;
-    template_name: string | null;
-    template_language: string;
-    has_app_secret: boolean;
-    webhook_url: string;
-    verify_token: string;
     connected_at: string | null;
     last_sent_at: string | null;
     last_inbound_at: string | null;
@@ -171,51 +165,7 @@ const flash = computed(() => {
 
 const flashError = computed(() => page.props.flash?.error as string | undefined);
 
-/* ── Connecting ─────────────────────────────────────────────────────────── */
-
-const DRIVERS: { value: Driver; label: string; blurb: string; warn: string }[] = [
-    {
-        value: 'whats360',
-        label: 'Whats360',
-        blurb: 'بوابة عربية، بتربط رقمك بمسح QR وتكتب أي رسالة من غير موافقات.',
-        warn: 'واتساب مش عارف بيها — الرقم ممكن يتحظر من غير إنذار.',
-    },
-    {
-        value: 'wapilot',
-        label: 'Wapilot',
-        blurb: 'بوابة غير رسمية على واتساب ويب. الربط في دقيقة، ورسايل حرة.',
-        warn: 'نفس خطر الحظر — واتساب مابيعرفش عن البوابات دي حاجة.',
-    },
-    {
-        value: 'cloud_api',
-        label: 'واتساب الرسمي (ميتا)',
-        blurb: 'Cloud API من ميتا مباشرة، من غير وسيط زي 360dialog. رقمك في أمان.',
-        warn: 'الرسالة اللي إنت تبدأها لازم تكون قالب معتمد من ميتا.',
-    },
-];
-
-const driver = ref<Driver>(link.value?.driver ?? 'whats360');
-
-const keyForm = useForm({
-    driver: driver.value,
-    token: '',
-    instance: '',
-    instance_id: '',
-    base_url: link.value?.base_url ?? '',
-    access_token: '',
-    phone_number_id: '',
-    app_secret: '',
-});
-
-const CREDENTIAL_FIELDS = ['token', 'instance', 'instance_id', 'access_token', 'phone_number_id', 'app_secret'] as const;
-
-const connect = () => {
-    keyForm.driver = driver.value;
-    keyForm.put(route('whatsapp.update'), {
-        preserveScroll: true,
-        onSuccess: () => keyForm.reset(...CREDENTIAL_FIELDS),
-    });
-};
+/* ── Switching off ──────────────────────────────────────────────────────── */
 
 const disconnect = () => {
     if (!confirm('هتفك ربط الواتساب. سجل الرسايل هيفضل زي ما هو.')) return;
@@ -229,8 +179,6 @@ const toggle = () => router.patch(route('whatsapp.toggle'), {}, { preserveScroll
 const messageForm = useForm({
     message_template: link.value?.message_template ?? props.default_template,
     auto_send: link.value?.auto_send ?? true,
-    template_name: link.value?.template_name ?? '',
-    template_language: link.value?.template_language ?? 'ar',
 });
 
 const saveMessage = () => messageForm.put(route('whatsapp.message'), { preserveScroll: true });
@@ -251,8 +199,8 @@ const preview = computed(() => {
         '{store}': 'متجرك',
         '{name}': 'سارة عبد الله',
         '{number}': '1042',
-        // On WAHA the products go on one line — the message is a poll title.
-        '{items}': isWaha.value ? '2× قميص قطن (أبيض · L)، 1× حزام جلد' : '• 2× قميص قطن (أبيض · L)\n• 1× حزام جلد',
+        // On one line — the message is a poll title.
+        '{items}': '2× قميص قطن (أبيض · L)، 1× حزام جلد',
         '{total}': '798.00',
         '{currency}': 'EGP',
     };
@@ -267,16 +215,6 @@ const preview = computed(() => {
 
 const testForm = useForm({ phone: '' });
 const sendTest = () => testForm.post(route('whatsapp.test'), { preserveScroll: true });
-
-/* ── Webhook ────────────────────────────────────────────────────────────── */
-
-const copied = ref<string | null>(null);
-
-const copy = async (value: string, key: string) => {
-    await navigator.clipboard.writeText(value);
-    copied.value = key;
-    setTimeout(() => (copied.value = null), 1500);
-};
 
 /* ── Numbers ────────────────────────────────────────────────────────────── */
 
@@ -324,7 +262,7 @@ const TILES = computed(() => [
                         <span v-else class="badge-neutral">متوقّف</span>
 
                         <span class="badge-info">
-                            {{ isPlatform ? 'رقم متجر برو' : isWaha ? 'رقمك بالكود' : (DRIVERS.find((d) => d.value === link!.driver)?.label ?? link.driver) }}
+                            {{ isPlatform ? 'رقم متجر برو' : 'رقمك بالكود' }}
                         </span>
 
                         <span v-if="link.sender_phone" class="tabular font-mono text-xs text-muted-foreground" dir="ltr">
@@ -363,14 +301,13 @@ const TILES = computed(() => [
                              One choice, side by side, each with what an order
                              costs with it — the two used to be separate cards
                              in different styles and did not read as a choice. -->
-                        <section v-if="platform.available || waha.available" class="surface p-5">
+                        <section class="surface p-5">
                             <h2 class="font-semibold">رسايل التأكيد تطلع من…</h2>
                             <p class="mt-1 text-sm text-muted-foreground">اختار واحد. تقدر تغيّر في أي وقت.</p>
 
                             <div class="mt-4 grid gap-3 xl:grid-cols-2">
                                 <!-- Meta: the platform's official number -->
                                 <div
-                                    v-if="platform.available"
                                     class="flex flex-col rounded-2xl border-2 p-4 transition-colors"
                                     :class="isPlatform ? 'border-primary bg-primary/5' : 'border-border'"
                                 >
@@ -397,16 +334,15 @@ const TILES = computed(() => [
                                             <span class="text-xs text-muted-foreground">{{ currency }} للطلب بالتأكيد</span>
                                         </p>
                                         <p class="mt-0.5 text-[11px] text-muted-foreground">{{ priceBreakdown(platform.fee) }}</p>
-                                        <button v-if="!isPlatform" class="btn-outline mt-3 w-full" :disabled="usingPlatform" @click="usePlatform">
+                                        <button v-if="!isPlatform" class="btn-outline mt-3 w-full" :disabled="usingPlatform || !platform.available" @click="usePlatform">
                                             <LoaderCircle v-if="usingPlatform" class="size-4 animate-spin" />
-                                            {{ link ? 'حوّل للرقم الرسمي' : 'استخدم الرقم الرسمي' }}
+                                            {{ !platform.available ? 'قريبًا' : link ? 'حوّل للرقم الرسمي' : 'فعّل الخدمة' }}
                                         </button>
                                     </div>
                                 </div>
 
                                 <!-- The store's own number, by QR -->
                                 <div
-                                    v-if="waha.available"
                                     class="flex flex-col rounded-2xl border-2 p-4 transition-colors"
                                     :class="isWaha ? 'border-primary bg-primary/5' : 'border-border'"
                                 >
@@ -434,10 +370,10 @@ const TILES = computed(() => [
                                             <span class="text-xs text-muted-foreground">{{ currency }} للطلب بالتأكيد</span>
                                         </p>
                                         <p class="mt-0.5 text-[11px] text-muted-foreground">{{ priceBreakdown(waha.fee) }}</p>
-                                        <button v-if="!isWaha" class="btn-primary mt-3 w-full" :disabled="startingWaha" @click="useWaha">
+                                        <button v-if="!isWaha" class="btn-primary mt-3 w-full" :disabled="startingWaha || !waha.available" @click="useWaha">
                                             <LoaderCircle v-if="startingWaha" class="size-4 animate-spin" />
                                             <QrCode v-else class="size-4" />
-                                            {{ link ? 'حوّل لرقمي' : 'اربط رقمي' }}
+                                            {{ !waha.available ? 'قريبًا' : link ? 'حوّل لرقمي' : 'اربط رقمي' }}
                                         </button>
                                     </div>
                                 </div>
@@ -513,119 +449,6 @@ const TILES = computed(() => [
                         </section>
 
 
-                        <!-- ── Gateway ────────────────────────────────── -->
-                        <section v-if="!isPlatform && !isWaha" class="surface p-5">
-                            <h2 class="flex items-center gap-2 font-semibold">
-                                <MessageCircle class="size-4" />
-                                {{ link ? 'الرقم المربوط' : platform.available ? 'أو اربط رقمك إنت' : 'اربط رقمك' }}
-                            </h2>
-
-                            <div class="mt-4 grid gap-2 sm:grid-cols-3">
-                                <button
-                                    v-for="option in DRIVERS"
-                                    :key="option.value"
-                                    type="button"
-                                    class="flex h-full flex-col rounded-xl border p-3 text-right transition-colors"
-                                    :class="driver === option.value ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/40'"
-                                    @click="driver = option.value"
-                                >
-                                    <span class="flex items-center gap-1.5 text-sm font-medium">
-                                        <Check v-if="driver === option.value" class="size-3.5 shrink-0 text-primary" />
-                                        {{ option.label }}
-                                    </span>
-                                    <span class="mt-1 block text-xs leading-relaxed text-muted-foreground">
-                                        {{ option.blurb }}
-                                    </span>
-                                    <!-- Pinned to the bottom so three cards of
-                                         different text length still line up. -->
-                                    <span class="mt-auto flex items-start gap-1 pt-2 text-[11px] leading-relaxed text-warning">
-                                        <AlertTriangle class="mt-0.5 size-3 shrink-0" />
-                                        {{ option.warn }}
-                                    </span>
-                                </button>
-                            </div>
-
-                            <form class="mt-4 space-y-3" @submit.prevent="connect">
-                                <div class="grid gap-3 sm:grid-cols-2">
-                                    <template v-if="driver === 'wapilot'">
-                                        <div>
-                                            <label class="mb-1.5 block text-sm font-medium">التوكن</label>
-                                            <input v-model="keyForm.token" class="field font-mono text-xs" dir="ltr"
-                                                   :placeholder="link?.driver === 'wapilot' ? 'سيبه فاضي لو مش هتغيّره' : 'token'" autocomplete="off" />
-                                            <InputError :message="keyForm.errors.token" />
-                                        </div>
-                                        <div>
-                                            <label class="mb-1.5 block text-sm font-medium">الـ instance</label>
-                                            <input v-model="keyForm.instance" class="field font-mono text-xs" dir="ltr"
-                                                   placeholder="instance3853" autocomplete="off" />
-                                            <InputError :message="keyForm.errors.instance" />
-                                        </div>
-                                    </template>
-
-                                    <template v-else-if="driver === 'whats360'">
-                                        <div>
-                                            <label class="mb-1.5 block text-sm font-medium">التوكن (API token)</label>
-                                            <input v-model="keyForm.token" class="field font-mono text-xs" dir="ltr"
-                                                   :placeholder="link?.driver === 'whats360' ? 'سيبه فاضي لو مش هتغيّره' : 'your-api-token'" autocomplete="off" />
-                                            <InputError :message="keyForm.errors.token" />
-                                        </div>
-                                        <div>
-                                            <label class="mb-1.5 block text-sm font-medium">Instance ID (الجهاز)</label>
-                                            <input v-model="keyForm.instance_id" class="field font-mono text-xs" dir="ltr"
-                                                   placeholder="device_abc123" autocomplete="off" />
-                                            <InputError :message="keyForm.errors.instance_id" />
-                                        </div>
-                                        <div class="sm:col-span-2">
-                                            <label class="mb-1.5 block text-sm font-medium">
-                                                رابط الخدمة
-                                                <span class="font-normal text-muted-foreground">— اختياري</span>
-                                            </label>
-                                            <input v-model="keyForm.base_url" class="field font-mono text-xs" dir="ltr"
-                                                   placeholder="https://whats360.live" autocomplete="off" />
-                                            <p class="field-hint">
-                                                سيبه فاضي وهنستخدم whats360.live. غيّره بس لو لوحتك على دومين تاني.
-                                            </p>
-                                            <InputError :message="keyForm.errors.base_url" />
-                                        </div>
-                                    </template>
-
-                                    <template v-else>
-                                        <div>
-                                            <label class="mb-1.5 block text-sm font-medium">Access token</label>
-                                            <input v-model="keyForm.access_token" class="field font-mono text-xs" dir="ltr"
-                                                   :placeholder="link?.driver === 'cloud_api' ? 'سيبه فاضي لو مش هتغيّره' : 'EAAG…'" autocomplete="off" />
-                                            <InputError :message="keyForm.errors.access_token" />
-                                        </div>
-                                        <div>
-                                            <label class="mb-1.5 block text-sm font-medium">Phone number ID</label>
-                                            <input v-model="keyForm.phone_number_id" class="field font-mono text-xs" dir="ltr"
-                                                   placeholder="1234567890" autocomplete="off" />
-                                            <InputError :message="keyForm.errors.phone_number_id" />
-                                        </div>
-                                        <div class="sm:col-span-2">
-                                            <label class="mb-1.5 block text-sm font-medium">
-                                                App secret
-                                                <span class="font-normal text-muted-foreground">— اختياري بس مهم</span>
-                                            </label>
-                                            <input v-model="keyForm.app_secret" class="field font-mono text-xs" dir="ltr"
-                                                   :placeholder="link?.has_app_secret ? 'محفوظ — سيبه فاضي لو مش هتغيّره' : 'app secret'" autocomplete="off" />
-                                            <p class="field-hint">
-                                                من غيره أي حد يعرف رابط الـ webhook يقدر يبعتلنا رد مزوّر ويلغي طلبات.
-                                            </p>
-                                            <InputError :message="keyForm.errors.app_secret" />
-                                        </div>
-                                    </template>
-                                </div>
-
-                                <InputError :message="keyForm.errors.driver" />
-
-                                <button type="submit" class="btn-primary" :disabled="keyForm.processing">
-                                    <LoaderCircle v-if="keyForm.processing" class="size-4 animate-spin" />
-                                    {{ link ? 'حفظ وإعادة الفحص' : 'اربط دلوقتي' }}
-                                </button>
-                            </form>
-                        </section>
-
                         <!-- ── The message ────────────────────────────── -->
                         <section v-if="link && !isPlatform" class="surface p-5">
                             <div class="flex flex-wrap items-baseline justify-between gap-2">
@@ -691,29 +514,6 @@ const TILES = computed(() => [
                                     </span>
                                 </label>
 
-                                <!-- Cloud API only: without an approved template
-                                     there is no business-initiated message at all. -->
-                                <div v-if="link.driver === 'cloud_api'" class="mt-4 rounded-xl border border-warning/30 bg-warning/5 p-3">
-                                    <p class="flex items-start gap-1.5 text-xs font-medium text-warning">
-                                        <AlertTriangle class="mt-0.5 size-3.5 shrink-0" />
-                                        ميتا مابتسمحش تبدأ كلام مع عميل غير بقالب معتمد
-                                    </p>
-                                    <p class="mt-2 text-xs leading-relaxed text-muted-foreground">
-                                        اعمل قالب في WhatsApp Manager نوع Utility، حط فيه ٥ متغيّرات بالترتيب ده:
-                                        الاسم، رقم الطلب، المنتجات، الإجمالي، العملة — وزوّده زرارين رد سريع
-                                        «أكّد الطلب» و«ألغِ الطلب». وبعدين حط اسمه هنا.
-                                    </p>
-                                    <div class="mt-3 grid gap-2 sm:grid-cols-[1fr_8rem]">
-                                        <input v-model="messageForm.template_name" class="field font-mono text-xs" dir="ltr"
-                                               placeholder="order_confirmation" />
-                                        <input v-model="messageForm.template_language" class="field font-mono text-xs" dir="ltr"
-                                               placeholder="ar" />
-                                    </div>
-                                    <p class="field-hint">
-                                        سيبه فاضي وهنبعت نص عادي — ده هيشتغل بس مع عميل كلّمك في آخر ٢٤ ساعة.
-                                    </p>
-                                </div>
-
                                 <div class="mt-4 flex items-center gap-3">
                                     <button type="submit" class="btn-primary" :disabled="messageForm.processing">
                                         <LoaderCircle v-if="messageForm.processing" class="size-4 animate-spin" />
@@ -724,46 +524,6 @@ const TILES = computed(() => [
                             </form>
                         </section>
 
-                        <!-- ── Replies ────────────────────────────────── -->
-                        <section v-if="link && !isPlatform && !isWaha" class="surface p-5">
-                            <div class="flex flex-wrap items-baseline justify-between gap-2">
-                                <h2 class="font-semibold">استقبال ردود العملاء</h2>
-                                <p class="text-sm text-muted-foreground">
-                                    من غيرها هتبعت وبس — الطلب هيفضل مستني مراجعتك.
-                                </p>
-                            </div>
-
-                            <div class="mt-4 grid gap-3" :class="link.driver === 'cloud_api' ? 'lg:grid-cols-2' : ''">
-                                <div>
-                                    <label class="mb-1.5 block text-sm font-medium">Webhook URL — حطه عند مزوّد الواتساب</label>
-                                    <div class="flex gap-2">
-                                        <input :value="link.webhook_url" readonly class="field min-w-0 flex-1 font-mono text-xs" dir="ltr" />
-                                        <button class="btn-outline shrink-0" @click="copy(link.webhook_url, 'url')">
-                                            <Check v-if="copied === 'url'" class="size-4 text-success" />
-                                            <Copy v-else class="size-4" />
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div v-if="link.driver === 'cloud_api'">
-                                    <label class="mb-1.5 block text-sm font-medium">Verify token — ميتا هتطلبه منك</label>
-                                    <div class="flex gap-2">
-                                        <input :value="link.verify_token" readonly class="field min-w-0 flex-1 font-mono text-xs" dir="ltr" />
-                                        <button class="btn-outline shrink-0" @click="copy(link.verify_token, 'verify')">
-                                            <Check v-if="copied === 'verify'" class="size-4 text-success" />
-                                            <Copy v-else class="size-4" />
-                                        </button>
-                                    </div>
-                                    <p class="field-hint">اشترك في حدث <span class="font-mono">messages</span> بس.</p>
-                                </div>
-                            </div>
-
-                            <p v-if="link.driver !== 'cloud_api'" class="mt-3 flex items-start gap-1.5 rounded-xl border border-warning/30 bg-warning/5 p-3 text-xs leading-relaxed text-warning">
-                                <AlertTriangle class="mt-0.5 size-3.5 shrink-0" />
-                                البوابة دي مابتوقّعش الرسايل اللي بتبعتها لنا، فالرابط ده هو السر الوحيد —
-                                متحطهوش في أي مكان عام.
-                            </p>
-                        </section>
                     </div>
 
                     <!-- ── The rail ───────────────────────────────────── -->
@@ -847,7 +607,7 @@ const TILES = computed(() => [
                                 </li>
                                 <li class="flex gap-2">
                                     <span class="tabular flex size-5 shrink-0 items-center justify-center rounded-full bg-muted font-bold">٢</span>
-                                    يرد ١ → الطلب يتأكّد لوحده. يرد ٢ → يتلغي.
+                                    يدوس «تأكيد» → الطلب يتأكّد لوحده. يدوس «إلغاء» → يتلغي.
                                 </li>
                                 <li class="flex gap-2">
                                     <span class="tabular flex size-5 shrink-0 items-center justify-center rounded-full bg-muted font-bold">٣</span>

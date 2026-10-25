@@ -53,7 +53,6 @@ class InboxController extends Controller
                 'reason' => match (true) {
                     ! $link => 'اربط رقم واتساب الأول من إعدادات الواتساب.',
                     $link->isPlatform() => 'رسايل التأكيد بتطلع من رقم متجر برو، والرد عليها من هنا محتاج تربط رقمك.',
-                    ! $link->isSessionGateway() => 'الرد من هنا شغال على الرقم المربوط بالكود بس.',
                     ! $link->canSend() => 'الرقم مش متوصّل دلوقتي — اربطه تاني من إعدادات الواتساب.',
                     default => null,
                 },
@@ -237,15 +236,14 @@ class InboxController extends Controller
     }
 
     /**
-     * Replies go out on the store's own number only. The platform's number
-     * is shared by every shop, and a Cloud API number can only open with an
-     * approved template, so neither can carry free text typed here.
+     * Replies go out on the store's own number only. The platform's number is
+     * shared by every shop and only sends its one approved template.
      */
     private function canReply(Store $store): bool
     {
         $link = $store->whatsappIntegration;
 
-        return $link !== null && $link->isSessionGateway() && $link->canSend();
+        return $link !== null && $link->isWaha() && $link->canSend();
     }
 
     /** @return array<int,array<string,mixed>> */

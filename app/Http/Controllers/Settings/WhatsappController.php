@@ -15,22 +15,19 @@ use App\Services\Whatsapp\OrderConfirmationMessage;
 use App\Services\Whatsapp\PlatformWhatsapp;
 use App\Services\Whatsapp\Waha\WahaClient;
 use App\Services\Whatsapp\Waha\WahaException;
-use App\Services\Whatsapp\Whats360Driver;
 use App\Support\Phone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Connecting a store's own WhatsApp line.
- *
- * The merchant chooses their gateway and pastes its keys; nothing is created on
- * their behalf. Which gateway is a real decision with a real trade-off, so the
- * screen states it rather than picking for them.
+ * Where the confirmations go out from: the platform's official number, a
+ * service switched on with one click, or the store's own number, linked by
+ * scanning a QR code. Each has its price and its trade-off, so the screen
+ * puts them side by side rather than picking for the merchant.
  */
 class WhatsappController extends Controller
 {
@@ -54,14 +51,6 @@ class WhatsappController extends Controller
                 'is_active' => $link->is_active,
                 'auto_send' => $link->auto_send,
                 'message_template' => $link->template(),
-                'template_name' => $link->template_name,
-                'template_language' => $link->template_language,
-                'has_app_secret' => filled($link->credential('app_secret')),
-                // Not a secret — the merchant needs to see which host they
-                // pointed us at when a send fails.
-                'base_url' => $link->credential('base_url'),
-                'webhook_url' => $link->webhookUrl(),
-                'verify_token' => $link->verify_token,
                 'connected_at' => $link->connected_at?->diffForHumans(),
                 'last_sent_at' => $link->last_sent_at?->diffForHumans(),
                 'last_inbound_at' => $link->last_inbound_at?->diffForHumans(),
@@ -69,7 +58,7 @@ class WhatsappController extends Controller
             ] : ['connected' => false],
 
             'placeholders' => StoreWhatsappIntegration::PLACEHOLDERS,
-            'default_template' => StoreWhatsappIntegration::DEFAULT_TEMPLATE,
+            'default_template' => StoreWhatsappIntegration::WAHA_TEMPLATE,
 
             // The no-setup option, offered only once the platform number is
             // configured — and the message it sends, with this shop's name in
@@ -131,89 +120,10 @@ class WhatsappController extends Controller
     }
 
     /**
-     * Save the gateway keys, after checking them against it.
-     *
-     * Verified on the way in rather than on the first order: a revoked token
-     * discovered at checkout time costs the merchant the confirmations for
-     * however long it takes them to notice.
-     */
-    public function update(Request $request): RedirectResponse
-    {
-        $store = $this->currentStore($request);
-
-        $validated = $request->validate([
-            'driver' => ['required', Rule::in(StoreWhatsappIntegration::DRIVERS)],
-            // Wapilot and Whats360 both call it a token; only the second field
-            // differs, so `token` is required for either of them.
-            'token' => ['required_if:driver,wapilot', 'required_if:driver,whats360', 'nullable', 'string', 'max:300'],
-            'instance' => ['required_if:driver,wapilot', 'nullable', 'string', 'max:100'],
-            // Whats360
-            'instance_id' => ['required_if:driver,whats360', 'nullable', 'string', 'max:100'],
-            'base_url' => ['nullable', 'string', 'max:200', 'url', function (string $attribute, mixed $value, \Closure $fail) {
-                if (! Whats360Driver::allows($value)) {
-                    $fail('الرابط لازم يكون على دومين whats360.live ويبدأ بـ https://');
-                }
-            }],
-            // Cloud API
-            'access_token' => ['required_if:driver,cloud_api', 'nullable', 'string', 'max:1000'],
-            'phone_number_id' => ['required_if:driver,cloud_api', 'nullable', 'string', 'max:64'],
-            'app_secret' => ['nullable', 'string', 'max:200'],
-        ], [
-            'token.required_if' => 'محتاجين التوكن.',
-            'instance.required_if' => 'محتاجين رقم الـ instance بتاع Wapilot.',
-            'instance_id.required_if' => 'محتاجين الـ instance ID بتاع Whats360.',
-            'base_url.url' => 'رابط الخدمة مش مظبوط — لازم يبدأ بـ https://',
-            'access_token.required_if' => 'محتاجين الـ access token بتاع ميتا.',
-            'phone_number_id.required_if' => 'محتاجين الـ phone number ID بتاع الرقم.',
-        ]);
-
-        $existing = $store->whatsappIntegration;
-
-        // Built but not saved — the keys are checked against the gateway first,
-        // and a rejected one must not overwrite a connection that works.
-        $candidate = new StoreWhatsappIntegration([
-            'store_id' => $store->id,
-            'driver' => $validated['driver'],
-            'credentials' => $this->credentials($validated, $existing),
-            'template_name' => $existing?->template_name,
-            'template_language' => $existing?->template_language ?? 'ar',
-            'verify_token' => $existing?->verify_token ?? StoreWhatsappIntegration::newToken(),
-            'webhook_token' => $existing?->webhook_token ?? StoreWhatsappIntegration::newToken(),
-        ]);
-
-        $result = $this->drivers->make($candidate)->verify();
-
-        if (! $result['ok']) {
-            throw ValidationException::withMessages(['driver' => $result['message']]);
-        }
-
-        StoreWhatsappIntegration::updateOrCreate(
-            ['store_id' => $store->id],
-            [
-                'driver' => $candidate->driver,
-                'credentials' => $candidate->credentials,
-                'sender_phone' => $result['sender_phone'] ?? $existing?->sender_phone,
-                'is_active' => true,
-                'connected_at' => now(),
-                'last_error' => null,
-                // Kept across a key change: the merchant has already pasted this
-                // URL into the gateway, and reissuing it would silently stop
-                // every reply from arriving.
-                'webhook_token' => $candidate->webhook_token,
-                'verify_token' => $candidate->verify_token,
-            ],
-        );
-
-        return back()->with('status', 'whatsapp-connected');
-    }
-
-    /**
      * Switch the store onto the platform's own number. One click, no keys.
      *
-     * Replaces whatever gateway the store had: a store sends from one number,
-     * and two would message the same customer twice. The webhook tokens are
-     * kept, so switching back to the old gateway does not break the URL the
-     * merchant already pasted there.
+     * Replaces the store's own number if it had one linked: a store sends from
+     * one number, and two would message the same customer twice.
      */
     public function platform(Request $request): RedirectResponse
     {
@@ -245,8 +155,8 @@ class WhatsappController extends Controller
      * Link the store's own number through our WAHA gateway: create (or
      * restart) its session, then the screen polls `wahaStatus` for the QR.
      *
-     * Replaces whatever gateway the store had, like the platform switch does;
-     * the webhook tokens are kept.
+     * Replaces the platform number if the store was on it; the webhook token
+     * is kept.
      */
     public function waha(Request $request, WahaClient $waha): RedirectResponse
     {
@@ -263,8 +173,7 @@ class WhatsappController extends Controller
                 'sender_phone' => null,
                 'is_active' => true,
                 'auto_send' => true,
-                // The poll replaces "reply 1 or 2"; a wording written for the
-                // old gateway would tell the customer to type.
+                // Back to the poll's own wording.
                 'message_template' => null,
                 'connected_at' => now(),
                 'last_error' => null,
@@ -323,8 +232,6 @@ class WhatsappController extends Controller
         $validated = $request->validate([
             'message_template' => ['required', 'string', 'max:2000'],
             'auto_send' => ['required', 'boolean'],
-            'template_name' => ['nullable', 'string', 'max:100'],
-            'template_language' => ['nullable', 'string', 'max:12'],
         ], [
             'message_template.required' => 'الرسالة ماينفعش تفضل فاضية.',
         ]);
@@ -332,8 +239,6 @@ class WhatsappController extends Controller
         $link->forceFill([
             'message_template' => $validated['message_template'],
             'auto_send' => $validated['auto_send'],
-            'template_name' => $validated['template_name'] ?: null,
-            'template_language' => $validated['template_language'] ?: 'ar',
         ])->save();
 
         return back()->with('status', 'whatsapp-message-saved');
@@ -342,8 +247,8 @@ class WhatsappController extends Controller
     /**
      * Send the real message to a number the merchant chooses.
      *
-     * A genuine round-trip, and the only way to find out before a customer does
-     * that a Cloud API template has not been approved yet.
+     * A genuine round-trip — the only way to see, before a customer does, that
+     * the linked number really sends.
      */
     public function test(Request $request): RedirectResponse
     {
@@ -411,10 +316,10 @@ class WhatsappController extends Controller
     }
 
     /**
-     * Forget the keys.
+     * Stop confirming on WhatsApp.
      *
      * The message log stays: it is the record of what customers were told, and
-     * disconnecting a gateway is not a reason to lose it.
+     * switching the service off is not a reason to lose it.
      */
     public function destroy(Request $request, WahaClient $waha): RedirectResponse
     {
@@ -432,30 +337,6 @@ class WhatsappController extends Controller
     }
 
     // ── private ─────────────────────────────────────────────────────────────
-
-    /**
-     * @param  array<string,mixed>  $validated
-     * @return array<string,string>
-     */
-    private function credentials(array $validated, ?StoreWhatsappIntegration $existing): array
-    {
-        $keep = $existing?->driver === $validated['driver'] ? (array) $existing->credentials : [];
-
-        $fields = StoreWhatsappIntegration::CREDENTIAL_FIELDS[$validated['driver']] ?? [];
-
-        $credentials = [];
-
-        foreach ($fields as $field) {
-            // A blank box means "leave it as it is" — merchants re-save this
-            // form to change one thing, and cannot re-paste a token they were
-            // shown once.
-            $credentials[$field] = filled($validated[$field] ?? null)
-                ? trim((string) $validated[$field])
-                : (string) ($keep[$field] ?? '');
-        }
-
-        return array_filter($credentials, fn (string $value) => $value !== '');
-    }
 
     /** @return array<string,int> */
     private function stats(Store $store): array

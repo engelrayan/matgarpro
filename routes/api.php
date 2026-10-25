@@ -41,16 +41,10 @@ Route::post('integrations/daman/webhook/{token}', DamanWebhookController::class)
     ->name('api.daman.webhook');
 
 /*
-| Customer replies on WhatsApp.
-|
-| The GET is Meta's subscription handshake — it calls the same URL once with a
-| challenge it wants echoed back before it will send anything. Gateways without
-| such a step only ever use the POST.
+| Everything on a store's own WhatsApp number, pushed by our WAHA server:
+| messages, poll votes, ticks and the session's status. The platform's
+| official number has its own webhook below.
 */
-Route::get('integrations/whatsapp/webhook/{token}', [WhatsappWebhookController::class, 'verify'])
-    ->middleware('throttle:60,1')
-    ->name('api.whatsapp.verify');
-
 Route::post('integrations/whatsapp/webhook/{token}', [WhatsappWebhookController::class, 'handle'])
     ->middleware('throttle:600,1')
     ->name('api.whatsapp.webhook');

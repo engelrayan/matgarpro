@@ -81,14 +81,10 @@ Route::middleware('auth')->group(function () {
     Route::delete('settings/daman', [DamanController::class, 'destroy'])->name('daman.destroy');
 
     /*
-    | The store's own WhatsApp line, for confirming orders.
-    |
-    | `message` is separate from `update`: the wording changes weekly and the
-    | credentials almost never, and asking a merchant to re-paste a token to fix
-    | a typo in a sentence is how a screen stops being used.
+    | Confirming orders on WhatsApp: the platform's official number, or the
+    | store's own linked by QR.
     */
     Route::get('settings/whatsapp', [WhatsappController::class, 'edit'])->name('whatsapp.edit');
-    Route::put('settings/whatsapp', [WhatsappController::class, 'update'])->name('whatsapp.update');
     // The platform's own number — one click, nothing to paste.
     Route::post('settings/whatsapp/platform', [WhatsappController::class, 'platform'])->name('whatsapp.platform');
     // The store's own number by QR, through our WAHA server; the screen polls

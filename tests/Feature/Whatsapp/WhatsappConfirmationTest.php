@@ -8,13 +8,21 @@ use App\Models\Store;
 use App\Models\StoreWhatsappIntegration;
 use App\Models\User;
 use App\Models\WhatsappMessage;
+use App\Services\Whatsapp\WhatsappSender;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
+/**
+ * The confirmation round trip — sent, billed, answered — on the store's own
+ * number. The platform number's version is PlatformWhatsappTest; WAHA's own
+ * plumbing (linking, polls, hidden ids) is WahaTest.
+ */
 class WhatsappConfirmationTest extends TestCase
 {
     use RefreshDatabase;
+
+    private const SECRET = 'waha-webhook-secret';
 
     private User $user;
 
@@ -24,6 +32,14 @@ class WhatsappConfirmationTest extends TestCase
     {
         parent::setUp();
 
+        config(['services.whatsapp.waha' => [
+            'url' => 'http://waha.test',
+            'api_key' => 'waha-key',
+            'webhook_secret' => self::SECRET,
+            'callback_url' => 'https://app.matgarpro.test',
+            'engine' => 'GOWS',
+        ]]);
+
         $this->user = User::factory()->create();
         $this->store = Store::factory()->for($this->user)->create();
     }
@@ -31,8 +47,8 @@ class WhatsappConfirmationTest extends TestCase
     private function link(array $attributes = []): StoreWhatsappIntegration
     {
         return $this->store->whatsappIntegration()->create([
-            'driver' => StoreWhatsappIntegration::DRIVER_WAPILOT,
-            'credentials' => ['token' => 'tok_' . str_repeat('x', 20), 'instance' => 'instance3853'],
+            'driver' => StoreWhatsappIntegration::DRIVER_WAHA,
+            'credentials' => ['status' => 'WORKING'],
             'is_active' => true,
             'auto_send' => true,
             'webhook_token' => StoreWhatsappIntegration::newToken(),
@@ -60,15 +76,23 @@ class WhatsappConfirmationTest extends TestCase
         return $order;
     }
 
-    private function reply(StoreWhatsappIntegration $link, string $body, string $from = '201223344556'): \Illuminate\Testing\TestResponse
+    /** A typed reply, as WAHA posts it — signed. */
+    private function reply(StoreWhatsappIntegration $link, string $body, string $from = '201223344556', bool $fromMe = false): \Illuminate\Testing\TestResponse
     {
-        return $this->postJson("/api/integrations/whatsapp/webhook/{$link->webhook_token}", [
-            'messages' => [[
-                'from' => $from . '@c.us',
-                'body' => $body,
-                'id' => 'wamid.' . md5($body),
-            ]],
-        ]);
+        $json = json_encode(['event' => 'message', 'session' => 'store-' . $this->store->id, 'payload' => [
+            'id' => 'false_' . $from . '@c.us_' . md5($body), 'from' => $from . '@c.us', 'fromMe' => $fromMe, 'body' => $body,
+        ]], JSON_UNESCAPED_UNICODE);
+
+        return $this->call('POST', "/api/integrations/whatsapp/webhook/{$link->webhook_token}", [], [], [], [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_ACCEPT' => 'application/json',
+            'HTTP_X_WEBHOOK_HMAC' => hash_hmac('sha512', $json, self::SECRET),
+        ], $json);
+    }
+
+    private function send(Order $order): void
+    {
+        (new SendWhatsappOrderConfirmation($order->id))->handle(app(WhatsappSender::class));
     }
 
     // ── Settings ────────────────────────────────────────────────────────────
@@ -83,37 +107,12 @@ class WhatsappConfirmationTest extends TestCase
                 ->where('integration.connected', false));
     }
 
-    public function test_connecting_checks_the_keys_against_the_gateway(): void
+    /** Wapilot, Whats360 and a merchant's own Cloud API keys are gone. */
+    public function test_there_is_no_gateway_form_any_more(): void
     {
-        Http::fake(['*/status' => Http::response(['status' => 'authenticated'])]);
-
         $this->actingAs($this->user)
-            ->put('http://localhost/settings/whatsapp', [
-                'driver' => 'wapilot',
-                'token' => 'tok_' . str_repeat('a', 20),
-                'instance' => 'instance3853',
-            ])
-            ->assertSessionHas('status', 'whatsapp-connected');
-
-        $link = $this->store->fresh()->whatsappIntegration;
-
-        $this->assertSame('wapilot', $link->driver);
-        $this->assertSame('instance3853', $link->credential('instance'));
-        // Encrypted at rest — the column must not hold the token in clear.
-        $this->assertStringNotContainsString('tok_', $link->getRawOriginal('credentials'));
-    }
-
-    public function test_a_rejected_token_is_not_saved(): void
-    {
-        Http::fake(['*/status' => Http::response(['message' => 'Unauthorized'], 401)]);
-
-        $this->actingAs($this->user)
-            ->put('http://localhost/settings/whatsapp', [
-                'driver' => 'wapilot',
-                'token' => 'tok_' . str_repeat('b', 20),
-                'instance' => 'instance1',
-            ])
-            ->assertSessionHasErrors('driver');
+            ->put('http://localhost/settings/whatsapp', ['driver' => 'wapilot', 'token' => 'x', 'instance' => 'y'])
+            ->assertMethodNotAllowed();
 
         $this->assertNull($this->store->fresh()->whatsappIntegration);
     }
@@ -122,20 +121,16 @@ class WhatsappConfirmationTest extends TestCase
 
     public function test_it_messages_the_customer_with_the_order_in_it(): void
     {
-        $link = $this->link(['message_template' => 'أهلاً {name}، طلبك #{number} بـ {total} {currency}. رد ١ أو ٢.']);
+        $this->link();
         $order = $this->order();
 
-        Http::fake(['*/send-message' => Http::response(['id' => 'wamid.OUT1'])]);
+        Http::fake(['waha.test/api/sendPoll' => Http::response(['id' => 'true_201223344556@c.us_OUT1'])]);
 
-        (new SendWhatsappOrderConfirmation($order->id))->handle(app(\App\Services\Whatsapp\WhatsappSender::class));
+        $this->send($order);
 
-        Http::assertSent(function ($request) {
-            $body = (string) data_get($request->data(), 'text');
-
-            return data_get($request->data(), 'chat_id') === '201223344556@c.us'
-                && str_contains($body, 'سارة عبد الله')
-                && str_contains($body, '450.00');
-        });
+        Http::assertSent(fn ($request) => $request['chatId'] === '201223344556@c.us'
+            && str_contains($request['poll']['name'], 'سارة عبد الله')
+            && str_contains($request['poll']['name'], '450.00'));
 
         $order->refresh();
 
@@ -145,23 +140,23 @@ class WhatsappConfirmationTest extends TestCase
             'order_id' => $order->id,
             'direction' => 'out',
             'status' => 'sent',
-            'provider_message_id' => 'wamid.OUT1',
+            'provider_message_id' => 'true_201223344556@c.us_OUT1',
         ]);
     }
 
     public function test_a_refused_message_is_recorded_on_the_order(): void
     {
-        $link = $this->link();
+        $this->link();
         $order = $this->order();
 
-        Http::fake(['*/send-message' => Http::response(['message' => 'Session closed'], 400)]);
+        Http::fake(['waha.test/api/sendPoll' => Http::response(['message' => 'Session closed'], 400)]);
 
-        (new SendWhatsappOrderConfirmation($order->id))->handle(app(\App\Services\Whatsapp\WhatsappSender::class));
+        $this->send($order);
 
         $order->refresh();
 
         $this->assertSame('failed', $order->whatsapp_state);
-        $this->assertSame('Session closed', $order->whatsapp_error);
+        $this->assertNotNull($order->whatsapp_error);
         // The customer was never told anything, so the order stays where it was.
         $this->assertSame(Order::STATUS_PENDING, $order->status);
     }
@@ -169,18 +164,18 @@ class WhatsappConfirmationTest extends TestCase
     /** The confirmation is billed when it goes out — and only then. */
     public function test_a_sent_confirmation_is_charged_and_a_failed_one_is_not(): void
     {
+        config(['billing.whatsapp_fees.waha' => 0.50]);
         $this->store->update(['price_per_order_override' => 0.75]);
         $this->link();
         $sent = $this->order();
         $failed = $this->order(['customer_phone' => '01001112223']);
 
-        Http::fakeSequence('*/send-message')
-            ->push(['id' => 'wamid.OUT1'])
+        Http::fakeSequence('waha.test/api/sendPoll')
+            ->push(['id' => 'true_x@c.us_OUT1'])
             ->push(['message' => 'Session closed'], 400);
 
-        $sender = app(\App\Services\Whatsapp\WhatsappSender::class);
-        (new SendWhatsappOrderConfirmation($sent->id))->handle($sender);
-        (new SendWhatsappOrderConfirmation($failed->id))->handle($sender);
+        $this->send($sent);
+        $this->send($failed);
 
         $charges = \App\Models\StoreUsageEvent::where('type', \App\Models\StoreUsageEvent::TYPE_WHATSAPP_CONFIRMATION)->get();
 
@@ -196,7 +191,7 @@ class WhatsappConfirmationTest extends TestCase
 
         Http::fake();
 
-        (new SendWhatsappOrderConfirmation($order->id))->handle(app(\App\Services\Whatsapp\WhatsappSender::class));
+        $this->send($order);
 
         Http::assertNothingSent();
     }
@@ -207,6 +202,7 @@ class WhatsappConfirmationTest extends TestCase
     {
         $link = $this->link();
         $order = $this->order(['whatsapp_state' => 'sent', 'whatsapp_sent_at' => now()]);
+        Http::fake();
 
         $this->reply($link, 'تمام يا فندم')->assertOk();
 
@@ -221,6 +217,7 @@ class WhatsappConfirmationTest extends TestCase
     {
         $link = $this->link();
         $order = $this->order(['whatsapp_state' => 'sent', 'whatsapp_sent_at' => now()]);
+        Http::fake();
 
         $this->reply($link, 'لا مش عايز')->assertOk();
 
@@ -234,10 +231,8 @@ class WhatsappConfirmationTest extends TestCase
     public function test_it_matches_the_customer_however_they_typed_their_number(): void
     {
         $link = $this->link();
-        $order = $this->order([
-            'customer_phone' => '01223344556',
-            'whatsapp_state' => 'sent',
-        ]);
+        $order = $this->order(['customer_phone' => '0122 334 4556', 'whatsapp_state' => 'sent']);
+        Http::fake();
 
         $this->reply($link, '1', from: '201223344556')->assertOk();
 
@@ -295,13 +290,7 @@ class WhatsappConfirmationTest extends TestCase
         $link = $this->link();
         $order = $this->order(['whatsapp_state' => 'sent']);
 
-        $this->postJson("/api/integrations/whatsapp/webhook/{$link->webhook_token}", [
-            'messages' => [[
-                'from' => '201223344556@c.us',
-                'from_me' => true,
-                'body' => 'تمام',
-            ]],
-        ])->assertOk();
+        $this->reply($link, 'تمام', fromMe: true)->assertOk();
 
         $this->assertSame(Order::STATUS_PENDING, $order->fresh()->status);
     }
@@ -310,83 +299,5 @@ class WhatsappConfirmationTest extends TestCase
     {
         $this->postJson('/api/integrations/whatsapp/webhook/' . str_repeat('z', 40), [])
             ->assertStatus(404);
-    }
-
-    // ── Cloud API ───────────────────────────────────────────────────────────
-
-    public function test_meta_gets_its_challenge_echoed_back(): void
-    {
-        $link = $this->link([
-            'driver' => StoreWhatsappIntegration::DRIVER_CLOUD_API,
-            'credentials' => ['access_token' => 'EAA' . str_repeat('x', 30), 'phone_number_id' => '1234567890'],
-        ]);
-
-        $this->get("/api/integrations/whatsapp/webhook/{$link->webhook_token}?hub_mode=subscribe"
-            . "&hub_verify_token={$link->verify_token}&hub_challenge=42")
-            ->assertOk()
-            ->assertSee('42');
-    }
-
-    public function test_a_wrong_verify_token_is_refused(): void
-    {
-        $link = $this->link([
-            'driver' => StoreWhatsappIntegration::DRIVER_CLOUD_API,
-            'credentials' => ['access_token' => 'EAA' . str_repeat('x', 30), 'phone_number_id' => '1234567890'],
-        ]);
-
-        $this->get("/api/integrations/whatsapp/webhook/{$link->webhook_token}"
-            . '?hub_mode=subscribe&hub_verify_token=wrong&hub_challenge=42')
-            ->assertStatus(403);
-    }
-
-    /**
-     * A tapped button, in Meta's own shape. The title is what the customer saw,
-     * so that is what the reply reader gets.
-     */
-    public function test_it_reads_a_tapped_button_from_meta(): void
-    {
-        $link = $this->link([
-            'driver' => StoreWhatsappIntegration::DRIVER_CLOUD_API,
-            'credentials' => ['access_token' => 'EAA' . str_repeat('x', 30), 'phone_number_id' => '1234567890'],
-        ]);
-        $order = $this->order(['whatsapp_state' => 'sent']);
-
-        $this->postJson("/api/integrations/whatsapp/webhook/{$link->webhook_token}", [
-            'entry' => [[
-                'changes' => [[
-                    'value' => [
-                        'messages' => [[
-                            'from' => '201223344556',
-                            'id' => 'wamid.IN1',
-                            'type' => 'button',
-                            'button' => ['text' => 'أكّد الطلب', 'payload' => 'confirm'],
-                        ]],
-                    ],
-                ]],
-            ]],
-        ])->assertOk();
-
-        $this->assertSame(Order::STATUS_CONFIRMED, $order->fresh()->status);
-    }
-
-    public function test_a_forged_reply_is_refused_when_the_app_secret_is_set(): void
-    {
-        $link = $this->link([
-            'driver' => StoreWhatsappIntegration::DRIVER_CLOUD_API,
-            'credentials' => [
-                'access_token' => 'EAA' . str_repeat('x', 30),
-                'phone_number_id' => '1234567890',
-                'app_secret' => 'shhh',
-            ],
-        ]);
-        $order = $this->order(['whatsapp_state' => 'sent']);
-
-        $this->postJson("/api/integrations/whatsapp/webhook/{$link->webhook_token}", [
-            'entry' => [['changes' => [['value' => ['messages' => [[
-                'from' => '201223344556', 'type' => 'text', 'text' => ['body' => 'لا'],
-            ]]]]]]],
-        ])->assertStatus(401);
-
-        $this->assertSame(Order::STATUS_PENDING, $order->fresh()->status);
     }
 }

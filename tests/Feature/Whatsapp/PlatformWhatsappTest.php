@@ -378,13 +378,13 @@ class PlatformWhatsappTest extends TestCase
         Carbon::setTestNow();
     }
 
-    public function test_a_store_on_its_own_gateway_is_never_reminded(): void
+    public function test_a_store_on_its_own_number_is_never_reminded(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-10-25 12:00', 'Africa/Cairo'));
 
         $this->store->whatsappIntegration()->create([
-            'driver' => StoreWhatsappIntegration::DRIVER_WAPILOT,
-            'credentials' => ['token' => 'tok_' . str_repeat('x', 20), 'instance' => 'instance1'],
+            'driver' => StoreWhatsappIntegration::DRIVER_WAHA,
+            'credentials' => ['status' => 'WORKING'],
             'is_active' => true, 'auto_send' => true,
             'webhook_token' => StoreWhatsappIntegration::newToken(),
             'verify_token' => StoreWhatsappIntegration::newToken(),
