@@ -99,6 +99,7 @@ const publish = () => {
                         <span class="font-semibold text-foreground">{{ productCount }} منتجات مثال بصور حقيقية</span>
                         عشان تشوف شكل متجرك مليان. محفوظة مسودة، ومش هتظهر للزبون غير لما تحط صورتك وسعرك وتفعّلها من
                         <Link href="/products" class="font-medium text-primary hover:underline">المنتجات</Link>.
+                        <span class="mt-1 block text-[12px]">الصور من مكتبات صور مجانية زي Pixabay.</span>
                     </p>
                 </div>
                 <div v-if="headsUp" class="surface flex items-start gap-3 p-4 text-[14px] leading-relaxed">

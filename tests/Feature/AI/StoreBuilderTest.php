@@ -443,6 +443,31 @@ class StoreBuilderTest extends TestCase
         $this->assertSame('jpeg-bytes', Storage::disk('public')->get($images[1]));
     }
 
+    public function test_pixabay_comes_first_and_its_photo_is_downloaded_not_linked(): void
+    {
+        Storage::fake('public');
+        config(['services.pixabay.key' => 'pixabay-test-key', 'services.pexels.key' => 'pexels-test-key']);
+
+        $message = $this->claudeMessage($this->plan(['products' => array_slice($this->starters(), 0, 2)]));
+        Http::fake([
+            'api.anthropic.com/*' => Http::response($message),
+            'pixabay.com/api/*' => Http::response(['hits' => [
+                ['id' => 21, 'largeImageURL' => 'https://pixabay.com/get/a_1280.jpg'],
+                ['id' => 22, 'largeImageURL' => 'https://pixabay.com/get/b_1280.jpg'],
+            ]]),
+            'pixabay.com/get/*' => Http::response('pixabay-bytes', 200, ['Content-Type' => 'image/jpeg']),
+        ]);
+
+        $images = array_column($this->describe()->json('draft.products'), 'image');
+
+        Http::assertSent(fn (HttpRequest $r) => str_starts_with($r->url(), 'https://pixabay.com/api/')
+            && $r['key'] === 'pixabay-test-key' && $r['q'] === 'denim jacket' && $r['safesearch'] === 'true');
+        Http::assertSent(fn (HttpRequest $r) => $r->url() === 'https://pixabay.com/get/b_1280.jpg');
+        Http::assertNotSent(fn (HttpRequest $r) => str_contains($r->url(), 'pexels.com'));
+        // Our own copy: Pixabay forbids hotlinking its URLs.
+        $this->assertSame('pixabay-bytes', Storage::disk('public')->get($images[0]));
+    }
+
     public function test_starter_products_are_drafts_the_preview_shows_and_customers_never_see(): void
     {
         Storage::fake('public');
