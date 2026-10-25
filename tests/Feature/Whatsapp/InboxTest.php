@@ -238,6 +238,13 @@ class InboxTest extends TestCase
 
     public function test_the_assistant_summarises_and_suggests_a_reply(): void
     {
+        // Its own key and allowance, never the developer's .env.
+        config([
+            'services.anthropic.key' => 'sk-ant-test-key',
+            'ai.daily_cost_cap_usd' => 1.00,
+            'ai.features.inbox_assistant.daily_limit' => 100,
+        ]);
+
         $this->webhook($this->incoming('عندكم الجاكيت الأسود مقاس L؟'));
         $conversation = $this->conversation();
 
