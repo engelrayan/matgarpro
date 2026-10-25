@@ -4,12 +4,14 @@ use App\Http\Controllers\Admin\ActivityLogController;
 use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Admin\Auth\AdminSessionController;
 use App\Http\Controllers\Admin\DomainController;
+use App\Http\Controllers\Admin\HealthController;
 use App\Http\Controllers\Admin\MerchantController;
 use App\Http\Controllers\Admin\OverviewController;
 use App\Http\Controllers\Admin\PlanController;
 use App\Http\Controllers\Admin\StoreController;
 use App\Http\Controllers\Admin\ThemeController;
 use App\Http\Controllers\Admin\TopupController;
+use App\Http\Controllers\Admin\WhatsappController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -77,10 +79,19 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
         // ---- Audit trail --------------------------------------------------
         Route::get('activity', [ActivityLogController::class, 'index'])->name('activity.index');
 
+        // ---- Is it running: workers, scheduler, WAHA, failed jobs ------------
+        Route::get('health', [HealthController::class, 'index'])->name('health.index');
+        Route::post('health/failed/{uuid}/retry', [HealthController::class, 'retry'])->name('health.retry');
+
+        // ---- WhatsApp across the platform (counts only, no customer data) ----
+        Route::get('whatsapp', [WhatsappController::class, 'index'])->name('whatsapp.index');
+
         // ---- Rules of the platform: super only -----------------------------
         Route::middleware('admin.super')->group(function (): void {
             // Permanent, and it takes every order with it — super only.
             Route::delete('stores/{store}', [StoreController::class, 'destroy'])->name('stores.destroy');
+            // A failed job dropped without running — its work never happens.
+            Route::delete('health/failed/{uuid}', [HealthController::class, 'forget'])->name('health.forget');
 
             Route::get('plans', [PlanController::class, 'index'])->name('plans.index');
             Route::post('plans', [PlanController::class, 'store'])->name('plans.store');
