@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\Store;
+use App\Services\AI\StoreBuilder\StorePlanApplier;
 use App\Services\Builder\LandingTemplates;
 use App\Services\Builder\PageBuilder;
 use App\Services\Builder\PreviewToken;
@@ -62,6 +63,9 @@ class BuilderController extends Controller
                 'templates' => app(LandingTemplates::class)->catalogue(),
             ] : null,
             'pages' => $this->builder->overview($store),
+            // The AI store builder's starter products still waiting as
+            // drafts: نشر offers to put them live with the pages.
+            'starterDrafts' => $product ? 0 : app(StorePlanApplier::class)->starterDrafts($store),
             'sections' => $this->builder->draft($store, $page),
             // The catalogue for "أضف قسم", already filtered to what may live
             // on this page — offering a buy form on the footer and refusing it
@@ -106,6 +110,12 @@ class BuilderController extends Controller
                     $this->builder->publish($store, $other['key']);
                 }
             }
+        }
+
+        // Ticked under نشر: the starter products go live with the pages,
+        // so the shop that goes live has something in it to buy.
+        if ($request->boolean('activate_samples')) {
+            app(StorePlanApplier::class)->activateStarters($store);
         }
 
         return back()->with('status', 'builder-published');

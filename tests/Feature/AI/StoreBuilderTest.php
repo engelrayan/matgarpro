@@ -11,6 +11,7 @@ use App\Models\StorePage;
 use App\Models\User;
 use App\Services\AI\AiException;
 use App\Services\AI\AiFeature;
+use App\Services\AI\StoreBuilder\StorePlanApplier;
 use App\Services\Builder\PageBuilder;
 use App\Services\Builder\PreviewToken;
 use App\Services\Storefront\ThemeResolver;
@@ -591,6 +592,54 @@ class StoreBuilderTest extends TestCase
         // Absolute: the requests above went to the shop's own hostname.
         $this->actingAs($this->merchant)->get("http://localhost/ai/store-plans/{$id}/preview")
             ->assertInertia(fn ($page) => $page->where('published', true));
+    }
+
+    public function test_publishing_with_the_starters_ticked_opens_a_stocked_shop(): void
+    {
+        Storage::fake('public');
+        $this->claudeReplies($this->plan(['products' => $this->starters()]));
+        $id = $this->describe()->json('id');
+        $this->apply($id);
+
+        $this->actingAs($this->merchant)->get("/ai/store-plans/{$id}/preview")
+            ->assertInertia(fn ($page) => $page->where('starterDrafts', 3));
+
+        $this->actingAs($this->merchant)->post("/ai/store-plans/{$id}/publish", ['activate_samples' => true]);
+
+        $this->assertSame(3, $this->store->products()->where('status', Product::STATUS_ACTIVE)->count());
+        $this->get($this->store->canonicalUrl() . '/')
+            ->assertOk()
+            ->assertSee('تيشيرت قطن أبيض', escape: false);
+    }
+
+    public function test_the_builders_publish_can_put_the_starters_live_with_the_pages(): void
+    {
+        Storage::fake('public');
+        $this->claudeReplies($this->plan(['products' => $this->starters()]));
+        $this->apply($this->describe()->json('id'));
+
+        $this->actingAs($this->merchant)->get('http://localhost/builder/home')
+            ->assertInertia(fn ($page) => $page->where('starterDrafts', 3));
+
+        $this->actingAs($this->merchant)->post('http://localhost/builder/home/publish', ['all' => true, 'activate_samples' => true]);
+
+        $this->assertSame(0, app(StorePlanApplier::class)->starterDrafts($this->store->fresh()));
+        $this->get($this->store->canonicalUrl() . '/')->assertSee('جاكت جينز', escape: false);
+    }
+
+    public function test_a_category_holding_only_drafts_is_not_offered_to_customers(): void
+    {
+        Storage::fake('public');
+        $this->claudeReplies($this->plan(['products' => $this->starters()]));
+        $id = $this->describe()->json('id');
+        $this->apply($id);
+        $this->actingAs($this->merchant)->post("/ai/store-plans/{$id}/publish");
+
+        // Published without the starters: their categories hold only drafts,
+        // and a card reading "١ منتج" that opens onto nothing is a lie.
+        $this->get($this->store->canonicalUrl() . '/')
+            ->assertOk()
+            ->assertDontSee('/c/' . $this->store->categories()->where('name', 'تيشيرتات')->value('slug'), escape: false);
     }
 
     public function test_the_trust_bar_never_falls_back_to_promises_the_merchant_did_not_make(): void
