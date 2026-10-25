@@ -50,7 +50,9 @@ class OrderConfirmationMessage
         }
 
         return [
-            'body' => strtr($link->template(), $values),
+            // «من متجر {store}» for a shop already called «متجر …» would say
+            // the word twice.
+            'body' => str_replace('متجر متجر', 'متجر', strtr($link->template(), $values)),
             'variables' => array_map(
                 // A template parameter may not contain a newline — Meta rejects
                 // the whole message for it, and a multi-line item list is the
