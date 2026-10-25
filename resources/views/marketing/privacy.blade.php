@@ -52,7 +52,7 @@
         <p class="text-sm font-semibold">في الصفحة دي</p>
         <ol class="mt-3 grid gap-x-6 gap-y-1.5 text-sm text-muted-foreground sm:grid-cols-2">
             @foreach ($sections as $id => $label)
-                <li><a href="#{{ $id }}" class="hover:text-foreground">{{ $loop->iteration }}. {{ $label }}</a></li>
+                <li><a href="#{{ $id }}" class="hover:text-foreground">{{ strtr((string) $loop->iteration, ['0' => '٠', '1' => '١', '2' => '٢', '3' => '٣', '4' => '٤', '5' => '٥', '6' => '٦', '7' => '٧', '8' => '٨', '9' => '٩']) }}. {{ $label }}</a></li>
             @endforeach
         </ol>
     </nav>
