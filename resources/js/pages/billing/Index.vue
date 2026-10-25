@@ -29,6 +29,7 @@ const props = defineProps<{
     currency: string;
     balance: number;
     overdraftLimit: number;
+    hidesNewOrders: boolean;
     locked: { count: number; value: number };
     prices: Prices;
     amounts: number[];
@@ -111,6 +112,9 @@ const STATUS_CLASS: Record<string, string> = {
                 عندك <strong class="tabular">{{ whole(locked.count) }}</strong> طلب مخفي بقيمة
                 <strong class="tabular">{{ money(locked.value) }}</strong> {{ currency }}. أول ما الشحن يتأكد، بيانات العملاء تظهر
                 ورسايل التأكيد تتبعت لوحدها — الأقدم الأول.
+            </p>
+            <p v-else-if="hidesNewOrders" class="rounded-xl bg-warning/10 px-4 py-3 text-sm text-warning">
+                رصيدك خلص. الطلبات الجديدة بتوصل عادي، بس بيانات العميل بتفضل مخفية لحد ما تشحن.
             </p>
             <p v-else-if="balance < 0" class="rounded-xl bg-warning/10 px-4 py-3 text-sm text-warning">
                 رصيدك بالسالب. بعد سالب {{ whole(overdraftLimit) }} {{ currency }} الطلبات الجديدة بتوصل عادي، بس بيانات العميل بتفضل

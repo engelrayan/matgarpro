@@ -31,6 +31,9 @@ class BillingController extends Controller
             'currency' => $store->currency,
             'balance' => (float) $store->balance,
             'overdraftLimit' => (float) config('billing.overdraft_limit'),
+            // Read from the store rather than worked out on the page: a free
+            // plan never hides anything, whatever the balance says.
+            'hidesNewOrders' => $store->hidesNewOrders(),
             'locked' => $store->lockedOrdersSummary(),
             'prices' => [
                 'in_intro' => $store->inIntroPeriod(),
