@@ -8,17 +8,14 @@ use InvalidArgumentException;
 /**
  * Picks the driver a store is connected through.
  *
- * The one place that knows the list. Adding a gateway is a class and a line
- * here — nothing else in the app asks which one is in use.
+ * The one place that knows the list: the platform's official number, or the
+ * store's own through our WAHA server.
  */
 class DriverFactory
 {
     public function make(StoreWhatsappIntegration $link): WhatsappDriver
     {
         return match ($link->driver) {
-            StoreWhatsappIntegration::DRIVER_WAPILOT => new WapilotDriver($link),
-            StoreWhatsappIntegration::DRIVER_WHATS360 => new Whats360Driver($link),
-            StoreWhatsappIntegration::DRIVER_CLOUD_API => new CloudApiDriver($link),
             StoreWhatsappIntegration::DRIVER_PLATFORM => new PlatformDriver(),
             StoreWhatsappIntegration::DRIVER_WAHA => new WahaDriver($link, app(Waha\WahaClient::class)),
             default => throw new InvalidArgumentException("Unknown WhatsApp driver [{$link->driver}]."),

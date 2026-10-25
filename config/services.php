@@ -55,7 +55,8 @@ return [
         | number cannot be banned for "automation"; one approved template,
         | created once with `php artisan whatsapp:platform-template`.
         |
-        | Left empty, the option simply does not appear to merchants.
+        | Left empty, merchants see the option as coming soon and cannot turn
+        | it on.
         */
         'platform' => [
             'access_token' => env('PLATFORM_WHATSAPP_TOKEN'),

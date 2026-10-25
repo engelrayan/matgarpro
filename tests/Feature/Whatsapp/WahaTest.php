@@ -254,7 +254,6 @@ class WahaTest extends TestCase
 
         $this->assertSame(0.25, $this->store->confirmationPrice(StoreWhatsappIntegration::DRIVER_WAHA));
         $this->assertSame(0.60, $this->store->confirmationPrice(StoreWhatsappIntegration::DRIVER_PLATFORM));
-        $this->assertSame(0.50, $this->store->confirmationPrice(StoreWhatsappIntegration::DRIVER_WAPILOT));
     }
 
     public function test_a_logged_out_number_is_never_sent_to(): void

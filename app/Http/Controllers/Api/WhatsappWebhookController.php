@@ -15,7 +15,7 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Customer replies, pushed by whichever gateway the store uses.
+ * Customer replies on the store's own number, pushed by our WAHA server.
  *
  * The token in the path names the store; the driver decides whether the body
  * can be trusted beyond that. Always answers 2xx once a request is genuine,
@@ -28,25 +28,6 @@ class WhatsappWebhookController extends Controller
         private readonly DriverFactory $drivers,
         private readonly InboundReplyHandler $replies,
     ) {}
-
-    /**
-     * Meta subscribes by calling the webhook with a challenge it wants echoed
-     * back, in the clear, as plain text. Other gateways just POST.
-     */
-    public function verify(Request $request, string $token): Response
-    {
-        $link = $this->linkFor($token);
-
-        if (! $link) {
-            return response('Unknown endpoint.', 404);
-        }
-
-        $challenge = $this->drivers->make($link)->webhookChallenge($request);
-
-        return $challenge !== null
-            ? response($challenge, 200)->header('Content-Type', 'text/plain')
-            : response('Verification failed.', 403);
-    }
 
     public function handle(Request $request, string $token): Response
     {
@@ -114,7 +95,7 @@ class WhatsappWebhookController extends Controller
          | whose answer vanished, and the raw body is the only way to add it.
          */
         if ($messages === []) {
-            if ($link->isSessionGateway()) {
+            if ($link->isWaha()) {
                 Log::info('WhatsApp webhook: nothing parsed', [
                     'store_id' => $link->store_id,
                     'driver' => $link->driver,

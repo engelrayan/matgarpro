@@ -10,56 +10,30 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
 /**
- * How a store messages its customers on WhatsApp.
+ * How a store messages its customers on WhatsApp — one of two ways:
  *
- * Either the merchant's own line, through a gateway they hold keys for, or the
- * platform's shared official number (`DRIVER_PLATFORM`), which needs nothing
- * from them and names their shop in the message instead.
+ *  - the platform's shared official number (DRIVER_PLATFORM), a service the
+ *    merchant switches on or off; it needs nothing from them and names their
+ *    shop in the message;
+ *  - the store's own number (DRIVER_WAHA), linked by scanning a QR code,
+ *    which also carries the inbox.
+ *
+ * Third-party gateways (Wapilot, Whats360, a merchant's own Cloud API keys)
+ * were dropped: two ways to choose between is a decision, five was a form.
  */
 class StoreWhatsappIntegration extends Model
 {
     use HasFactory;
 
-    public const DRIVER_WAPILOT = 'wapilot';
-
-    public const DRIVER_WHATS360 = 'whats360';
-
-    public const DRIVER_CLOUD_API = 'cloud_api';
-
-    /**
-     * The platform's own official number. Not in DRIVERS: there are no keys to
-     * paste, so it is switched on from its own button rather than the
-     * gateway form, and the form can never select it.
-     */
     public const DRIVER_PLATFORM = 'platform';
 
-    /**
-     * The store's own number through our self-hosted WAHA gateway, linked by
-     * scanning a QR code. Not in DRIVERS either: nothing to paste, and its
-     * one credential — the session's last status — is ours to write.
-     */
     public const DRIVER_WAHA = 'waha';
 
-    /** The gateways a merchant connects with their own keys. */
-    public const DRIVERS = [self::DRIVER_WAPILOT, self::DRIVER_WHATS360, self::DRIVER_CLOUD_API];
-
     /**
-     * What a merchant has to fill in, per gateway.
-     *
-     * Fields listed in `OPTIONAL_CREDENTIALS` may be left blank — everything
-     * else has to be there before the store can send.
+     * Not a store's choice: the transport PlatformDriver speaks, through Meta's
+     * Cloud API, with the platform's keys in an unsaved link.
      */
-    public const CREDENTIAL_FIELDS = [
-        self::DRIVER_WAPILOT => ['token', 'instance'],
-        self::DRIVER_WHATS360 => ['token', 'instance_id', 'base_url'],
-        self::DRIVER_CLOUD_API => ['access_token', 'phone_number_id', 'app_secret'],
-    ];
-
-    /**
-     * `app_secret` only verifies inbound signatures, and `base_url` falls back
-     * to the gateway's own host — a store sends perfectly well without either.
-     */
-    public const OPTIONAL_CREDENTIALS = ['app_secret', 'base_url'];
+    public const DRIVER_CLOUD_API = 'cloud_api';
 
     /** Everything the message can say about the order. */
     public const PLACEHOLDERS = [
@@ -71,13 +45,7 @@ class StoreWhatsappIntegration extends Model
         '{currency}' => 'العملة',
     ];
 
-    public const DEFAULT_TEMPLATE = "أهلاً {name} 👋\n"
-        . "طلبك رقم #{number} من {store} وصلنا:\n"
-        . "{items}\n"
-        . "الإجمالي: {total} {currency} — الدفع عند الاستلام\n\n"
-        . "ردّ بـ ١ عشان نأكّد الطلب، أو ٢ لو عايز تلغيه.";
-
-    /** On WAHA the reply is a poll under the message, so the message says to tap it. */
+    /** One message: a poll whose title is this, so it ends by asking for the tap. */
     public const WAHA_TEMPLATE = "أهلاً {name} 👋\n"
         . "طلبك رقم #{number} ({items}) من متجر {store} وصلنا "
         . "بإجمالي {total} {currency} — الدفع عند الاستلام.\n"
@@ -93,8 +61,9 @@ class StoreWhatsappIntegration extends Model
     protected function casts(): array
     {
         return [
-            // Laravel's built-in encryption. A token here sends from the
-            // merchant's own number — it never leaves the server in clear.
+            // Encrypted, though all it holds now is the WAHA session's last
+            // status: whatever lands in it later stays out of the database
+            // in clear.
             'credentials' => 'encrypted:array',
             'is_active' => 'boolean',
             'auto_send' => 'boolean',
@@ -115,11 +84,6 @@ class StoreWhatsappIntegration extends Model
     public static function newToken(): string
     {
         return Str::random(40);
-    }
-
-    public function isCloudApi(): bool
-    {
-        return $this->driver === self::DRIVER_CLOUD_API;
     }
 
     public function isPlatform(): bool
@@ -145,23 +109,9 @@ class StoreWhatsappIntegration extends Model
 
         // Only while the scanned number is actually linked: a logged-out
         // session would take the order's one confirmation and drop it.
-        if ($this->isWaha()) {
-            return WahaClient::configured() && $this->credential('status') === WahaClient::WORKING;
-        }
-
-        foreach (self::CREDENTIAL_FIELDS[$this->driver] ?? [] as $field) {
-            if (! in_array($field, self::OPTIONAL_CREDENTIALS, true) && blank($this->credential($field))) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /** True for the gateways that drive a real WhatsApp session over QR. */
-    public function isSessionGateway(): bool
-    {
-        return in_array($this->driver, [self::DRIVER_WAPILOT, self::DRIVER_WHATS360, self::DRIVER_WAHA], true);
+        return $this->isWaha()
+            && WahaClient::configured()
+            && $this->credential('status') === WahaClient::WORKING;
     }
 
     public function credential(string $key): ?string
@@ -183,7 +133,7 @@ class StoreWhatsappIntegration extends Model
             return $this->message_template;
         }
 
-        return $this->isWaha() ? self::WAHA_TEMPLATE : self::DEFAULT_TEMPLATE;
+        return self::WAHA_TEMPLATE;
     }
 
     public function webhookUrl(): string

@@ -59,9 +59,6 @@ return [
     |   waha   the store's own number through our WAHA server — no per-message
     |          bill, only the server it runs on. 0.50: an order is 1.00 with
     |          it in the introductory months, 1.25 after.
-    |
-    | A store on a gateway it pays for itself (its own Cloud API keys, Wapilot,
-    | Whats360) pays the default fee, as before.
     */
     'whatsapp_fees' => [
         'meta' => (float) env('BILLING_WHATSAPP_FEE_META', 0.75),

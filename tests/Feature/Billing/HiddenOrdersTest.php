@@ -103,9 +103,10 @@ class HiddenOrdersTest extends TestCase
     public function test_a_hidden_order_does_not_message_the_customer(): void
     {
         Queue::fake();
+        config(['services.whatsapp.waha.url' => 'http://waha.test', 'services.whatsapp.waha.api_key' => 'waha-key', 'services.whatsapp.waha.webhook_secret' => 'secret']);
         $this->store->whatsappIntegration()->create([
-            'driver' => StoreWhatsappIntegration::DRIVER_WAPILOT,
-            'credentials' => ['token' => 'tok_' . str_repeat('x', 20), 'instance' => 'instance1'],
+            'driver' => StoreWhatsappIntegration::DRIVER_WAHA,
+            'credentials' => ['status' => 'WORKING'],
             'is_active' => true, 'auto_send' => true,
             'webhook_token' => StoreWhatsappIntegration::newToken(),
             'verify_token' => StoreWhatsappIntegration::newToken(),
@@ -242,9 +243,10 @@ class HiddenOrdersTest extends TestCase
     public function test_a_confirmed_top_up_opens_hidden_orders_oldest_first_while_the_balance_allows(): void
     {
         Queue::fake();
+        config(['services.whatsapp.waha.url' => 'http://waha.test', 'services.whatsapp.waha.api_key' => 'waha-key', 'services.whatsapp.waha.webhook_secret' => 'secret']);
         $this->store->whatsappIntegration()->create([
-            'driver' => StoreWhatsappIntegration::DRIVER_WAPILOT,
-            'credentials' => ['token' => 'tok_' . str_repeat('x', 20), 'instance' => 'instance1'],
+            'driver' => StoreWhatsappIntegration::DRIVER_WAHA,
+            'credentials' => ['status' => 'WORKING'],
             'is_active' => true, 'auto_send' => true,
             'webhook_token' => StoreWhatsappIntegration::newToken(),
             'verify_token' => StoreWhatsappIntegration::newToken(),
