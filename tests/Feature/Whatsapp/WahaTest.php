@@ -206,6 +206,21 @@ class WahaTest extends TestCase
         $this->assertEquals(0.25, StoreUsageEvent::where('type', StoreUsageEvent::TYPE_WHATSAPP_CONFIRMATION)->value('unit_price'));
     }
 
+    /** The test button sends what a customer gets: the message and the poll. */
+    public function test_the_test_message_includes_the_poll(): void
+    {
+        $this->linked();
+        $this->order();
+        Http::fake([
+            'waha.test/api/sendText' => Http::response(['id' => 'text-1']),
+            'waha.test/api/sendPoll' => Http::response(['id' => 'poll-1']),
+        ]);
+
+        $this->actingAs($this->user)->post('http://localhost/settings/whatsapp/test', ['phone' => '01006262330'])->assertRedirect();
+
+        Http::assertSent(fn ($request) => str_ends_with($request->url(), '/api/sendPoll') && $request['chatId'] === '201006262330@c.us');
+    }
+
     public function test_each_channel_has_its_own_price(): void
     {
         config(['billing.whatsapp_fees.waha' => 0.25, 'billing.whatsapp_fees.meta' => 0.60, 'billing.whatsapp_confirmation_fee' => 0.50]);
