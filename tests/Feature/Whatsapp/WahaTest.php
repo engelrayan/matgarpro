@@ -283,6 +283,42 @@ class WahaTest extends TestCase
         Http::assertSent(fn ($request) => str_ends_with($request->url(), '/api/sendText') && str_contains($request['text'], 'اتأكد'));
     }
 
+    /**
+     * WhatsApp now often names the voter by a hidden id instead of their
+     * number — the shape of a real vote that confirmed nothing.
+     */
+    public function test_a_vote_from_a_hidden_id_still_confirms_the_order(): void
+    {
+        $link = $this->linked();
+        $order = $this->order(['whatsapp_state' => 'sent']);
+        Http::fake(['waha.test/*' => Http::response(['id' => 'ack-1'])]);
+
+        $this->webhook($link, ['event' => 'poll.vote', 'payload' => [
+            'vote' => ['id' => 'v1', 'from' => '95589446484048@lid', 'fromMe' => false, 'selectedOptions' => [WahaDriver::CONFIRM_OPTION]],
+            'poll' => ['id' => 'true_95589446484048@lid_3EB0B306', 'to' => '95589446484048@lid'],
+            '_data' => ['Info' => ['Sender' => '95589446484048:12@lid', 'SenderAlt' => '201223344556:12@s.whatsapp.net']],
+        ]])->assertOk();
+
+        $this->assertSame(Order::STATUS_CONFIRMED, $order->fresh()->status);
+    }
+
+    public function test_a_hidden_id_without_the_number_is_looked_up_on_waha(): void
+    {
+        $link = $this->linked();
+        $order = $this->order(['whatsapp_state' => 'sent']);
+        Http::fake([
+            'waha.test/api/store-*/lids/*' => Http::response(['lid' => '95589446484048@lid', 'pn' => '201223344556@c.us']),
+            'waha.test/*' => Http::response(['id' => 'ack-1']),
+        ]);
+
+        $this->webhook($link, ['event' => 'poll.vote', 'payload' => [
+            'vote' => ['id' => 'v1', 'from' => '95589446484048@lid', 'fromMe' => false, 'selectedOptions' => [WahaDriver::CONFIRM_OPTION]],
+            'poll' => ['id' => 'poll-1'],
+        ]])->assertOk();
+
+        $this->assertSame(Order::STATUS_CONFIRMED, $order->fresh()->status);
+    }
+
     public function test_choosing_cancel_cancels_it(): void
     {
         $link = $this->linked();

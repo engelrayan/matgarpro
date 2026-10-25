@@ -172,14 +172,32 @@ class WahaClient
     /** `201001234567@c.us` → `201001234567`; groups and broadcasts → null. */
     public static function phoneFromJid(mixed $jid): ?string
     {
-        if (! is_string($jid) || ! str_ends_with($jid, '@c.us')) {
+        if (! is_string($jid) || ! preg_match('/^([^@]+)@(c\.us|s\.whatsapp\.net)$/', $jid, $m)) {
             return null;
         }
 
         // GOWS can append a device suffix: 201001234567:12@c.us.
-        $digits = preg_replace('/\D/', '', strtok(substr($jid, 0, -5), ':') ?: '');
+        $digits = preg_replace('/\D/', '', strtok($m[1], ':') ?: '');
 
         return $digits !== '' ? $digits : null;
+    }
+
+    /**
+     * The phone number behind a hidden id (`95589446484048@lid`) — WhatsApp
+     * increasingly sends those instead of the number. Null when WAHA does
+     * not know it.
+     */
+    public function phoneForLid(StoreWhatsappIntegration $link, string $lid): ?string
+    {
+        try {
+            $found = (array) $this->call(fn (PendingRequest $http) => $http->get(
+                '/api/' . self::sessionFor($link) . '/lids/' . rawurlencode($lid),
+            ));
+        } catch (WahaException) {
+            return null;
+        }
+
+        return self::phoneFromJid($found['pn'] ?? null);
     }
 
     /** A message id from any of the shapes the engines answer with. */
