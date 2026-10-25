@@ -89,11 +89,16 @@ return [
     ],
 
     /*
-    | Pexels — free stock photos for the starter products the AI store builder
-    | makes. Free key from pexels.com/api. Left empty, those products take a
-    | photo from our own demo library instead (resources/demo/photos), which
-    | covers fewer kinds of shop.
+    | Stock photos for the starter products the AI store builder makes, tried
+    | in this order. Pixabay: free key from pixabay.com/api/docs (sign in).
+    | Pexels: pexels.com/api, though it stopped issuing new keys in 2026.
+    | With neither, those products take a photo from our own demo library
+    | (resources/demo/photos), which covers fewer kinds of shop.
     */
+    'pixabay' => [
+        'key' => env('PIXABAY_API_KEY'),
+    ],
+
     'pexels' => [
         'key' => env('PEXELS_API_KEY'),
     ],

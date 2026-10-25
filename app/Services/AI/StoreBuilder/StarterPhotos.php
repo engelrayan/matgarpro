@@ -14,8 +14,10 @@ use Illuminate\Support\Str;
  * judging their new store from a wireframe sees "شغل HTML", not a shop. So
  * each suggested product gets a photo before the preview is ever shown:
  *
- *  1. Pexels, searched with the English words the model wrote for it — when
- *     there is a key (services.pexels). Free, and covers any kind of shop.
+ *  1. Pixabay, then Pexels, searched with the English words the model wrote
+ *     for it — whichever has a key (services.pixabay / services.pexels).
+ *     Free, and between them they cover any kind of shop. Both forbid
+ *     hotlinking, so the file is downloaded, never linked.
  *  2. Otherwise our own demo library (config/demo.php → catalogue_keywords),
  *     when the search shares a word with what a catalogue's photos show.
  *  3. Otherwise nothing, and the product gets a drawn placeholder. A coffee
@@ -38,19 +40,72 @@ class StarterPhotos
      */
     public function fetch(string $folder, array $queries): array
     {
-        $key = (string) config('services.pexels.key');
+        $pixabay = (string) config('services.pixabay.key');
+        $pexels = (string) config('services.pexels.key');
         $used = [];
         $paths = [];
 
         foreach ($queries as $i => $query) {
             $query = trim($query);
+            $path = "{$folder}/{$i}.jpg";
+
             $paths[$i] = $query === '' ? null : (
-                ($key !== '' ? $this->fromPexels($key, $query, "{$folder}/{$i}.jpg", $used) : null)
-                ?? $this->fromLibrary($query, "{$folder}/{$i}.jpg", $used)
+                ($pixabay !== '' ? $this->fromPixabay($pixabay, $query, $path, $used) : null)
+                ?? ($pexels !== '' ? $this->fromPexels($pexels, $query, $path, $used) : null)
+                ?? $this->fromLibrary($query, $path, $used)
             );
         }
 
         return $paths;
+    }
+
+    /** @param array<int|string,true> $used */
+    private function fromPixabay(string $key, string $query, string $path, array &$used): ?string
+    {
+        try {
+            $hits = Http::timeout(8)
+                ->get('https://pixabay.com/api/', [
+                    'key' => $key,
+                    'q' => $query,
+                    'image_type' => 'photo',
+                    'safesearch' => 'true',
+                    'per_page' => 8,
+                ])
+                ->throw()
+                ->json('hits', []);
+
+            $hit = collect($hits)->first(fn (array $h) => ! isset($used['pixabay:' . $h['id']]));
+
+            // The 1280px rendition: sharp on a phone, a fraction of the original.
+            if (! $hit || blank($url = $hit['largeImageURL'] ?? $hit['webformatURL'] ?? null)) {
+                return null;
+            }
+
+            return $this->download($url, $path, $used, 'pixabay:' . $hit['id'], $query);
+        } catch (\Throwable $e) {
+            Log::warning('Starter photo from Pixabay failed', ['query' => $query, 'error' => $e->getMessage()]);
+
+            return null;
+        }
+    }
+
+    /**
+     * @param  array<int|string,true>  $used
+     */
+    private function download(string $url, string $path, array &$used, string $id, string $query): ?string
+    {
+        $image = Http::timeout(10)->get($url)->throw();
+
+        if (! str_starts_with((string) $image->header('Content-Type'), 'image/') || strlen($image->body()) > self::MAX_BYTES) {
+            Log::warning('Starter photo rejected', ['query' => $query, 'url' => $url]);
+
+            return null;
+        }
+
+        Storage::disk('public')->put($path, $image->body());
+        $used[$id] = true;
+
+        return $path;
     }
 
     /** @param array<int|string,true> $used */
@@ -71,16 +126,7 @@ class StarterPhotos
                 return null;
             }
 
-            $image = Http::timeout(10)->get($url)->throw();
-
-            if (! str_starts_with((string) $image->header('Content-Type'), 'image/') || strlen($image->body()) > self::MAX_BYTES) {
-                return null;
-            }
-
-            Storage::disk('public')->put($path, $image->body());
-            $used['pexels:' . $photo['id']] = true;
-
-            return $path;
+            return $this->download($url, $path, $used, 'pexels:' . $photo['id'], $query);
         } catch (\Throwable $e) {
             // A missing photo is not worth failing a store plan over.
             Log::warning('Starter photo from Pexels failed', ['query' => $query, 'error' => $e->getMessage()]);
