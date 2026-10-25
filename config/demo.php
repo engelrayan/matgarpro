@@ -166,6 +166,20 @@ return [
     'fallback_catalogue' => 'fashion',
 
     /*
+    | What each catalogue's photos show, in English, for the AI store builder's
+    | starter products when there is no Pexels key: a product whose photo
+    | search shares a word with a list here takes a photo from that catalogue.
+    | No shared word, no photo — a drawn placeholder beats a wrong picture.
+    */
+    'catalogue_keywords' => [
+        'watches' => ['watch', 'watches', 'wristwatch', 'chronograph', 'wallet', 'leather', 'cologne', 'accessories', 'jewelry', 'sunglasses'],
+        'fashion' => ['shirt', 'tshirt', 't-shirt', 'jacket', 'jeans', 'dress', 'clothes', 'clothing', 'fashion', 'sneakers', 'shoes', 'hoodie', 'abaya', 'scarf', 'hijab', 'trousers', 'pants'],
+        'kids' => ['kids', 'kid', 'baby', 'toy', 'toys', 'children', 'child', 'girl', 'boy', 'onesie', 'toddler'],
+        'beauty' => ['skincare', 'serum', 'cream', 'cosmetics', 'makeup', 'lotion', 'beauty', 'perfume', 'fragrance', 'soap', 'shampoo', 'lipstick', 'oil', 'oud'],
+        'home' => ['home', 'decor', 'kitchen', 'mug', 'mugs', 'cup', 'cups', 'plate', 'candle', 'lamp', 'pillow', 'bedding', 'rug', 'vase', 'glass', 'glasses', 'coffee', 'tea', 'cookware'],
+    ],
+
+    /*
     |--------------------------------------------------------------------------
     | Theme picker previews
     |--------------------------------------------------------------------------

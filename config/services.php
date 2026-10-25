@@ -110,6 +110,16 @@ return [
         'base_url' => env('ANTHROPIC_BASE_URL', 'https://api.anthropic.com'),
     ],
 
+    /*
+    | Pexels — free stock photos for the starter products the AI store builder
+    | makes. Free key from pexels.com/api. Left empty, those products take a
+    | photo from our own demo library instead (resources/demo/photos), which
+    | covers fewer kinds of shop.
+    */
+    'pexels' => [
+        'key' => env('PEXELS_API_KEY'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Services\Builder\PageRenderer;
 use App\Services\Builder\PreviewToken;
+use App\Services\Storefront\ThemeResolver;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -34,6 +35,13 @@ class BuilderPreview
 
         if ($token !== '' && $store && $this->tokens->storeId($token) === $store->id) {
             $request->attributes->set(PageRenderer::PREVIEW_ATTRIBUTE, true);
+
+            // A token can carry a theme to preview in (the AI store builder's
+            // suggestion). Shared over ResolveStore's, for this response only;
+            // the store's own setting is not touched.
+            if (filled($theme = $this->tokens->theme($token)) && array_key_exists($theme, (array) config('themes.themes'))) {
+                view()->share('theme', app(ThemeResolver::class)->byKey($theme));
+            }
 
             $response = $next($request);
             $response->headers->set('Cache-Control', 'no-store, private');

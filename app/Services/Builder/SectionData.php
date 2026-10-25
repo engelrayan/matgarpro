@@ -36,11 +36,14 @@ class SectionData
     /**
      * @param  array<int,array<string,mixed>>  $sections
      * @param  array<string,mixed>  $context  product / category being viewed
+     * @param  array<int,int>  $previewProductIds  drafts a preview shows as if live
+     *   (the AI store builder's starter products; see PageRenderer::previewProductIds)
      */
     public function __construct(
         private readonly Store $store,
         private readonly array $sections,
         private readonly array $context = [],
+        private readonly array $previewProductIds = [],
     ) {
         /*
          | Resolved up front, not lazily on first render.
@@ -87,7 +90,7 @@ class SectionData
             // reach, so it is never offered anywhere.
             ->has('products')
             ->withCount('products')
-            ->with(['products' => fn ($q) => $q->where('status', Product::STATUS_ACTIVE)
+            ->with(['products' => fn ($q) => $this->shown($q)
                 ->with('images')->orderBy('sort_order')->limit(1)])
             ->orderBy('sort_order')
             ->get();
@@ -272,10 +275,21 @@ class SectionData
 
     private function activeProducts()
     {
-        return $this->store->products()
-            ->with(['images', 'variants'])
-            ->where('status', Product::STATUS_ACTIVE)
+        return $this->shown($this->store->products()->with(['images', 'variants']))
             ->orderBy('sort_order')
             ->orderByDesc('id');
+    }
+
+    /**
+     * Live products — plus, in a preview, the drafts it was asked to show.
+     */
+    private function shown($query)
+    {
+        if ($this->previewProductIds === []) {
+            return $query->where('status', Product::STATUS_ACTIVE);
+        }
+
+        return $query->where(fn ($q) => $q->where('status', Product::STATUS_ACTIVE)
+            ->orWhereIn($q->getModel()->qualifyColumn('id'), $this->previewProductIds));
     }
 }

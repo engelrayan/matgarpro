@@ -3,46 +3,18 @@ import { AiGenerationError, useAiGeneration } from '@/composables/useAiGeneratio
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/vue3';
-import {
-    Check,
-    ChevronDown,
-    ExternalLink,
-    LoaderCircle,
-    Phone,
-    Plus,
-    RefreshCw,
-    RotateCcw,
-    Shield,
-    Sparkles,
-    TriangleAlert,
-    Truck,
-    Wallet,
-    X,
-} from 'lucide-vue-next';
-import { computed, reactive, ref } from 'vue';
+import { Check, ChevronDown, Image, LayoutTemplate, LoaderCircle, Palette, PenLine, Sparkles } from 'lucide-vue-next';
+import { computed, onBeforeUnmount, reactive, ref } from 'vue';
 
 /*
  * Set the whole store up from a few lines about the business.
  *
- * Three screens and one promise: nothing here changes what customers see by
- * itself. The plan goes into the builder as drafts, categories are created
- * empty (and an empty category never shows), and the one thing that does go
- * live at once — the look — is a separate tick box that says so.
+ * Questions, then a short wait, then the shop itself: the plan is put into
+ * the store as drafts the moment it arrives — pages into the builder, starter
+ * products as drafts with photos, categories empty — and the merchant lands
+ * on ai/StorePreview, looking at their real storefront in the theme the plan
+ * chose. Nothing a customer sees changes until they press نشر there.
  */
-
-interface StorePlan {
-    theme: string;
-    theme_reason: string;
-    about: string;
-    announcement: string;
-    categories: { name: string; description: string }[];
-    trust_items: { icon: string; title: string; body: string }[];
-    titles: { deals: string; categories: string; products: string };
-    /** Sanitised on the server with the description allow-list. */
-    story: { heading: string; body: string };
-    faq: { question: string; answer: string }[];
-    heads_up: string;
-}
 
 interface ThemeOption {
     key: string;
@@ -74,74 +46,70 @@ const answers = reactive({
     social: { facebook: '', instagram: '', tiktok: '', youtube: '', whatsapp: '' },
 });
 
-const state = ref<'ask' | 'working' | 'review'>('ask');
+const state = ref<'ask' | 'working'>('ask');
 const error = ref('');
 const showSocial = ref(false);
-const plan = ref<StorePlan | null>(null);
-const planId = ref('');
-
-// The merchant's own edits to the plan before it is applied.
-const categories = ref<string[]>([]);
-const newCategory = ref('');
-const applyTheme = ref(true);
-const applying = ref(false);
-const applyError = ref('');
 
 const { run } = useAiGeneration();
 
 // Runs left for this store, ever (config/ai.php → store_builder.total_limit).
-// Counted down here after each plan so the page agrees with the server
-// without a reload; a failed run is not counted on either side.
 const tries = ref(props.triesLeft);
 const triesLabel = computed(() =>
     tries.value === 1 ? 'باقي محاولة واحدة' : tries.value === 2 ? 'باقي محاولتين' : `باقي ${tries.value} محاولات`,
 );
 
-const suggestedTheme = computed(() => props.themes.find((t) => t.key === plan.value?.theme) ?? null);
-const isCurrentTheme = computed(() => plan.value?.theme === props.currentTheme);
+/*
+ * What is happening while they wait, one line at a time. Paced to the real
+ * call (10–20s on Haiku) rather than tied to it: the API reports nothing
+ * until it is done, and a bar that jumps from 0 to 100 tells nobody anything.
+ * The last step holds until the plan is actually back.
+ */
+const STEPS = [
+    { icon: PenLine, label: 'بنقرا اللي كتبته عن متجرك' },
+    { icon: Palette, label: 'بنختار الشكل والألوان' },
+    { icon: LayoutTemplate, label: 'بنكتب الصفحة الرئيسية والأقسام' },
+    { icon: Image, label: 'بنجيب صور لمنتجاتك' },
+    { icon: Sparkles, label: 'بنرتّب متجرك عشان تشوفه' },
+];
+const step = ref(0);
+let timer: ReturnType<typeof setInterval> | undefined;
+
+const startSteps = () => {
+    step.value = 0;
+    timer = setInterval(() => {
+        if (step.value < STEPS.length - 1) step.value++;
+    }, 3500);
+};
+const stopSteps = () => timer && clearInterval(timer);
+onBeforeUnmount(stopSteps);
 
 const ask = async () => {
     if (!answers.business.trim() || state.value === 'working' || tries.value === 0) return;
 
     state.value = 'working';
     error.value = '';
+    startSteps();
 
     try {
-        const result = await run<StorePlan>('/ai/store-plans', JSON.parse(JSON.stringify(answers)));
-        plan.value = result.draft;
-        planId.value = result.id;
+        const result = await run<unknown>('/ai/store-plans', JSON.parse(JSON.stringify(answers)));
         tries.value = Math.max(0, tries.value - 1);
-        categories.value = result.draft.categories.map((c) => c.name);
-        applyTheme.value = !isCurrentTheme.value;
-        state.value = 'review';
+        step.value = STEPS.length - 1;
+
+        // Straight into the store as drafts; the server answers with the
+        // preview page.
+        router.post(`/ai/store-plans/${result.id}/apply`, {}, {
+            onError: (errors) => {
+                stopSteps();
+                error.value = Object.values(errors)[0] ?? 'حصلت مشكلة. جرّب تاني.';
+                state.value = 'ask';
+            },
+        });
     } catch (e) {
+        stopSteps();
         error.value = e instanceof AiGenerationError ? e.message : 'حصلت مشكلة. جرّب تاني.';
         state.value = 'ask';
     }
 };
-
-const addCategory = () => {
-    const name = newCategory.value.trim();
-    if (name && !categories.value.includes(name) && categories.value.length < 8) categories.value.push(name);
-    newCategory.value = '';
-};
-
-const apply = () => {
-    applying.value = true;
-    applyError.value = '';
-
-    router.post(
-        `/ai/store-plans/${planId.value}/apply`,
-        { apply_theme: applyTheme.value && !isCurrentTheme.value, categories: categories.value },
-        {
-            onError: (errors) => (applyError.value = Object.values(errors)[0] ?? 'حصلت مشكلة. جرّب تاني.'),
-            onFinish: () => (applying.value = false),
-        },
-    );
-};
-
-// The trust bar's icon choices, as the storefront draws them.
-const ICONS: Record<string, unknown> = { check: Check, truck: Truck, refresh: RefreshCw, shield: Shield, phone: Phone, wallet: Wallet };
 </script>
 
 <template>
@@ -156,14 +124,14 @@ const ICONS: Record<string, unknown> = { check: Check, truck: Truck, refresh: Re
                 <div>
                     <h1 class="text-2xl font-bold tracking-tight">جهّزلي المتجر</h1>
                     <p class="text-sm text-muted-foreground">
-                        احكيلنا عن {{ storeName }} في كام سطر، وإحنا نختار الشكل ونعمل الأقسام ونكتب الصفحة الرئيسية. كل حاجة بتتحط مسودة، ومش هتظهر
-                        للزبون غير لما تراجعها وتدوس نشر.
+                        احكيلنا عن {{ storeName }} في كام سطر، وإحنا نختار الشكل ونعمل الأقسام ونكتب الصفحة الرئيسية ونجهّز منتجات مثال بصور. هتشوف متجرك بعينك، ومفيش حاجة هتظهر
+                        للزبون غير لما تدوس نشر.
                     </p>
                 </div>
             </header>
 
             <!-- ══ 1. The questions ═══════════════════════════════════════ -->
-            <form v-if="state !== 'review'" class="surface space-y-5 p-6" @submit.prevent="ask">
+            <form v-if="state === 'ask'" class="surface space-y-5 p-6" @submit.prevent="ask">
                 <div>
                     <label class="field-label" for="business">بتبيع إيه؟</label>
                     <textarea
@@ -285,141 +253,41 @@ const ICONS: Record<string, unknown> = { check: Check, truck: Truck, refresh: Re
                 </div>
             </form>
 
-            <!-- ══ 2. The plan, for review ═════════════════════════════════ -->
-            <template v-else-if="plan">
-                <p v-if="plan.heads_up" class="flex items-start gap-2 rounded-xl bg-warning/10 px-4 py-3 text-sm text-warning">
-                    <TriangleAlert class="mt-0.5 h-4 w-4 shrink-0" />
-                    <span>{{ plan.heads_up }}</span>
-                </p>
+            <!-- ══ 2. Building ════════════════════════════════════════════ -->
+            <section v-else class="ai-ring rounded-[22px]" aria-live="polite">
+                <div class="relative overflow-hidden rounded-[20.5px] bg-card px-6 py-10 md:px-10">
+                    <div aria-hidden="true" class="pointer-events-none absolute -end-24 -top-24 size-72 rounded-full bg-[hsl(205_85%_66%/0.14)] blur-3xl" />
+                    <div aria-hidden="true" class="pointer-events-none absolute -bottom-28 start-1/4 size-64 rounded-full bg-[hsl(330_75%_72%/0.12)] blur-3xl" />
 
-                <!-- The look -->
-                <section class="surface space-y-3 p-6">
-                    <h2 class="font-medium">الشكل</h2>
-                    <div v-if="suggestedTheme" class="rounded-xl border border-border p-4">
-                        <div class="flex flex-wrap items-center justify-between gap-2">
-                            <p class="text-lg font-semibold">{{ suggestedTheme.name }}</p>
-                            <a
-                                v-if="suggestedTheme.preview_url"
-                                :href="suggestedTheme.preview_url"
-                                target="_blank"
-                                class="btn-ghost px-2.5 py-1.5 text-sm"
-                            >
-                                <ExternalLink class="h-4 w-4" />
-                                شوف شكله على متجر حقيقي
-                            </a>
-                        </div>
-                        <p class="text-sm text-muted-foreground">{{ suggestedTheme.description }}</p>
-                        <p v-if="plan.theme_reason" class="mt-2 text-sm">{{ plan.theme_reason }}</p>
-                    </div>
-
-                    <p v-if="isCurrentTheme" class="text-sm text-muted-foreground">ده نفس شكل متجرك دلوقتي، مفيش حاجة هتتغير.</p>
-                    <label v-else class="flex cursor-pointer items-start gap-3">
-                        <input v-model="applyTheme" type="checkbox" class="mt-0.5 size-4 rounded border-input accent-primary" />
-                        <span class="text-sm">
-                            غيّر شكل المتجر للشكل ده
-                            <span class="block text-xs text-muted-foreground">
-                                الشكل بيتغير على المتجر على طول، مش مسودة. تقدر ترجّعه في أي وقت من إعدادات الشكل.
-                            </span>
+                    <div class="relative mx-auto max-w-md text-center">
+                        <span class="mx-auto grid size-16 place-items-center rounded-[18px] bg-gradient-to-br from-jade-500 via-[hsl(205_75%_55%)] to-[hsl(330_65%_62%)] text-white shadow-[0_8px_24px_-8px_hsl(205_75%_45%/0.55)]">
+                            <Sparkles class="size-8 animate-pulse" />
                         </span>
-                    </label>
-                </section>
+                        <h2 class="mt-5 text-2xl font-bold tracking-tight">
+                            <span class="ai-text">الذكاء الاصطناعي</span> بيجهّز {{ storeName }}
+                        </h2>
+                        <p class="mt-1.5 text-[15px] text-muted-foreground">أقل من دقيقة، وهتشوف متجرك بعينك.</p>
 
-                <!-- Categories -->
-                <section class="surface space-y-3 p-6">
-                    <h2 class="font-medium">الأقسام</h2>
-                    <p class="text-sm text-muted-foreground">هتتعمل فاضية، ومش هتظهر للزبون غير لما تحط فيها منتجات. شيل أو زوّد براحتك.</p>
-                    <div class="flex flex-wrap gap-2">
-                        <span v-for="(name, index) in categories" :key="name" class="badge-neutral gap-1.5 py-1.5 pl-1.5 pr-2.5 text-sm">
-                            {{ name }}
-                            <button type="button" @click="categories.splice(index, 1)"><X class="h-3 w-3" /></button>
-                        </span>
-                        <span v-if="!categories.length" class="text-sm text-muted-foreground">مفيش أقسام جديدة.</span>
-                    </div>
-                    <div v-if="categories.length < 8" class="flex gap-2">
-                        <input v-model="newCategory" class="field" maxlength="60" placeholder="قسم تاني…" @keydown.enter.prevent="addCategory" />
-                        <button type="button" class="btn-outline" @click="addCategory"><Plus class="h-4 w-4" /></button>
-                    </div>
-                </section>
-
-                <!-- What the pages will say -->
-                <section class="surface space-y-5 p-6">
-                    <h2 class="font-medium">الكلام اللي هيتكتب</h2>
-
-                    <div>
-                        <p class="text-xs text-muted-foreground">الشريط الملوّن فوق خالص</p>
-                        <p class="mt-1 rounded-lg bg-primary px-3 py-2 text-center text-sm text-primary-foreground">
-                            {{ plan.announcement || 'الدفع عند الاستلام' }}
-                        </p>
-                    </div>
-
-                    <div v-if="plan.trust_items.length">
-                        <p class="text-xs text-muted-foreground">مميزات متجرك</p>
-                        <div class="mt-1 grid gap-2 sm:grid-cols-2">
-                            <div
-                                v-for="item in plan.trust_items"
-                                :key="item.title"
-                                class="flex items-start gap-2 rounded-lg border border-border px-3 py-2 text-sm"
+                        <ol class="mt-8 space-y-3 text-start">
+                            <li
+                                v-for="(s, i) in STEPS"
+                                :key="s.label"
+                                class="flex items-center gap-3 rounded-2xl px-4 py-3 transition-all duration-500"
+                                :class="i < step ? 'bg-foreground/[0.03] text-muted-foreground' : i === step ? 'bg-primary/[0.07] font-semibold text-foreground' : 'opacity-40'"
                             >
-                                <component :is="ICONS[item.icon] ?? Check" class="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                                <span>
-                                    <strong>{{ item.title }}</strong>
-                                    <span class="block text-xs text-muted-foreground">{{ item.body }}</span>
+                                <span class="grid size-8 shrink-0 place-items-center rounded-full" :class="i < step ? 'bg-success/15 text-success' : 'bg-primary/10 text-primary'">
+                                    <Check v-if="i < step" class="size-4" />
+                                    <LoaderCircle v-else-if="i === step" class="size-4 animate-spin" />
+                                    <component :is="s.icon" v-else class="size-4" />
                                 </span>
-                            </div>
-                        </div>
+                                <span class="text-[15px]">{{ s.label }}</span>
+                            </li>
+                        </ol>
                     </div>
+                </div>
+            </section>
 
-                    <div v-if="plan.story.body">
-                        <p class="text-xs text-muted-foreground">عن المتجر</p>
-                        <p class="mt-1 font-semibold">{{ plan.story.heading }}</p>
-                        <!-- Sanitised server-side with the storefront's own allow-list. -->
-                        <div class="space-y-2 text-sm leading-relaxed" v-html="plan.story.body" />
-                    </div>
-
-                    <div v-if="plan.faq.length">
-                        <p class="text-xs text-muted-foreground">أسئلة وأجوبة</p>
-                        <dl class="mt-1 divide-y divide-border rounded-lg border border-border">
-                            <div v-for="item in plan.faq" :key="item.question" class="px-3 py-2 text-sm">
-                                <dt class="font-medium">{{ item.question }}</dt>
-                                <dd class="text-muted-foreground">{{ item.answer }}</dd>
-                            </div>
-                        </dl>
-                    </div>
-
-                    <div v-if="plan.about">
-                        <p class="text-xs text-muted-foreground">آخر الصفحة</p>
-                        <p class="mt-1 text-sm">{{ plan.about }}</p>
-                    </div>
-                </section>
-
-                <!-- What happens on the click, said before the click -->
-                <section class="surface space-y-4 p-6">
-                    <ul class="list-disc space-y-1.5 pr-5 text-sm text-muted-foreground">
-                        <li>
-                            الصفحة الرئيسية وأعلى وأسفل الصفحة هيتحطوا <strong class="text-foreground">مسودة</strong> في تصميم المتجر. الزبون مش
-                            هيشوفهم غير لما تدوس «نشر» في كل صفحة.
-                        </li>
-                        <li>لو عندك تعديلات مش منشورة في الصفحات دي، هيتكتب مكانها.</li>
-                        <li>تقدر تعدّل أي كلمة بعد كده من تصميم المتجر.</li>
-                    </ul>
-
-                    <p v-if="applyError" class="field-error mt-0">{{ applyError }}</p>
-
-                    <div class="flex flex-wrap items-center gap-2">
-                        <button type="button" class="btn-primary" :disabled="applying" @click="apply">
-                            <LoaderCircle v-if="applying" class="h-4 w-4 animate-spin" />
-                            حطّه في المتجر كمسودة
-                        </button>
-                        <button v-if="tries > 0" type="button" class="btn-outline" :disabled="applying" @click="ask">
-                            <RotateCcw class="h-4 w-4" />
-                            اكتب تاني ({{ triesLabel }})
-                        </button>
-                        <button type="button" class="btn-ghost" :disabled="applying" @click="state = 'ask'">رجوع للأسئلة</button>
-                    </div>
-                </section>
-            </template>
-
-            <Link href="/builder" class="btn-ghost">رجوع لتصميم المتجر</Link>
+            <Link v-if="state === 'ask'" href="/builder" class="btn-ghost">رجوع لتصميم المتجر</Link>
         </div>
     </AppLayout>
 </template>

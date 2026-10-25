@@ -13,9 +13,11 @@ use App\Services\AI\AiException;
 use App\Services\AI\AiFeature;
 use App\Services\Builder\PageBuilder;
 use App\Services\Builder\PreviewToken;
+use App\Services\Storefront\ThemeResolver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
@@ -82,19 +84,28 @@ class StoreBuilderTest extends TestCase
     /** @param array<string,mixed> $plan */
     private function claudeReplies(array $plan, string $stopReason = 'end_turn'): void
     {
-        $message = [
+        $message = $this->claudeMessage($plan, $stopReason);
+
+        // A fresh response per request; see ProductWriterTest::claudeReplies.
+        Http::fake(['api.anthropic.com/*' => fn () => Http::response($message)]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $plan
+     * @return array<string,mixed>
+     */
+    private function claudeMessage(array $plan, string $stopReason = 'end_turn'): array
+    {
+        return [
             'id' => 'msg_store_plan',
             'type' => 'message',
             'role' => 'assistant',
-            'model' => 'claude-sonnet-5-5',
+            'model' => 'claude-haiku-5-5',
             'content' => [['type' => 'text', 'text' => json_encode($plan, JSON_UNESCAPED_UNICODE)]],
             'stop_reason' => $stopReason,
             'stop_sequence' => null,
             'usage' => ['input_tokens' => 2500, 'output_tokens' => 2200],
         ];
-
-        // A fresh response per request; see ProductWriterTest::claudeReplies.
-        Http::fake(['api.anthropic.com/*' => fn () => Http::response($message)]);
     }
 
     /** @param array<string,mixed> $answers */
@@ -302,7 +313,8 @@ class StoreBuilderTest extends TestCase
         $this->claudeReplies($this->plan());
         $id = $this->describe()->json('id');
 
-        $this->apply($id)->assertRedirect('/builder/home');
+        // Straight to the shop itself, not to a list of what was drafted.
+        $this->apply($id)->assertRedirect("/ai/store-plans/{$id}/preview");
 
         $this->assertSame(
             ['hero', 'deals', 'trust_bar', 'categories', 'product_grid', 'rich_text', 'faq'],
@@ -361,6 +373,167 @@ class StoreBuilderTest extends TestCase
         $this->get($this->store->canonicalUrl() . '/')
             ->assertOk()
             ->assertDontSee('أدفع إزاي؟', escape: false);
+    }
+
+    // ── Starter products and the preview ──────────────────────────────────
+
+    /** @return array<int,array<string,mixed>> */
+    private function starters(): array
+    {
+        return [
+            ['name' => 'تيشيرت قطن أبيض', 'price' => 350, 'compare_at_price' => 450, 'description' => 'تيشيرت قطن بياقة دايرية.', 'category' => 'تيشيرتات', 'photo_query' => 'white cotton t-shirt'],
+            ['name' => 'جاكت جينز', 'price' => 900, 'compare_at_price' => 0, 'description' => 'جاكت جينز أزرق.', 'category' => 'جواكت', 'photo_query' => 'denim jacket'],
+            ['name' => 'حاجة غريبة', 'price' => 120, 'compare_at_price' => 100, 'description' => '', 'category' => 'مش موجود', 'photo_query' => 'quantum gizmo عربي'],
+        ];
+    }
+
+    public function test_the_plan_comes_with_starter_products_held_to_the_product_form(): void
+    {
+        Storage::fake('public');
+        $this->claudeReplies($this->plan(['products' => $this->starters()]));
+
+        $products = $this->describe()->json('draft.products');
+
+        $this->assertSame(['تيشيرت قطن أبيض', 'جاكت جينز', 'حاجة غريبة'], array_column($products, 'name'));
+        $this->assertSame([450, null, null], array_column($products, 'compare'), 'a "was" price at or under the price is no discount');
+        $this->assertSame(['تيشيرتات', 'جواكت', ''], array_column($products, 'category'));
+        $this->assertSame('quantum gizmo', $products[2]['photo_query'], 'only plain words go to the photo search');
+    }
+
+    public function test_without_a_pexels_key_photos_come_from_the_library_or_not_at_all(): void
+    {
+        Storage::fake('public');
+        config(['services.pexels.key' => null]);
+        $this->claudeReplies($this->plan(['products' => $this->starters()]));
+
+        $images = array_column($this->describe()->json('draft.products'), 'image');
+
+        // A t-shirt and a jacket match the fashion library; a "gizmo" matches
+        // nothing and gets no photo rather than a wrong one.
+        $this->assertStringEndsWith('/0.jpg', $images[0]);
+        $this->assertStringEndsWith('/1.jpg', $images[1]);
+        $this->assertNull($images[2]);
+        Storage::disk('public')->assertExists($images[0]);
+        Http::assertSentCount(1);
+    }
+
+    public function test_with_a_pexels_key_each_product_gets_its_own_photo(): void
+    {
+        Storage::fake('public');
+        config(['services.pexels.key' => 'pexels-test-key']);
+
+        $message = $this->claudeMessage($this->plan(['products' => array_slice($this->starters(), 0, 2)]));
+        Http::fake([
+            'api.anthropic.com/*' => Http::response($message),
+            'api.pexels.com/*' => Http::response(['photos' => [
+                ['id' => 11, 'src' => ['large' => 'https://images.pexels.com/photos/11/a.jpeg']],
+                ['id' => 12, 'src' => ['large' => 'https://images.pexels.com/photos/12/b.jpeg']],
+            ]]),
+            'images.pexels.com/*' => Http::response('jpeg-bytes', 200, ['Content-Type' => 'image/jpeg']),
+        ]);
+
+        $images = array_column($this->describe()->json('draft.products'), 'image');
+
+        Http::assertSent(fn (HttpRequest $r) => str_starts_with($r->url(), 'https://api.pexels.com/v1/search')
+            && $r->hasHeader('Authorization', 'pexels-test-key')
+            && $r['query'] === 'white cotton t-shirt');
+        // Two products, two different photos, even though the search returned the same list.
+        Http::assertSent(fn (HttpRequest $r) => $r->url() === 'https://images.pexels.com/photos/11/a.jpeg');
+        Http::assertSent(fn (HttpRequest $r) => $r->url() === 'https://images.pexels.com/photos/12/b.jpeg');
+        $this->assertSame('jpeg-bytes', Storage::disk('public')->get($images[1]));
+    }
+
+    public function test_starter_products_are_drafts_the_preview_shows_and_customers_never_see(): void
+    {
+        Storage::fake('public');
+        $this->claudeReplies($this->plan(['products' => $this->starters()]));
+        $id = $this->describe()->json('id');
+        // As the plan screen sends it: no theme switch until نشر.
+        $this->apply($id, ['apply_theme' => false]);
+
+        $starters = $this->store->products()->get();
+        $this->assertCount(3, $starters);
+        $this->assertSame([Product::STATUS_DRAFT], $starters->pluck('status')->unique()->values()->all());
+        $this->assertSame($starters->pluck('id')->all(), $this->store->fresh()->settings['ai_samples']);
+        $this->assertSame('تيشيرتات', $starters->firstWhere('name', 'تيشيرت قطن أبيض')->categories()->first()->name);
+        // Every starter has a picture: the fetched photo, or a drawn one.
+        $this->assertTrue($starters->every(fn (Product $p) => $p->images()->exists()));
+
+        $token = app(PreviewToken::class)->issue($this->store, 'noir');
+
+        $this->get($this->store->canonicalUrl() . '/?_preview=' . $token)
+            ->assertOk()
+            ->assertSee('تيشيرت قطن أبيض', escape: false)
+            // The plan's theme, before the shop has been switched to it.
+            ->assertSee(app(ThemeResolver::class)->fontUrl(app(ThemeResolver::class)->byKey('noir')));
+
+        $this->get($this->store->canonicalUrl() . '/')
+            ->assertOk()
+            ->assertDontSee('تيشيرت قطن أبيض', escape: false);
+        $this->assertSame('jade', $this->store->fresh()->settings['theme']);
+    }
+
+    public function test_writing_again_replaces_the_starters_that_are_still_drafts(): void
+    {
+        Storage::fake('public');
+        config(['ai.features.store_builder.total_limit' => 3]);
+        $this->claudeReplies($this->plan(['products' => $this->starters()]));
+        $this->apply($this->describe()->json('id'));
+
+        // The merchant has made one of them theirs.
+        $kept = $this->store->products()->where('name', 'جاكت جينز')->first();
+        $kept->update(['status' => Product::STATUS_ACTIVE]);
+
+        $this->apply($this->describe()->json('id'));
+
+        $this->assertSame(4, $this->store->products()->count());
+        $this->assertTrue($kept->fresh()->exists);
+        $this->assertSame(3, $this->store->products()->where('status', Product::STATUS_DRAFT)->count());
+    }
+
+    public function test_the_preview_page_shows_the_store_in_the_plans_theme(): void
+    {
+        Storage::fake('public');
+        $this->claudeReplies($this->plan(['products' => $this->starters()]));
+        $id = $this->describe()->json('id');
+
+        // Not before it has been put in the store.
+        $this->actingAs($this->merchant)->get("/ai/store-plans/{$id}/preview")->assertRedirect('/ai/store-builder');
+
+        $this->apply($id);
+
+        $page = $this->actingAs($this->merchant)->get("/ai/store-plans/{$id}/preview")
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->component('ai/StorePreview')
+                ->where('theme.key', 'coral')
+                ->where('productCount', 3)
+                ->where('published', false))
+            ->viewData('page')['props'];
+
+        parse_str((string) parse_url($page['previewUrl'], PHP_URL_QUERY), $query);
+        $this->assertSame('coral', app(PreviewToken::class)->theme($query['_preview']));
+        $this->assertSame($this->store->id, app(PreviewToken::class)->storeId($query['_preview']));
+    }
+
+    public function test_publishing_makes_the_pages_and_theme_live_but_not_the_starters(): void
+    {
+        Storage::fake('public');
+        $this->claudeReplies($this->plan(['products' => $this->starters()]));
+        $id = $this->describe()->json('id');
+        $this->apply($id);
+
+        $this->actingAs($this->merchant)->post("/ai/store-plans/{$id}/publish")->assertRedirect();
+
+        $this->assertSame('coral', $this->store->fresh()->settings['theme']);
+        $this->get($this->store->canonicalUrl() . '/')
+            ->assertOk()
+            ->assertSee('أدفع إزاي؟', escape: false)
+            ->assertDontSee('تيشيرت قطن أبيض', escape: false);
+        $this->assertSame(0, $this->store->products()->where('status', Product::STATUS_ACTIVE)->count());
+
+        // Absolute: the requests above went to the shop's own hostname.
+        $this->actingAs($this->merchant)->get("http://localhost/ai/store-plans/{$id}/preview")
+            ->assertInertia(fn ($page) => $page->where('published', true));
     }
 
     public function test_the_trust_bar_never_falls_back_to_promises_the_merchant_did_not_make(): void

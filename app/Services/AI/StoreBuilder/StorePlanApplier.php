@@ -3,10 +3,13 @@
 namespace App\Services\AI\StoreBuilder;
 
 use App\Models\Category;
+use App\Models\Product;
 use App\Models\Store;
 use App\Services\Builder\PageBuilder;
 use App\Services\Builder\SectionRegistry;
+use App\Services\Demo\DemoArtwork;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Puts an accepted store plan into the store — as drafts wherever a draft
@@ -20,6 +23,9 @@ use Illuminate\Support\Facades\DB;
  *  - The theme has no draft: it is a store setting the storefront reads
  *    directly. It is applied only when the merchant ticked it, on a screen
  *    that says plainly that it changes the live look.
+ *  - Starter products are created as drafts, each with its photo. The
+ *    builder's preview shows them (see self::SAMPLES_SETTING); customers
+ *    never do until the merchant edits one and makes it active.
  *
  * Every section goes through PageBuilder::saveDraft, so the sanitiser rebuilds
  * it from the registry exactly as it would a merchant's own edit. Nothing the
@@ -27,21 +33,29 @@ use Illuminate\Support\Facades\DB;
  */
 class StorePlanApplier
 {
+    /**
+     * Where the store keeps the ids of its starter products: the builder's
+     * preview shows these drafts, and the next plan replaces them.
+     */
+    public const SAMPLES_SETTING = 'ai_samples';
+
     public function __construct(
         private readonly PageBuilder $builder,
         private readonly SectionRegistry $registry,
+        private readonly DemoArtwork $artwork,
     ) {}
 
     /**
      * @param  array<string,mixed>  $plan  a StorePlanWriter result
      * @param  array<int,string>  $categoryNames  the merchant's final list, after their edits
      * @param  array<string,string>  $social  platform => link, from the merchant's own answers
-     * @return array{categories:int}
+     * @return array{categories:int,products:int}
      */
     public function apply(Store $store, array $plan, array $categoryNames, bool $applyTheme, array $social = []): array
     {
         return DB::transaction(function () use ($store, $plan, $categoryNames, $applyTheme, $social) {
             $created = $this->createCategories($store, $categoryNames, (array) ($plan['categories'] ?? []));
+            $products = $this->starterProducts($store, (array) ($plan['products'] ?? []));
 
             $this->builder->saveDraft($store, 'home', $this->home($plan));
             $this->builder->saveDraft($store, 'header', $this->header($plan));
@@ -51,8 +65,78 @@ class StorePlanApplier
                 $store->update(['settings' => [...(array) $store->settings, 'theme' => $plan['theme']]]);
             }
 
-            return ['categories' => $created];
+            return ['categories' => $created, 'products' => $products];
         });
+    }
+
+    /**
+     * The plan's example products, as drafts with photos.
+     *
+     * A second plan replaces the first one's examples rather than piling more
+     * on — but only those still drafts: one the merchant has made active is
+     * theirs now, whatever it started as.
+     *
+     * @param  array<int,array<string,mixed>>  $rows
+     */
+    private function starterProducts(Store $store, array $rows): int
+    {
+        $previous = (array) data_get($store->settings, self::SAMPLES_SETTING, []);
+
+        if ($previous !== []) {
+            $store->products()->whereIn('id', $previous)->where('status', Product::STATUS_DRAFT)->get()->each->delete();
+        }
+
+        $ids = [];
+
+        foreach (array_values($rows) as $i => $row) {
+            $product = $store->products()->create([
+                'name' => $row['name'],
+                'slug' => Product::uniqueSlug($store->id, $row['name']),
+                'description' => filled($row['description'] ?? null) ? '<p>' . e($row['description']) . '</p>' : null,
+                'price' => $row['price'],
+                'compare_at_price' => $row['compare'] ?? null,
+                'track_stock' => false,
+                'status' => Product::STATUS_DRAFT,
+                'sort_order' => $i,
+            ]);
+
+            if (filled($row['category'] ?? null) && $category = $store->categories()->where('name', $row['category'])->first()) {
+                $product->categories()->attach($category->id);
+            }
+
+            $product->images()->create([
+                'path' => $this->photoFor($store, $product, $row),
+                'alt' => $row['name'],
+                'sort_order' => 0,
+            ]);
+
+            $ids[] = $product->id;
+        }
+
+        $store->update(['settings' => [...(array) $store->settings, self::SAMPLES_SETTING => $ids]]);
+
+        return count($ids);
+    }
+
+    /**
+     * The photo StarterPhotos fetched with the plan, moved in with the
+     * product's own files; a drawn placeholder when there was none.
+     *
+     * @param  array<string,mixed>  $row
+     */
+    private function photoFor(Store $store, Product $product, array $row): string
+    {
+        $disk = Storage::disk('public');
+        $fetched = (string) ($row['image'] ?? '');
+
+        if ($fetched !== '' && $disk->exists($fetched)) {
+            $path = "samples/{$store->id}/{$product->id}.jpg";
+            $disk->move($fetched, $path);
+
+            return $path;
+        }
+
+        return $this->artwork->store(['name' => $row['name'], 'hue' => crc32($row['name']) % 360], "samples/{$store->id}", $product->id);
     }
 
     /**
