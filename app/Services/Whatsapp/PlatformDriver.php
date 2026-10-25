@@ -43,7 +43,7 @@ class PlatformDriver implements ConfirmsWithButtons, WhatsappDriver
         ]);
     }
 
-    public function sendOrderConfirmation(string $phone, array $variables, Order $order): SendResult
+    public function sendOrderConfirmation(string $phone, string $body, array $variables, Order $order): SendResult
     {
         return $this->cloud->sendTemplate($phone, PlatformWhatsapp::template(), PlatformWhatsapp::language(), [
             $this->bodyComponent($variables),

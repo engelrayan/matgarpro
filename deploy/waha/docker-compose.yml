@@ -1,0 +1,50 @@
+# متجر برو — WAHA, our own WhatsApp gateway (GOWS engine)
+#
+# Every store that links its own number by QR gets one session in here. The
+# API can read and send every linked number's messages, so it listens on the
+# loopback only — the app talks to it over 127.0.0.1, nothing else can.
+#
+# Install (once):
+#   cd /var/www/matgarpro/deploy/waha
+#   cp .env.example .env        # and fill in the two secrets
+#   sudo docker compose up -d
+#
+# Then in the app's .env (same two secrets):
+#   WAHA_URL=http://127.0.0.1:3000
+#   WAHA_API_KEY=...            # = WAHA_API_KEY below
+#   WAHA_WEBHOOK_SECRET=...     # any long random string; signs the webhooks
+#   WAHA_CALLBACK_URL=https://app.matgarpro.com
+# and: php artisan config:cache
+#
+# The sessions live in the volume: a container restart or an image upgrade
+# keeps every store linked, with no re-scan.
+
+services:
+  waha:
+    image: devlikeapro/waha:gows
+    container_name: matgarpro-waha
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      WHATSAPP_DEFAULT_ENGINE: GOWS
+      WAHA_API_KEY: ${WAHA_API_KEY}
+      # Older releases read this name for the same key.
+      WHATSAPP_API_KEY: ${WAHA_API_KEY}
+      # No web dashboard or Swagger: the app is the only client, and an open
+      # dashboard is a QR code for anybody's number away from a takeover.
+      WAHA_DASHBOARD_ENABLED: "false"
+      WHATSAPP_SWAGGER_ENABLED: "false"
+      # Sessions come back by themselves after a restart.
+      WAHA_WORKER_RESTART_SESSIONS: "true"
+      TZ: Africa/Cairo
+    volumes:
+      - waha-sessions:/app/.sessions
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+volumes:
+  waha-sessions:

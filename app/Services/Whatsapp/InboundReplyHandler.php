@@ -45,6 +45,13 @@ class InboundReplyHandler
 
         $this->apply($order, $intent);
 
+        // "طلبك اتأكد" on the store's own WAHA number, as on the platform's.
+        // Not on the third-party gateways: a second unprompted message is
+        // what gets those numbers flagged.
+        if ($link->isWaha()) {
+            SendWhatsappAcknowledgement::dispatch($order->id, $intent);
+        }
+
         return ['matched' => true, 'intent' => $intent, 'order_id' => $order->id];
     }
 

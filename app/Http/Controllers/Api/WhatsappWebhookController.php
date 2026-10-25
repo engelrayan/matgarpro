@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\StoreWhatsappIntegration;
 use App\Services\Whatsapp\DriverFactory;
 use App\Services\Whatsapp\InboundReplyHandler;
+use App\Services\Whatsapp\ReportsSessionStatus;
+use App\Services\Whatsapp\Waha\WahaClient;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
@@ -60,6 +62,24 @@ class WhatsappWebhookController extends Controller
             return response('Invalid signature.', 401);
         }
 
+        /*
+         | The linked number connected or dropped (WAHA). Recorded on the link,
+         | which is what decides whether the store sends at all — so a phone
+         | that logged the session out stops being sent to on the next order,
+         | and the settings screen says why.
+         */
+        if ($driver instanceof ReportsSessionStatus && ($status = $driver->sessionStatus($request))) {
+            $working = $status['status'] === WahaClient::WORKING;
+
+            $link->forceFill([
+                'credentials' => [...(array) $link->credentials, 'status' => $status['status']],
+                'sender_phone' => $status['phone'] ?? $link->sender_phone,
+                'last_error' => $working ? null : $this->statusMessage($status['status']),
+            ])->save();
+
+            return response('ok', 200);
+        }
+
         $messages = $driver->parseWebhook($request);
 
         /*
@@ -87,6 +107,17 @@ class WhatsappWebhookController extends Controller
         }
 
         return response('ok', 200);
+    }
+
+    /** What a WAHA status means to the merchant, in a sentence. */
+    private function statusMessage(string $status): string
+    {
+        return match ($status) {
+            WahaClient::SCAN_QR => 'الرقم اتفصل — امسح الـ QR تاني من إعدادات الواتساب.',
+            WahaClient::FAILED => 'الربط وقع. افتح إعدادات الواتساب واربط الرقم تاني.',
+            'STOPPED' => 'الربط واقف. افتح إعدادات الواتساب واربط الرقم تاني.',
+            default => 'الرقم بيتوصّل…',
+        };
     }
 
     private function linkFor(string $token): ?StoreWhatsappIntegration

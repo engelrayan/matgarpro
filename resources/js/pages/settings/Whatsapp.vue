@@ -6,11 +6,11 @@ import { type BreadcrumbItem } from '@/types';
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import {
     AlertTriangle, ArrowDownLeft, ArrowUpRight, Check, Copy, Link2Off,
-    LoaderCircle, MessageCircle, Send, ShieldCheck, X,
+    LoaderCircle, MessageCircle, QrCode, Send, ShieldCheck, Smartphone, X,
 } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
-type Driver = 'wapilot' | 'whats360' | 'cloud_api' | 'platform';
+type Driver = 'wapilot' | 'whats360' | 'cloud_api' | 'platform' | 'waha';
 
 interface Connected {
     connected: true;
@@ -47,7 +47,9 @@ const props = defineProps<{
     default_template: string;
     stats: { sent: number; awaiting: number; confirmed: number; cancelled: number; failed: number; no_reply: number };
     recent: RecentMessage[];
-    platform: { available: boolean; preview: string; confirm_label: string; cancel_label: string };
+    platform: { available: boolean; preview: string; confirm_label: string; cancel_label: string; fee: number };
+    waha: { available: boolean; fee: number; status: string | null };
+    currency: string;
 }>();
 
 const page = usePage();
@@ -73,7 +75,68 @@ const usePlatform = () => {
     });
 };
 
+/* ── The store's own number, by QR (our WAHA server) ──────────────────────
+ *
+ * Linking is a conversation with WAHA, not a form: start the session, show
+ * the QR it hands out (a new one every ~20 seconds), and watch for the
+ * moment the phone has scanned it. Polled rather than pushed — this screen
+ * is open for the minute it takes, and a poll is the whole mechanism.
+ */
+const isWaha = computed(() => link.value?.driver === 'waha');
+
+const wahaStatus = ref<string | null>(props.waha.status);
+const wahaQr = ref<string | null>(null);
+const wahaPhone = ref<string | null>(link.value?.sender_phone ?? null);
+const wahaProblem = ref<string | null>(null);
+const startingWaha = ref(false);
+let wahaTimer: ReturnType<typeof setTimeout> | undefined;
+
+const pollWaha = async () => {
+    clearTimeout(wahaTimer);
+
+    try {
+        const response = await fetch(route('whatsapp.waha.status'), { headers: { Accept: 'application/json' } });
+        const state = await response.json();
+
+        wahaStatus.value = state.status;
+        wahaQr.value = state.qr ?? null;
+        wahaPhone.value = state.phone ?? wahaPhone.value;
+        wahaProblem.value = state.status === 'UNREACHABLE' ? state.message : null;
+
+        // Linked: reload so the rest of the screen (wording, test, numbers)
+        // reflects a working number, and stop asking.
+        if (state.status === 'WORKING' && props.waha.status !== 'WORKING') {
+            router.reload();
+            return;
+        }
+    } catch {
+        wahaProblem.value = 'مقدرناش نوصل للسيرفر. هنحاول تاني.';
+    }
+
+    if (wahaStatus.value !== 'WORKING') {
+        wahaTimer = setTimeout(pollWaha, 3000);
+    }
+};
+
+onMounted(() => {
+    if (isWaha.value && props.waha.status !== 'WORKING') pollWaha();
+});
+onBeforeUnmount(() => clearTimeout(wahaTimer));
+
+const useWaha = () => {
+    if (link.value && !confirm('هيتوقف الإرسال من الربط الحالي، وهتربط رقمك إنت بمسح QR. نكمّل؟')) return;
+    router.post(route('whatsapp.waha'), {}, {
+        preserveScroll: true,
+        onStart: () => (startingWaha.value = true),
+        onFinish: () => (startingWaha.value = false),
+        onSuccess: () => pollWaha(),
+    });
+};
+
+const money = (amount: number) => (amount > 0 ? `${amount} ${props.currency} للطلب` : 'ببلاش');
+
 const FLASH_MESSAGES: Record<string, string> = {
+    'whatsapp-waha-started': 'افتح واتساب على موبايلك ← الأجهزة المرتبطة ← ربط جهاز، وامسح الكود.',
     'whatsapp-connected': 'الواتساب اتربط. جرّب تبعت رسالة تجربة.',
     'whatsapp-message-saved': 'اتحفظ.',
     'whatsapp-enabled': 'الإرسال اشتغل تاني.',
@@ -241,7 +304,7 @@ const TILES = computed(() => [
                         <span v-else class="badge-neutral">متوقّف</span>
 
                         <span class="badge-info">
-                            {{ isPlatform ? 'رقم متجر برو' : (DRIVERS.find((d) => d.value === link!.driver)?.label ?? link.driver) }}
+                            {{ isPlatform ? 'رقم متجر برو' : isWaha ? 'رقمك بالكود' : (DRIVERS.find((d) => d.value === link!.driver)?.label ?? link.driver) }}
                         </span>
 
                         <span v-if="link.sender_phone" class="tabular font-mono text-xs text-muted-foreground" dir="ltr">
@@ -316,14 +379,73 @@ const TILES = computed(() => [
                             <p class="mt-3 text-xs leading-relaxed text-muted-foreground">
                                 الرسالة بتطلع باسم «متجر برو»، وأول سطر فيها اسم متجرك عشان العميل يعرف مين بيكلّمه.
                             </p>
-                            <button class="btn-primary mt-4" :disabled="usingPlatform" @click="usePlatform">
-                                <LoaderCircle v-if="usingPlatform" class="size-4 animate-spin" />
-                                فعّل على رقم متجر برو
-                            </button>
+                            <div class="mt-4 flex flex-wrap items-center gap-3">
+                                <button class="btn-primary" :disabled="usingPlatform" @click="usePlatform">
+                                    <LoaderCircle v-if="usingPlatform" class="size-4 animate-spin" />
+                                    فعّل على رقم متجر برو
+                                </button>
+                                <span class="badge-neutral">التأكيد: {{ money(platform.fee) }}</span>
+                            </div>
+                        </section>
+
+                        <!-- ── Your own number, by QR (WAHA) ─────────────────
+                             Linked: the number and how to unlink it. Linking:
+                             the QR, refreshed until the phone has scanned it.
+                             Not linked: what it is, what it costs, and the one
+                             risk it carries, before anything is scanned. -->
+                        <section v-if="isWaha" class="surface p-5">
+                            <h2 class="flex items-center gap-2 font-semibold">
+                                <Smartphone class="size-4" :class="wahaStatus === 'WORKING' ? 'text-success' : 'text-primary'" />
+                                {{ wahaStatus === 'WORKING' ? 'رقمك متوصّل' : 'اربط رقمك بمسح الكود' }}
+                            </h2>
+
+                            <div v-if="wahaStatus === 'WORKING'" class="mt-3 flex flex-wrap items-center gap-3 text-sm">
+                                <span class="tabular font-mono" dir="ltr">+{{ wahaPhone }}</span>
+                                <span class="badge-success">شغّال</span>
+                                <span class="text-muted-foreground">رسايل التأكيد بتطلع من رقمك، وتحتها استطلاع «تأكيد / إلغاء».</span>
+                            </div>
+
+                            <div v-else class="mt-4 flex flex-wrap items-start gap-5">
+                                <div class="flex size-56 shrink-0 items-center justify-center rounded-2xl border border-border bg-white p-2">
+                                    <img v-if="wahaQr" :src="`data:image/png;base64,${wahaQr}`" alt="كود ربط واتساب" class="size-full" />
+                                    <LoaderCircle v-else class="size-6 animate-spin text-muted-foreground" />
+                                </div>
+                                <ol class="min-w-0 flex-1 list-decimal space-y-2 pr-4 text-sm leading-relaxed">
+                                    <li>افتح واتساب على الموبايل اللي عليه رقم متجرك.</li>
+                                    <li>من النقط التلاتة (أو الإعدادات على آيفون) اختار <b>الأجهزة المرتبطة</b>.</li>
+                                    <li>دوس <b>ربط جهاز</b> وامسح الكود ده.</li>
+                                    <li class="text-muted-foreground">الكود بيتغيّر لوحده كل شوية — الصفحة بتجيب الجديد.</li>
+                                </ol>
+                            </div>
+                            <p v-if="wahaProblem" class="mt-3 text-xs text-destructive">{{ wahaProblem }}</p>
+                        </section>
+
+                        <section v-else-if="waha.available" class="surface p-5">
+                            <h2 class="flex items-center gap-2 font-semibold">
+                                <QrCode class="size-4 text-primary" />
+                                رقمك إنت — بمسح كود زي واتساب ويب
+                            </h2>
+                            <p class="mt-2 text-sm leading-relaxed text-muted-foreground">
+                                الرسايل بتطلع من رقم متجرك وباسمه، من غير أي حساب في مواقع تانية ولا توكن. امسح الكود من
+                                موبايلك وخلاص. العميل بيوصله استطلاع «تأكيد الطلب / إلغاء الطلب»، ولما يختار الطلب يتأكّد لوحده.
+                            </p>
+                            <p class="mt-3 flex items-start gap-1.5 rounded-xl border border-warning/30 bg-warning/5 p-3 text-xs leading-relaxed text-warning">
+                                <AlertTriangle class="mt-0.5 size-3.5 shrink-0" />
+                                مش طريقة رسمية من ميتا، وواتساب ممكن يقفل رقم بيبعت رسايل آلية كتير. إحنا بنبعت بس رسالة التأكيد
+                                للعميل اللي لسه طالب، بس الأمان يبقى على رقم مخصّص للمتجر، مش رقمك الشخصي.
+                            </p>
+                            <div class="mt-4 flex flex-wrap items-center gap-3">
+                                <button class="btn-primary" :disabled="startingWaha" @click="useWaha">
+                                    <LoaderCircle v-if="startingWaha" class="size-4 animate-spin" />
+                                    <QrCode v-else class="size-4" />
+                                    اربط رقمي
+                                </button>
+                                <span class="badge-neutral">التأكيد: {{ money(waha.fee) }}</span>
+                            </div>
                         </section>
 
                         <!-- ── Gateway ────────────────────────────────── -->
-                        <section v-if="!isPlatform" class="surface p-5">
+                        <section v-if="!isPlatform && !isWaha" class="surface p-5">
                             <h2 class="flex items-center gap-2 font-semibold">
                                 <MessageCircle class="size-4" />
                                 {{ link ? 'الرقم المربوط' : platform.available ? 'أو اربط رقمك إنت' : 'اربط رقمك' }}
@@ -519,7 +641,7 @@ const TILES = computed(() => [
                         </section>
 
                         <!-- ── Replies ────────────────────────────────── -->
-                        <section v-if="link && !isPlatform" class="surface p-5">
+                        <section v-if="link && !isPlatform && !isWaha" class="surface p-5">
                             <div class="flex flex-wrap items-baseline justify-between gap-2">
                                 <h2 class="font-semibold">استقبال ردود العملاء</h2>
                                 <p class="text-sm text-muted-foreground">

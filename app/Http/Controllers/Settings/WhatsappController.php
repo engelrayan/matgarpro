@@ -10,8 +10,11 @@ use App\Models\WhatsappMessage;
 use App\Services\Whatsapp\DriverFactory;
 use App\Services\Whatsapp\OrderConfirmationMessage;
 use App\Services\Whatsapp\PlatformWhatsapp;
+use App\Services\Whatsapp\Waha\WahaClient;
+use App\Services\Whatsapp\Waha\WahaException;
 use App\Services\Whatsapp\Whats360Driver;
 use App\Support\Phone;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -79,7 +82,16 @@ class WhatsappController extends Controller
                 ]),
                 'confirm_label' => PlatformWhatsapp::CONFIRM_LABEL,
                 'cancel_label' => PlatformWhatsapp::CANCEL_LABEL,
+                'fee' => $store->basePricePerOrder() > 0 ? Store::confirmationFeeFor(StoreWhatsappIntegration::DRIVER_PLATFORM) : 0,
             ],
+
+            // The store's own number by QR, through our WAHA server.
+            'waha' => [
+                'available' => WahaClient::configured(),
+                'fee' => $store->basePricePerOrder() > 0 ? Store::confirmationFeeFor(StoreWhatsappIntegration::DRIVER_WAHA) : 0,
+                'status' => $link?->isWaha() ? ($link->credential('status') ?? 'STARTING') : null,
+            ],
+            'currency' => $store->currency,
 
             // What the merchant would otherwise count by hand to know whether
             // any of this is working.
@@ -214,6 +226,80 @@ class WhatsappController extends Controller
         return back()->with('status', 'whatsapp-platform');
     }
 
+    /**
+     * Link the store's own number through our WAHA gateway: create (or
+     * restart) its session, then the screen polls `wahaStatus` for the QR.
+     *
+     * Replaces whatever gateway the store had, like the platform switch does;
+     * the webhook tokens are kept.
+     */
+    public function waha(Request $request, WahaClient $waha): RedirectResponse
+    {
+        abort_unless(WahaClient::configured(), 404);
+
+        $store = $this->currentStore($request);
+        $existing = $store->whatsappIntegration;
+
+        $link = StoreWhatsappIntegration::updateOrCreate(
+            ['store_id' => $store->id],
+            [
+                'driver' => StoreWhatsappIntegration::DRIVER_WAHA,
+                'credentials' => ['status' => 'STARTING'],
+                'sender_phone' => null,
+                'is_active' => true,
+                'auto_send' => true,
+                // The poll replaces "reply 1 or 2"; a wording written for the
+                // old gateway would tell the customer to type.
+                'message_template' => null,
+                'connected_at' => now(),
+                'last_error' => null,
+                'webhook_token' => $existing?->webhook_token ?? StoreWhatsappIntegration::newToken(),
+                'verify_token' => $existing?->verify_token ?? StoreWhatsappIntegration::newToken(),
+            ],
+        );
+
+        try {
+            $waha->connect($link);
+        } catch (WahaException $e) {
+            $link->forceFill(['last_error' => $e->getMessage()])->save();
+
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('status', 'whatsapp-waha-started');
+    }
+
+    /**
+     * Where the linking is, for the screen to poll every few seconds: the QR
+     * while it waits for a scan, the number once it is linked.
+     */
+    public function wahaStatus(Request $request, WahaClient $waha): JsonResponse
+    {
+        $link = $this->linkOrFail($request);
+        abort_unless($link->isWaha(), 404);
+
+        try {
+            $status = $waha->status($link);
+            $qr = $status['status'] === WahaClient::SCAN_QR ? $waha->qr($link) : null;
+        } catch (WahaException $e) {
+            return response()->json(['status' => 'UNREACHABLE', 'message' => $e->getMessage()]);
+        }
+
+        // Kept on the link too, so sending works off it without asking WAHA.
+        $link->forceFill([
+            'credentials' => [...(array) $link->credentials, 'status' => $status['status']],
+            'sender_phone' => $status['phone'] ?? $link->sender_phone,
+            'last_error' => $status['status'] === WahaClient::WORKING ? null : $link->last_error,
+        ])->save();
+
+        return response()->json([
+            'status' => $status['status'],
+            'phone' => $status['phone'],
+            'name' => $status['name'],
+            'qr' => $qr,
+        ]);
+    }
+
     /** The wording, and whether a new order sends it by itself. */
     public function message(Request $request): RedirectResponse
     {
@@ -305,9 +391,17 @@ class WhatsappController extends Controller
      * The message log stays: it is the record of what customers were told, and
      * disconnecting a gateway is not a reason to lose it.
      */
-    public function destroy(Request $request): RedirectResponse
+    public function destroy(Request $request, WahaClient $waha): RedirectResponse
     {
-        $this->linkOrFail($request)->delete();
+        $link = $this->linkOrFail($request);
+
+        // On our own gateway, disconnecting also unlinks the phone — the
+        // merchant sees the linked device disappear from their WhatsApp.
+        if ($link->isWaha()) {
+            $waha->disconnect($link);
+        }
+
+        $link->delete();
 
         return back()->with('status', 'whatsapp-disconnected');
     }

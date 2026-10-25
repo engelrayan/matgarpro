@@ -46,7 +46,7 @@ class WhatsappSender
 
         // Buttons where the number can carry them; "reply 1 or 2" elsewhere.
         $result = $driver instanceof ConfirmsWithButtons
-            ? $driver->sendOrderConfirmation($phone, $message['variables'], $order)
+            ? $driver->sendOrderConfirmation($phone, $message['body'], $message['variables'], $order)
             : $driver->send($phone, $message['body'], $message['variables']);
 
         WhatsappMessage::create([
