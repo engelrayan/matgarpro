@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import DamanRequiredDialog from '@/components/orders/DamanRequiredDialog.vue';
 import EditableCell from '@/components/orders/EditableCell.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
@@ -141,7 +142,14 @@ const shippableCount = computed(
         ).length,
 );
 
+// Not linked yet: the button still shows, and says where to switch it on.
+const damanRequired = ref(false);
+
 const shipViaDaman = () => {
+    if (!props.daman_enabled) {
+        damanRequired.value = true;
+        return;
+    }
     if (!shippableCount.value) return;
 
     shipping.value = true;
@@ -360,17 +368,18 @@ const columns = computed(() => [
                 <!-- Confirmed and not already sent, counted here rather than
                      discovered after the click: a merchant who ticks the whole
                      page should see that only twelve of the twenty will go. -->
+                <!-- Shown whether or not Daman is linked: unlinked, it explains
+                     how to link it (DamanRequiredDialog) instead of being absent. -->
                 <button
-                    v-if="daman_enabled"
                     class="btn-primary"
-                    :disabled="shipping || !shippableCount"
-                    :title="shippableCount ? '' : 'الطلبات المتحددة إما مش متأكدة أو اتبعتت لضمان قبل كده'"
+                    :disabled="daman_enabled && (shipping || !shippableCount)"
+                    :title="!daman_enabled ? 'اربط متجرك بضمان الأول' : shippableCount ? '' : 'الطلبات المتحددة إما مش متأكدة أو اتبعتت لضمان قبل كده'"
                     @click="shipViaDaman"
                 >
                     <LoaderCircle v-if="shipping" class="size-4 animate-spin" />
                     <Truck v-else class="size-4" />
                     شحن عبر ضمان
-                    <span v-if="shippableCount" class="tabular opacity-80">({{ shippableCount }})</span>
+                    <span v-if="daman_enabled && shippableCount" class="tabular opacity-80">({{ shippableCount }})</span>
                 </button>
 
                 <a :href="`/orders/waybills?ids=${selected.join(',')}`" target="_blank" class="btn-outline">
@@ -670,5 +679,7 @@ const columns = computed(() => [
                 />
             </div>
         </div>
+
+        <DamanRequiredDialog v-model:open="damanRequired" />
     </AppLayout>
 </template>

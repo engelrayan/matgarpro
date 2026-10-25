@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import DamanRequiredDialog from '@/components/orders/DamanRequiredDialog.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/vue3';
@@ -112,12 +113,18 @@ const isRisky = computed(() => props.customer_history.refused >= 2);
 const shipping = ref(false);
 
 // Confirmed only, and only once: the same rule the grid's bulk button follows,
-// enforced on the server either way.
+// enforced on the server either way. Shown before Daman is linked too — the
+// click then says how to link it rather than the button not being there.
 const canShipViaDaman = computed(
-    () => props.daman_enabled && !props.order.locked && props.order.status === 'confirmed' && !props.order.daman?.tracking_number,
+    () => !props.order.locked && props.order.status === 'confirmed' && !props.order.daman?.tracking_number,
 );
+const damanRequired = ref(false);
 
 const shipViaDaman = () => {
+    if (!props.daman_enabled) {
+        damanRequired.value = true;
+        return;
+    }
     shipping.value = true;
     router.post('/orders-bulk/daman', { ids: [props.order.id] }, {
         preserveScroll: true,
@@ -561,5 +568,7 @@ const sendWhatsapp = () => {
                 </aside>
             </div>
         </div>
+
+        <DamanRequiredDialog v-model:open="damanRequired" />
     </AppLayout>
 </template>
