@@ -58,6 +58,7 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::post('builder/{page}/publish', [BuilderController::class, 'publish'])->name('builder.publish');
     Route::post('builder/{page}/discard', [BuilderController::class, 'discard'])->name('builder.discard');
     Route::post('builder/{page}/reset', [BuilderController::class, 'reset'])->name('builder.reset');
+    Route::post('builder/{page}/template', [BuilderController::class, 'template'])->name('builder.template');
 
     // A product's own landing page: designed at builder/landing-{id}, taken
     // down here, written by AI below.

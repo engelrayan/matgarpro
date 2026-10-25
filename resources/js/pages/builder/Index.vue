@@ -7,7 +7,7 @@ import {
     Activity, AlignRight, ArrowRight, BadgeCheck, Check, Copyright, ExternalLink, Eye, EyeOff, Grid3x3, GripVertical,
     Heading, Image, Images, LayoutGrid, Loader2, Megaphone, MessageCircleQuestion, Monitor, PanelBottom,
     PanelTop, Plus, Presentation, Quote, Rocket, RotateCcw, Scale, Share2, ShieldCheck, ShoppingCart, Shuffle,
-    Smartphone, Sparkles, Star, Tablet, Tag, Timer, Trash2, Type, Undo2, Youtube,
+    Smartphone, Sparkles, Star, Tablet, Tag, Timer, Trash2, Type, Undo2, X, Youtube,
 } from 'lucide-vue-next';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 
@@ -57,7 +57,11 @@ const props = defineProps<{
     storeUrl: string;
     currency: string;
     categories: { id: number; name: string }[];
-    landing: { product_id: number; product_name: string; product_url: string; live: boolean; ai_available: boolean; ai_price: number } | null;
+    landing: {
+        product_id: number; product_name: string; product_url: string; live: boolean; started: boolean; product_active: boolean;
+        ai_available: boolean; ai_price: number;
+        templates: { key: string; name: string; description: string; best_for: string; parts: string[] }[];
+    } | null;
 }>();
 
 // Only the icons the registry actually names. A wildcard import of
@@ -108,6 +112,19 @@ const writeLanding = async () => {
         writerError.value = error instanceof AiGenerationError ? error.message || null : 'حصلت مشكلة. جرّب تاني.';
         writing.value = false;
     }
+};
+
+const showTemplates = ref(props.landing !== null && !props.landing.started);
+const applyingTemplate = ref<string | null>(null);
+
+const useTemplate = (key: string) => {
+    if (props.landing?.started && !confirm('الشكل ده هيحل محل المسودة الحالية. الصفحة المنشورة مش هتتغير لحد ما تدوس نشر.')) return;
+
+    applyingTemplate.value = key;
+    router.post(`/builder/${props.page}/template`, { template: key }, {
+        onSuccess: () => location.reload(),
+        onFinish: () => (applyingTemplate.value = null),
+    });
 };
 
 const removeLanding = () => {
@@ -303,6 +320,15 @@ const FRAME_WIDTH = { desktop: '100%', tablet: '820px', mobile: '390px' };
                 </Link>
                 <span v-if="landing.live" class="badge-success shrink-0">منشورة</span>
                 <span v-else class="badge-neutral shrink-0">مش منشورة لسه</span>
+                <!-- The page can be built for a draft product; only nobody can
+                     open it until the product itself is published. -->
+                <span v-if="!landing.product_active" class="badge-warning shrink-0" title="انشر المنتج من صفحته عشان الزباين يشوفوه">
+                    المنتج مسودّة
+                </span>
+                <button class="btn-ghost px-2 py-1 text-sm" @click="showTemplates = true">
+                    <LayoutGrid class="size-4" />
+                    قوالب
+                </button>
                 <a v-if="landing.live" :href="landing.product_url" target="_blank" rel="noopener" class="btn-ghost px-2 py-1" title="افتحها زي الزبون">
                     <ExternalLink class="size-4" />
                 </a>
@@ -484,7 +510,68 @@ const FRAME_WIDTH = { desktop: '100%', tablet: '820px', mobile: '390px' };
             </aside>
 
             <!-- ── Preview ──────────────────────────────────────────────── -->
-            <main class="flex min-w-0 flex-1 justify-center overflow-auto bg-muted/60 p-4">
+            <main class="relative flex min-w-0 flex-1 justify-center overflow-auto bg-muted/60 p-4">
+                <!-- ── Template chooser ─────────────────────────────────────
+                     Over the preview, the first time a product's landing
+                     page is opened — a merchant should pick how the page
+                     sells, not inherit a layout they never chose. Reopened
+                     from the «قوالب» button. -->
+                <div v-if="landing && showTemplates" class="absolute inset-0 z-10 overflow-auto bg-background/95 p-6 backdrop-blur-sm">
+                    <div class="mx-auto max-w-4xl">
+                        <div class="flex items-start justify-between gap-4">
+                            <div>
+                                <h2 class="text-xl font-bold">اختار شكل تبدأ منه</h2>
+                                <p class="mt-1 text-sm text-muted-foreground">
+                                    كل شكل بيبيع بطريقة مختلفة. هتقدر تغيّر وترتّب وتضيف أي جزء بعد كده.
+                                </p>
+                            </div>
+                            <button v-if="landing.started" class="btn-ghost px-2" title="اقفل" @click="showTemplates = false">
+                                <X class="size-4" />
+                            </button>
+                        </div>
+
+                        <div class="mt-6 grid gap-4 md:grid-cols-3">
+                            <button
+                                v-for="template in landing.templates"
+                                :key="template.key"
+                                class="surface flex flex-col p-4 text-right transition-all hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-e2 disabled:opacity-50"
+                                :disabled="applyingTemplate !== null"
+                                @click="useTemplate(template.key)"
+                            >
+                                <!-- A schematic of the page, top to bottom, so the
+                                     difference between them is seen, not read. -->
+                                <div class="space-y-1 rounded-xl bg-muted/60 p-2.5">
+                                    <div
+                                        v-for="(part, i) in template.parts"
+                                        :key="i"
+                                        class="truncate rounded-md px-2 py-1 text-[11px]"
+                                        :class="part === 'صور المنتج وفورم الطلب' ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground'"
+                                    >
+                                        {{ part }}
+                                    </div>
+                                </div>
+                                <p class="mt-3 font-semibold">{{ template.name }}</p>
+                                <p class="mt-1 text-xs leading-relaxed text-muted-foreground">{{ template.description }}</p>
+                                <p class="mt-auto pt-3 text-[11px] text-primary">مناسب لـ: {{ template.best_for }}</p>
+                                <span v-if="applyingTemplate === template.key" class="mt-2 inline-flex items-center gap-1 text-xs">
+                                    <Loader2 class="size-3 animate-spin" /> بنجهّزها…
+                                </span>
+                            </button>
+                        </div>
+
+                        <div v-if="landing.ai_available" class="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary/30 bg-primary/5 p-4">
+                            <p class="text-sm">
+                                <span class="font-semibold">أو خلّي الذكاء الاصطناعي يكتبها كلها</span>
+                                <span class="text-muted-foreground"> — من صور المنتج ووصفه، بالمصري.</span>
+                            </p>
+                            <button class="btn-primary" @click="showTemplates = false; showWriter = true">
+                                <Sparkles class="size-4" />
+                                اكتبهالي
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <div
                     class="h-full overflow-hidden rounded-2xl border border-border bg-card shadow-e2 transition-all duration-300"
                     :style="{ width: FRAME_WIDTH[device], maxWidth: '100%' }"

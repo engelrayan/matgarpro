@@ -23,22 +23,33 @@ class ProductController extends Controller
 
     public function __invoke(Request $request, Store $store, string $slug): View
     {
+        /*
+         | The builder's preview sees drafts too. A merchant designs a landing
+         | page *before* putting the product live — and a duplicated product
+         | always starts as a draft — so a preview that 404s on drafts is a
+         | builder that cannot be used for the very product being prepared.
+         | The preview token is checked by BuilderPreview against this store.
+         */
+        $preview = $this->renderer->isPreview($request);
+
         $product = $store->products()
             ->with(['images', 'variants'])
             ->where('slug', $slug)
-            ->where('status', Product::STATUS_ACTIVE)
+            ->when(! $preview, fn ($q) => $q->where('status', Product::STATUS_ACTIVE))
             ->first();
 
         // `isHidden()` also covers the merchant's "hide when out of stock"
         // setting, which status alone cannot express.
-        if (! $product || $product->isHidden()) {
+        if (! $product || (! $preview && $product->isHidden())) {
             throw new NotFoundHttpException();
         }
 
         // After the 404 check: a view of a page that does not exist is not a
         // view, and counting it would let a bot crawling bad URLs inflate the
-        // merchant's traffic.
-        $this->funnel->view($request, $store, $product);
+        // merchant's traffic. Nor is the merchant looking at their own draft.
+        if (! $preview) {
+            $this->funnel->view($request, $store, $product);
+        }
 
         $settings = $product->pageSettings();
 

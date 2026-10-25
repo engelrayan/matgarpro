@@ -159,6 +159,62 @@ class LandingPageTest extends TestCase
 
     // ── The builder ─────────────────────────────────────────────────────
 
+    /**
+     * A duplicated product starts as a draft, and that is exactly when its
+     * landing page gets designed — the preview must show it, customers not.
+     */
+    public function test_the_builder_previews_a_draft_products_landing_page(): void
+    {
+        $draft = Product::factory()->for($this->store)->create(['status' => Product::STATUS_DRAFT, 'name' => 'حذاء — نسخة']);
+        $previewUrl = app(\App\Services\Builder\PreviewToken::class)->urlFor(
+            $this->store,
+            $this->key($draft),
+            app(\App\Services\Builder\PreviewToken::class)->issue($this->store),
+        );
+
+        $this->get($previewUrl)->assertOk()->assertSee('حذاء — نسخة');
+        $this->get($this->store->canonicalUrl() . '/p/' . $draft->slug)->assertNotFound();
+    }
+
+    public function test_a_new_landing_page_opens_on_the_template_chooser_and_a_template_fills_the_draft(): void
+    {
+        $this->actingAs($this->merchant)
+            ->get("http://localhost/builder/{$this->key()}")
+            ->assertInertia(fn ($page) => $page
+                ->where('landing.started', false)
+                ->where('landing.templates', fn ($templates) => collect($templates)->pluck('key')->all() === ['quick', 'story', 'designed']));
+
+        $this->actingAs($this->merchant)
+            ->post("http://localhost/builder/{$this->key()}/template", ['template' => 'story'])
+            ->assertRedirect();
+
+        $draft = app(PageBuilder::class)->draft($this->store, $this->key());
+        $types = array_column($draft, 'type');
+
+        $this->assertSame('landing_hero', $types[0]);
+        $this->assertContains('comparison', $types);
+        $this->assertContains('product_main', $types);
+        // Not live until published.
+        $this->assertFalse(app(PageBuilder::class)->hasLanding($this->store, $this->product->id));
+
+        $this->actingAs($this->merchant)
+            ->post("http://localhost/builder/{$this->key()}/template", ['template' => 'nope'])
+            ->assertStatus(422);
+    }
+
+    /** Templates prompt; they never promise. Only cash on delivery is stated. */
+    public function test_no_template_promises_a_guarantee_or_delivery_time(): void
+    {
+        $templates = app(\App\Services\Builder\LandingTemplates::class);
+
+        foreach (['quick', 'story', 'designed'] as $key) {
+            $json = json_encode($templates->sections($key), JSON_UNESCAPED_UNICODE);
+
+            $this->assertStringNotContainsString('يوم', $json, "{$key} must not promise a number of days");
+            $this->assertStringNotContainsString('ضمان', $json, "{$key} must not promise a guarantee");
+        }
+    }
+
     /** One click from the product list, which also says which ones already have one. */
     public function test_the_product_list_links_every_product_to_its_landing_page(): void
     {

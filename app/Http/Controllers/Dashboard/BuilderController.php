@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\Store;
+use App\Services\Builder\LandingTemplates;
 use App\Services\Builder\PageBuilder;
 use App\Services\Builder\PreviewToken;
 use App\Services\Builder\SectionRegistry;
@@ -50,8 +51,15 @@ class BuilderController extends Controller
                 'product_name' => $product->name,
                 'product_url' => $store->canonicalUrl() . '/p/' . $product->slug,
                 'live' => $this->builder->hasLanding($store, $product->id),
+                // Not started yet: the builder opens on the template chooser
+                // rather than on a page the merchant did not pick.
+                'started' => $this->builder->hasLanding($store, $product->id, includeDrafts: true),
+                // A draft product's page can be designed and previewed, but no
+                // customer reaches it until the product itself is published.
+                'product_active' => $product->status === Product::STATUS_ACTIVE,
                 'ai_available' => filled(config('services.anthropic.key')),
                 'ai_price' => (float) config('billing.ai_landing_page_price'),
+                'templates' => app(LandingTemplates::class)->catalogue(),
             ] : null,
             'pages' => $this->builder->overview($store),
             'sections' => $this->builder->draft($store, $page),
@@ -108,6 +116,23 @@ class BuilderController extends Controller
         $this->builder->resetDraftToDefaults($store, $page);
 
         return back()->with('status', 'builder-reset');
+    }
+
+    /**
+     * Start a landing page from one of the ready-made templates — into the
+     * draft, like everything else here, so the live page is untouched.
+     */
+    public function template(Request $request, string $page, LandingTemplates $templates): RedirectResponse
+    {
+        $store = $request->user()->currentStore();
+        abort_unless($this->guardPage($store, $page) !== null, 404);
+
+        $key = $request->string('template')->toString();
+        abort_unless($templates->has($key), 422);
+
+        $this->builder->saveDraft($store, $page, $templates->sections($key));
+
+        return back()->with('status', 'builder-template');
     }
 
     /**
