@@ -81,6 +81,18 @@ class IntroPricingTest extends TestCase
         $this->assertSame(0.75, $store->basePricePerOrder());
     }
 
+    public function test_an_order_confirmed_from_the_official_number_is_one_and_a_half_pounds(): void
+    {
+        $store = Store::factory()->inIntroPeriod()->create(['billing_plan_id' => $this->standardPlan()->id]);
+        $official = Store::confirmationFeeFor(\App\Models\StoreWhatsappIntegration::DRIVER_PLATFORM);
+
+        // The figure the WhatsApp settings screen leads with, and the one the
+        // landing page quotes: 0.50 an order plus 1.00 for the confirmation,
+        // then 0.75 + 1.00 once the first months are over.
+        $this->assertSame(1.50, $store->pricePerOrder() + $official);
+        $this->assertSame(1.75, $store->basePricePerOrder() + $official);
+    }
+
     // ── Charging ────────────────────────────────────────────────────────────
 
     public function test_an_order_is_charged_the_introductory_price(): void
