@@ -94,6 +94,15 @@ class WhatsappController extends Controller
                 'fee' => $store->basePricePerOrder() > 0 ? Store::confirmationFeeFor(StoreWhatsappIntegration::DRIVER_WAHA) : 0,
                 'status' => $link?->isWaha() ? ($link->credential('status') ?? 'STARTING') : null,
             ],
+
+            // The order's own price, so each channel can show what an order
+            // with its confirmation costs in total — the number a merchant
+            // actually compares.
+            'orderPrice' => [
+                'now' => $store->pricePerOrder(),
+                'after' => $store->basePricePerOrder(),
+                'intro' => $store->inIntroPeriod(),
+            ],
             'currency' => $store->currency,
 
             // What the merchant would otherwise count by hand to know whether
