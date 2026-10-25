@@ -102,6 +102,19 @@ return [
             'daily_limit' => (int) env('AI_LANDING_PAGE_DAILY_LIMIT', 10),
             'fallbacks' => true,
         ],
+
+        /*
+         | The inbox's summary and suggested reply: one short conversation in,
+         | a few lines out, many times a day. Haiku — about a tenth of a cent a
+         | call — so it can stay free to the merchant under a daily cap.
+         */
+        'inbox_assistant' => [
+            'model' => env('AI_INBOX_MODEL', 'claude-haiku-5-5'),
+            'effort' => env('AI_INBOX_EFFORT', 'low'),
+            'max_tokens' => 1500,
+            'daily_limit' => (int) env('AI_INBOX_DAILY_LIMIT', 100),
+            'fallbacks' => true,
+        ],
     ],
 
     /*

@@ -3,9 +3,10 @@ import InputError from '@/components/InputError.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { type BreadcrumbItem } from '@/types';
-import { Head, router, useForm, usePage } from '@inertiajs/vue3';
+import { avatarTone, initial, listTime, type ConversationItem } from '@/components/inbox/types';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import {
-    AlertTriangle, ArrowDownLeft, ArrowUpRight, Check, Copy, Link2Off,
+    AlertTriangle, Check, CheckCheck, Copy, Link2Off,
     LoaderCircle, MessageCircle, QrCode, Send, ShieldCheck, Smartphone, X,
 } from 'lucide-vue-next';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
@@ -31,22 +32,12 @@ interface Connected {
     last_error: string | null;
 }
 
-interface RecentMessage {
-    direction: 'in' | 'out';
-    phone: string;
-    body: string;
-    status: string;
-    intent: string | null;
-    error: string | null;
-    at: string;
-}
-
 const props = defineProps<{
     integration: Connected | { connected: false };
     placeholders: Record<string, string>;
     default_template: string;
     stats: { sent: number; awaiting: number; confirmed: number; cancelled: number; failed: number; no_reply: number };
-    recent: RecentMessage[];
+    recent: ConversationItem[];
     platform: { available: boolean; preview: string; confirm_label: string; cancel_label: string; fee: number };
     waha: { available: boolean; fee: number; status: string | null };
     currency: string;
@@ -761,28 +752,37 @@ const TILES = computed(() => [
                                 <InputError :message="testForm.errors.phone" />
                             </section>
 
-                            <section v-if="recent.length" class="surface p-4">
-                                <h2 class="text-sm font-semibold">آخر الرسايل</h2>
+                            <!-- The latest conversations, as people rather than a log
+                                 of messages; each opens its chat in the inbox. -->
+                            <section v-if="recent.length" class="surface overflow-hidden">
+                                <div class="flex items-center justify-between px-4 pt-4 pb-2">
+                                    <h2 class="text-sm font-semibold">المحادثات</h2>
+                                    <Link href="/inbox" class="text-xs font-medium text-primary hover:underline">افتحها كلها</Link>
+                                </div>
 
-                                <ul class="mt-3 space-y-2.5">
-                                    <li v-for="(message, i) in recent" :key="i" class="flex items-start gap-2">
-                                        <ArrowUpRight v-if="message.direction === 'out'" class="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-                                        <ArrowDownLeft v-else class="mt-0.5 size-3.5 shrink-0 text-primary" />
-
-                                        <div class="min-w-0 flex-1">
-                                            <p class="flex flex-wrap items-center gap-1.5">
-                                                <span class="tabular font-mono text-[11px] text-muted-foreground" dir="ltr">{{ message.phone }}</span>
-                                                <span v-if="message.intent === 'confirm'" class="badge-success">أكّد</span>
-                                                <span v-else-if="message.intent === 'cancel'" class="badge-danger">لغى</span>
-                                                <span v-else-if="message.intent === 'unknown'" class="badge-neutral">مش مفهوم</span>
-                                                <span v-else-if="message.status === 'failed'" class="badge-danger">ماوصلتش</span>
-                                            </p>
-                                            <p class="mt-0.5 truncate text-xs text-muted-foreground" :title="message.body">{{ message.body }}</p>
-                                            <p v-if="message.error" class="mt-0.5 text-[11px] text-destructive">{{ message.error }}</p>
-                                            <p class="text-[11px] text-muted-foreground/70">{{ message.at }}</p>
-                                        </div>
-                                    </li>
-                                </ul>
+                                <Link
+                                    v-for="c in recent"
+                                    :key="c.id"
+                                    :href="`/inbox?c=${c.id}`"
+                                    class="flex items-start gap-3 border-t border-border/60 px-4 py-2.5 transition-colors hover:bg-muted/60"
+                                >
+                                    <span class="flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white" :class="avatarTone(c.id)">
+                                        {{ initial(c.name, c.phone) }}
+                                    </span>
+                                    <span class="min-w-0 flex-1">
+                                        <span class="flex items-baseline justify-between gap-2">
+                                            <span class="truncate text-sm" :class="c.unread ? 'font-semibold' : 'font-medium'">{{ c.name ?? c.phone }}</span>
+                                            <span class="shrink-0 text-[11px]" :class="c.unread ? 'font-semibold text-success' : 'text-muted-foreground'">{{ listTime(c.last_at) }}</span>
+                                        </span>
+                                        <span class="mt-0.5 flex items-center gap-2">
+                                            <span class="flex min-w-0 flex-1 items-center gap-1 text-xs" :class="c.unread ? 'text-foreground' : 'text-muted-foreground'">
+                                                <CheckCheck v-if="c.last_direction === 'out'" class="size-3 shrink-0 opacity-60" />
+                                                <span class="truncate">{{ c.preview }}</span>
+                                            </span>
+                                            <span v-if="c.unread" class="flex h-4.5 min-w-4.5 shrink-0 items-center justify-center rounded-full bg-success px-1 text-[10px] font-semibold text-white">{{ c.unread }}</span>
+                                        </span>
+                                    </span>
+                                </Link>
                             </section>
                         </template>
 

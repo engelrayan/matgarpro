@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\WhatsappConversation;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -56,6 +57,16 @@ class HandleInertiaRequests extends Middleware
                     'is_super' => $request->user('admin')->isSuper(),
                 ] : null,
             ],
+            /*
+             | Conversations with unread WhatsApp messages, for the badge on
+             | «المحادثات». Read without currentStore(), which creates a store
+             | for a user who has none — not something a badge should do.
+             */
+            // The web guard by name: on the operator panel the default guard is
+            // the admin, who has no stores.
+            'inbox_unread' => fn () => ($storeId = $request->user('web')?->stores()->oldest('id')->value('id'))
+                ? WhatsappConversation::where('store_id', $storeId)->where('unread_count', '>', 0)->count()
+                : 0,
             /*
              | One-off messages from the last request.
              |

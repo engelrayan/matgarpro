@@ -3,9 +3,10 @@ import NavFooter from '@/components/NavFooter.vue';
 import NavMain, { type NavGroup } from '@/components/NavMain.vue';
 import NavUser from '@/components/NavUser.vue';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
-import { type NavItem } from '@/types';
-import { Link } from '@inertiajs/vue3';
-import { Boxes, Globe, LayoutGrid, LayoutList, LayoutTemplate, MessageCircle, Package, Palette, Radio, ScrollText, ShoppingBag, ShoppingCart, Sparkles, Store, TrendingUp, Truck, Wallet } from 'lucide-vue-next';
+import { type NavItem, type SharedData } from '@/types';
+import { Link, usePage } from '@inertiajs/vue3';
+import { Boxes, Globe, LayoutGrid, LayoutList, LayoutTemplate, MessageCircle, MessagesSquare, Package, Palette, Radio, ScrollText, ShoppingBag, ShoppingCart, Sparkles, Store, TrendingUp, Truck, Wallet } from 'lucide-vue-next';
+import { computed } from 'vue';
 import AppLogo from './AppLogo.vue';
 
 /*
@@ -18,12 +19,16 @@ import AppLogo from './AppLogo.vue';
  * Within each group, ordered by how often a working merchant opens it: orders
  * every hour, products every few days, the domain once.
  */
-const navGroups: NavGroup[] = [
+const page = usePage<SharedData>();
+
+const navGroups = computed<NavGroup[]>(() => [
     {
         label: 'متجرك',
         items: [
             { title: 'لوحة التحكم', href: '/dashboard', icon: LayoutGrid },
             { title: 'الطلبات', href: '/orders', icon: ShoppingBag },
+            // Next to orders: half of what a customer writes is about one.
+            { title: 'المحادثات', href: '/inbox', icon: MessagesSquare, badge: page.props.inbox_unread ?? 0 },
             { title: 'السلات المتروكة', href: '/carts', icon: ShoppingCart },
             { title: 'تقرير الربح', href: '/reports/profit', icon: TrendingUp },
             { title: 'المنتجات', href: '/products', icon: Package },
@@ -56,7 +61,7 @@ const navGroups: NavGroup[] = [
             { title: 'الدومين', href: '/settings/general#domain', icon: Globe },
         ],
     },
-];
+]);
 
 const footerNavItems: NavItem[] = [];
 </script>

@@ -49,12 +49,17 @@ class WhatsappSender
             ? $driver->sendOrderConfirmation($phone, $message['body'], $message['variables'], $order)
             : $driver->send($phone, $message['body'], $message['variables']);
 
+        // On WAHA the whole confirmation is a poll, and the inbox draws it as one.
+        $isPoll = $driver instanceof WahaDriver;
+
         WhatsappMessage::create([
             'store_id' => $link->store_id,
             'order_id' => $order->id,
             'direction' => WhatsappMessage::DIRECTION_OUT,
+            'kind' => $isPoll ? WhatsappMessage::KIND_POLL : WhatsappMessage::KIND_TEXT,
             'phone' => $phone,
-            'body' => $message['body'],
+            'body' => $isPoll ? WahaDriver::pollTitle($message['body']) : $message['body'],
+            'meta' => $isPoll ? ['options' => [WahaDriver::CONFIRM_OPTION, WahaDriver::CANCEL_OPTION]] : null,
             'provider_message_id' => $result->providerMessageId,
             'status' => $result->ok ? 'sent' : 'failed',
             'error' => $result->error,

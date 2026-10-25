@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Dashboard\InboxController;
 use App\Models\Order;
 use App\Models\Store;
 use App\Models\StoreWhatsappIntegration;
+use App\Models\WhatsappConversation;
 use App\Models\WhatsappMessage;
 use App\Services\Whatsapp\ConfirmsWithButtons;
 use App\Services\Whatsapp\DriverFactory;
@@ -98,20 +100,23 @@ class WhatsappController extends Controller
             // any of this is working.
             'stats' => $this->stats($store),
 
-            // The last few messages either way. The whole point of keeping them.
-            'recent' => WhatsappMessage::query()
+            // The latest conversations, each one a click from its chat in the
+            // inbox — a list of raw messages here read as a log, not as people.
+            'recent' => WhatsappConversation::query()
                 ->where('store_id', $store->id)
-                ->latest('id')
-                ->limit(10)
+                ->whereNotNull('last_message_at')
+                ->latest('last_message_at')
+                ->limit(6)
                 ->get()
-                ->map(fn (WhatsappMessage $m) => [
-                    'direction' => $m->direction,
-                    'phone' => $m->phone,
-                    'body' => mb_strimwidth((string) $m->body, 0, 120, '…'),
-                    'status' => $m->status,
-                    'intent' => $m->intent,
-                    'error' => $m->error,
-                    'at' => $m->created_at->diffForHumans(),
+                ->map(fn (WhatsappConversation $c) => [
+                    'id' => $c->id,
+                    'name' => $c->name,
+                    'phone' => InboxController::localPhone($c->phone),
+                    'preview' => $c->last_preview,
+                    'last_direction' => $c->last_direction,
+                    'last_at' => $c->last_message_at?->toIso8601String(),
+                    'unread' => $c->unread_count,
+                    'tags' => $c->tags ?? [],
                 ]),
         ]);
     }
