@@ -247,7 +247,8 @@ const preview = computed(() => {
         '{store}': 'متجرك',
         '{name}': 'سارة عبد الله',
         '{number}': '1042',
-        '{items}': '• 2× قميص قطن (أبيض · L)\n• 1× حزام جلد',
+        // On WAHA the products go on one line — the message is a poll title.
+        '{items}': isWaha.value ? '2× قميص قطن (أبيض · L)، 1× حزام جلد' : '• 2× قميص قطن (أبيض · L)\n• 1× حزام جلد',
         '{total}': '798.00',
         '{currency}': 'EGP',
     };
@@ -617,16 +618,16 @@ const TILES = computed(() => [
                                     <div class="min-w-0">
                                         <p class="mb-2 text-xs text-muted-foreground">شكلها عند العميل</p>
                                         <div class="rounded-xl bg-muted/40 p-3">
-                                            <div class="max-w-[22rem] rounded-2xl rounded-tr-sm bg-success/10 p-3 text-sm leading-relaxed whitespace-pre-wrap">
+                                            <div v-if="!isWaha" class="max-w-[22rem] rounded-2xl rounded-tr-sm bg-success/10 p-3 text-sm leading-relaxed whitespace-pre-wrap">
                                                 {{ preview }}
                                             </div>
 
-                                            <!-- On our WAHA gateway the reply is a poll sent right
-                                                 under the message — drawn here so the merchant sees
+                                            <!-- On our WAHA gateway it is one message: a poll whose
+                                                 title is the text — drawn here so the merchant sees
                                                  that the customer taps, not types. -->
-                                            <div v-if="isWaha" class="mt-1.5 max-w-[22rem] rounded-2xl rounded-tr-sm bg-success/10 p-3 text-sm">
-                                                <p class="font-semibold">تأكّد طلبك رقم #1042؟</p>
-                                                <p class="mt-0.5 text-[11px] text-muted-foreground">اختار إجابة واحدة</p>
+                                            <div v-else class="max-w-[22rem] rounded-2xl rounded-tr-sm bg-success/10 p-3 text-sm">
+                                                <p class="leading-relaxed font-semibold whitespace-pre-wrap">{{ preview }}</p>
+                                                <p class="mt-1 text-[11px] text-muted-foreground">اختار إجابة واحدة</p>
                                                 <div class="mt-2.5 space-y-2">
                                                     <div v-for="option in ['✅ تأكيد الطلب', '❌ إلغاء الطلب']" :key="option" class="flex items-center gap-2">
                                                         <span class="size-4 shrink-0 rounded-full border-2 border-muted-foreground/40"></span>

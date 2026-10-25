@@ -79,10 +79,9 @@ class StoreWhatsappIntegration extends Model
 
     /** On WAHA the reply is a poll under the message, so the message says to tap it. */
     public const WAHA_TEMPLATE = "أهلاً {name} 👋\n"
-        . "طلبك رقم #{number} من {store} وصلنا:\n"
-        . "{items}\n"
-        . "الإجمالي: {total} {currency} — الدفع عند الاستلام\n\n"
-        . 'اختار «تأكيد الطلب» من الاستطلاع اللي تحت عشان نجهّزه ونشحنه.';
+        . "طلبك رقم #{number} ({items}) من متجر {store} وصلنا "
+        . "بإجمالي {total} {currency} — الدفع عند الاستلام.\n"
+        . 'برجاء تأكيد الطلب 👇';
 
     protected $fillable = [
         'store_id', 'driver', 'credentials', 'sender_phone', 'is_active',

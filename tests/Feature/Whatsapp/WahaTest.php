@@ -181,7 +181,7 @@ class WahaTest extends TestCase
 
     // ── Sending ─────────────────────────────────────────────────────────
 
-    public function test_the_confirmation_is_the_message_then_a_poll_and_it_is_billed_at_the_waha_price(): void
+    public function test_the_confirmation_is_one_poll_carrying_the_order_and_it_is_billed_at_the_waha_price(): void
     {
         config(['billing.whatsapp_fees.waha' => 0.25, 'billing.whatsapp_fees.meta' => 0.50]);
         $this->store->update(['price_per_order_override' => 0.75]);
@@ -195,18 +195,43 @@ class WahaTest extends TestCase
 
         SendWhatsappOrderConfirmation::dispatchSync($order->id);
 
-        Http::assertSent(fn ($request) => str_ends_with($request->url(), '/api/sendText')
-            && $request['chatId'] === '201223344556@c.us'
-            && str_contains($request['text'], 'متجر الأناقة'));
         Http::assertSent(fn ($request) => str_ends_with($request->url(), '/api/sendPoll')
+            && $request['chatId'] === '201223344556@c.us'
+            && str_contains($request['poll']['name'], 'سارة')
+            && str_contains($request['poll']['name'], '#' . $order->number)
+            && str_contains($request['poll']['name'], '1× قميص')
+            && str_contains($request['poll']['name'], 'متجر الأناقة')
+            && str_contains($request['poll']['name'], 'برجاء تأكيد الطلب')
             && $request['poll']['options'] === [WahaDriver::CONFIRM_OPTION, WahaDriver::CANCEL_OPTION]);
+        Http::assertNotSent(fn ($request) => str_ends_with($request->url(), '/api/sendText'));
 
         $this->assertSame('sent', $order->fresh()->whatsapp_state);
         $this->assertDatabaseHas('whatsapp_messages', ['order_id' => $order->id, 'provider_message_id' => 'poll-1']);
         $this->assertEquals(0.25, StoreUsageEvent::where('type', StoreUsageEvent::TYPE_WHATSAPP_CONFIRMATION)->value('unit_price'));
     }
 
-    /** The test button sends what a customer gets: the message and the poll. */
+    /**
+     * WhatsApp caps a poll title at 255 characters. A big order shortens the
+     * product list — the total and «برجاء تأكيد الطلب» always make it.
+     */
+    public function test_a_long_order_shortens_the_products_not_the_request_to_confirm(): void
+    {
+        $this->linked();
+        $order = $this->order();
+        foreach (range(1, 12) as $i) {
+            $order->items()->create(['name' => "منتج طويل الاسم شوية رقم {$i}", 'unit_price' => 10, 'quantity' => 1, 'total' => 10]);
+        }
+
+        Http::fake(['waha.test/api/sendPoll' => Http::response(['id' => 'poll-1'])]);
+
+        SendWhatsappOrderConfirmation::dispatchSync($order->id);
+
+        Http::assertSent(fn ($request) => mb_strlen($request['poll']['name']) <= WahaDriver::POLL_TITLE_LIMIT
+            && str_contains($request['poll']['name'], 'كمان')
+            && str_contains($request['poll']['name'], 'برجاء تأكيد الطلب'));
+    }
+
+    /** The test button sends what a customer gets: the one poll. */
     public function test_the_test_message_includes_the_poll(): void
     {
         $this->linked();
