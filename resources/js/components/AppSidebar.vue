@@ -5,7 +5,7 @@ import NavUser from '@/components/NavUser.vue';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem, type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
-import { Boxes, Globe, LayoutGrid, LayoutList, LayoutTemplate, MessageCircle, MessagesSquare, Package, Palette, Radio, ScrollText, ShoppingBag, ShoppingCart, Sparkles, Store, TrendingUp, Truck, Wallet } from 'lucide-vue-next';
+import { Boxes, Globe, LayoutGrid, LayoutList, LayoutTemplate, MessagesSquare, Package, Palette, Radio, ScrollText, ShoppingBag, ShoppingCart, Smartphone, Sparkles, Store, TrendingUp, Truck, Wallet } from 'lucide-vue-next';
 import { computed } from 'vue';
 import AppLogo from './AppLogo.vue';
 
@@ -27,12 +27,20 @@ const navGroups = computed<NavGroup[]>(() => [
         items: [
             { title: 'لوحة التحكم', href: '/dashboard', icon: LayoutGrid },
             { title: 'الطلبات', href: '/orders', icon: ShoppingBag },
-            // Next to orders: half of what a customer writes is about one.
-            { title: 'المحادثات', href: '/inbox', icon: MessagesSquare, badge: page.props.inbox_unread ?? 0 },
             { title: 'السلات المتروكة', href: '/carts', icon: ShoppingCart },
             { title: 'تقرير الربح', href: '/reports/profit', icon: TrendingUp },
             { title: 'المنتجات', href: '/products', icon: Package },
             { title: 'الأقسام', href: '/categories', icon: LayoutList },
+        ],
+    },
+    {
+        // A service of its own rather than a settings row: the chats are
+        // opened all day, and choosing the number the confirmations go out
+        // on is a decision with a price on each side.
+        label: 'واتساب',
+        items: [
+            { title: 'المحادثات', href: '/inbox', icon: MessagesSquare, badge: page.props.inbox_unread ?? 0 },
+            { title: 'الربط والتأكيد', href: '/settings/whatsapp', icon: Smartphone },
         ],
     },
     {
@@ -55,7 +63,6 @@ const navGroups = computed<NavGroup[]>(() => [
             { title: 'رصيدك', href: '/billing', icon: Wallet },
             // Store data, account and domain are one screen now.
             { title: 'إعدادات المتجر', href: '/settings/general', icon: Store },
-            { title: 'واتساب', href: '/settings/whatsapp', icon: MessageCircle },
             // Prices and the carrier choice; Daman's own key lives one click in.
             { title: 'الشحن', href: '/settings/shipping', icon: Truck },
             { title: 'الدومين', href: '/settings/general#domain', icon: Globe },

@@ -40,6 +40,7 @@ const props = defineProps<{
     recent: ConversationItem[];
     platform: { available: boolean; preview: string; confirm_label: string; cancel_label: string; fee: number };
     waha: { available: boolean; fee: number; status: string | null };
+    orderPrice: { now: number; after: number; intro: boolean };
     currency: string;
 }>();
 
@@ -139,7 +140,19 @@ const renewWaha = () => {
     });
 };
 
-const money = (amount: number) => (amount > 0 ? `${amount} ${props.currency} للطلب` : 'ببلاش');
+const fmt = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/** An order with this channel's confirmation, all in — what gets compared. */
+const orderTotal = (fee: number) => (props.orderPrice.after > 0 ? fmt(props.orderPrice.now + fee) : 'ببلاش');
+
+const priceBreakdown = (fee: number) => {
+    if (props.orderPrice.after <= 0) return 'طلباتك ببلاش، والتأكيد كمان.';
+    const parts = `${fmt(props.orderPrice.now)} الطلب + ${fmt(fee)} التأكيد`;
+
+    return props.orderPrice.intro && props.orderPrice.after !== props.orderPrice.now
+        ? `${parts} · بعد أول ٣ شهور ${fmt(props.orderPrice.after + fee)}`
+        : parts;
+};
 
 const FLASH_MESSAGES: Record<string, string> = {
     'whatsapp-waha-started': 'افتح واتساب على موبايلك ← الأجهزة المرتبطة ← ربط جهاز، وامسح الكود.',
@@ -346,6 +359,91 @@ const TILES = computed(() => [
                      on the right where a glance is enough. -->
                 <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_21rem]">
                     <div class="min-w-0 space-y-5">
+                        <!-- ── Which number the confirmations go out on ─────
+                             One choice, side by side, each with what an order
+                             costs with it — the two used to be separate cards
+                             in different styles and did not read as a choice. -->
+                        <section v-if="platform.available || waha.available" class="surface p-5">
+                            <h2 class="font-semibold">رسايل التأكيد تطلع من…</h2>
+                            <p class="mt-1 text-sm text-muted-foreground">اختار واحد. تقدر تغيّر في أي وقت.</p>
+
+                            <div class="mt-4 grid gap-3 xl:grid-cols-2">
+                                <!-- Meta: the platform's official number -->
+                                <div
+                                    v-if="platform.available"
+                                    class="flex flex-col rounded-2xl border-2 p-4 transition-colors"
+                                    :class="isPlatform ? 'border-primary bg-primary/5' : 'border-border'"
+                                >
+                                    <div class="flex items-start justify-between gap-2">
+                                        <p class="flex items-center gap-2 font-semibold">
+                                            <ShieldCheck class="size-4 text-primary" />
+                                            رقم متجر برو الرسمي
+                                        </p>
+                                        <span v-if="isPlatform" class="badge-success gap-1"><Check class="size-3" /> المختار</span>
+                                        <span v-else class="badge-neutral">واتساب الرسمي من ميتا</span>
+                                    </div>
+                                    <ul class="mt-3 space-y-1.5 text-sm">
+                                        <li class="flex items-start gap-2"><Check class="mt-0.5 size-4 shrink-0 text-success" /> رقم موثّق، مش هيتحظر</li>
+                                        <li class="flex items-start gap-2"><Check class="mt-0.5 size-4 shrink-0 text-success" /> زرار «تأكيد» وزرار «إلغاء»</li>
+                                        <li class="flex items-start gap-2"><Check class="mt-0.5 size-4 shrink-0 text-success" /> من غير أي إعداد — دوسة واحدة</li>
+                                    </ul>
+                                    <p class="mt-2 text-xs leading-relaxed text-muted-foreground">
+                                        الرسالة بتطلع باسم «متجر برو» وفيها اسم متجرك. الرد على العملاء بيبقى من موبايلك.
+                                    </p>
+
+                                    <div class="mt-auto pt-4">
+                                        <p class="flex items-baseline gap-1.5">
+                                            <span class="tabular text-2xl font-bold">{{ orderTotal(platform.fee) }}</span>
+                                            <span class="text-xs text-muted-foreground">{{ currency }} للطلب بالتأكيد</span>
+                                        </p>
+                                        <p class="mt-0.5 text-[11px] text-muted-foreground">{{ priceBreakdown(platform.fee) }}</p>
+                                        <button v-if="!isPlatform" class="btn-outline mt-3 w-full" :disabled="usingPlatform" @click="usePlatform">
+                                            <LoaderCircle v-if="usingPlatform" class="size-4 animate-spin" />
+                                            {{ link ? 'حوّل للرقم الرسمي' : 'استخدم الرقم الرسمي' }}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- The store's own number, by QR -->
+                                <div
+                                    v-if="waha.available"
+                                    class="flex flex-col rounded-2xl border-2 p-4 transition-colors"
+                                    :class="isWaha ? 'border-primary bg-primary/5' : 'border-border'"
+                                >
+                                    <div class="flex items-start justify-between gap-2">
+                                        <p class="flex items-center gap-2 font-semibold">
+                                            <QrCode class="size-4 text-primary" />
+                                            رقمك إنت
+                                        </p>
+                                        <span v-if="isWaha" class="badge-success gap-1"><Check class="size-3" /> المختار</span>
+                                        <span v-else class="badge-neutral">بمسح كود زي واتساب ويب</span>
+                                    </div>
+                                    <ul class="mt-3 space-y-1.5 text-sm">
+                                        <li class="flex items-start gap-2"><Check class="mt-0.5 size-4 shrink-0 text-success" /> الرسالة من رقم متجرك وباسمه</li>
+                                        <li class="flex items-start gap-2"><Check class="mt-0.5 size-4 shrink-0 text-success" /> كل محادثاتك والرد عليها من «المحادثات»</li>
+                                        <li class="flex items-start gap-2"><Check class="mt-0.5 size-4 shrink-0 text-success" /> استطلاع «تأكيد / إلغاء» يدوس عليه العميل</li>
+                                    </ul>
+                                    <p class="mt-2 flex items-start gap-1.5 text-xs leading-relaxed text-warning">
+                                        <AlertTriangle class="mt-0.5 size-3.5 shrink-0" />
+                                        مش رسمي من ميتا، وواتساب ممكن يقفل رقم بيبعت رسايل آلية كتير — الأأمن رقم مخصّص للمتجر.
+                                    </p>
+
+                                    <div class="mt-auto pt-4">
+                                        <p class="flex items-baseline gap-1.5">
+                                            <span class="tabular text-2xl font-bold">{{ orderTotal(waha.fee) }}</span>
+                                            <span class="text-xs text-muted-foreground">{{ currency }} للطلب بالتأكيد</span>
+                                        </p>
+                                        <p class="mt-0.5 text-[11px] text-muted-foreground">{{ priceBreakdown(waha.fee) }}</p>
+                                        <button v-if="!isWaha" class="btn-primary mt-3 w-full" :disabled="startingWaha" @click="useWaha">
+                                            <LoaderCircle v-if="startingWaha" class="size-4 animate-spin" />
+                                            <QrCode v-else class="size-4" />
+                                            {{ link ? 'حوّل لرقمي' : 'اربط رقمي' }}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
                         <!-- ── The platform number ────────────────────────
                              First, because for most merchants it is the whole
                              answer: no gateway account, no keys, no template to
@@ -369,31 +467,6 @@ const TILES = computed(() => [
                             </div>
                         </section>
 
-                        <section v-else-if="platform.available" class="surface border-primary/40 p-5">
-                            <h2 class="flex items-center gap-2 font-semibold">
-                                <ShieldCheck class="size-4 text-primary" />
-                                الأسهل: رقم متجر برو الرسمي
-                            </h2>
-                            <p class="mt-2 text-sm leading-relaxed text-muted-foreground">
-                                من غير أي إعداد ولا توكن ولا موافقات من ميتا. العميل بيوصله زرار
-                                «{{ platform.confirm_label }}»، ولما يدوس عليه الطلب يتأكّد عندك لوحده.
-                            </p>
-                            <ul class="mt-3 space-y-1.5 text-sm">
-                                <li class="flex items-center gap-2"><Check class="size-4 text-success" /> رقم رسمي، مش هيتحظر</li>
-                                <li class="flex items-center gap-2"><Check class="size-4 text-success" /> زرار تأكيد وزرار إلغاء بدل «رد ١ أو ٢»</li>
-                                <li class="flex items-center gap-2"><Check class="size-4 text-success" /> تذكير تلقائي للي ماردّش، والباقي بيظهرلك تكلّمه</li>
-                            </ul>
-                            <p class="mt-3 text-xs leading-relaxed text-muted-foreground">
-                                الرسالة بتطلع باسم «متجر برو»، وأول سطر فيها اسم متجرك عشان العميل يعرف مين بيكلّمه.
-                            </p>
-                            <div class="mt-4 flex flex-wrap items-center gap-3">
-                                <button class="btn-primary" :disabled="usingPlatform" @click="usePlatform">
-                                    <LoaderCircle v-if="usingPlatform" class="size-4 animate-spin" />
-                                    فعّل على رقم متجر برو
-                                </button>
-                                <span class="badge-neutral">التأكيد: {{ money(platform.fee) }}</span>
-                            </div>
-                        </section>
 
                         <!-- ── Your own number, by QR (WAHA) ─────────────────
                              Linked: the number and how to unlink it. Linking:
@@ -439,29 +512,6 @@ const TILES = computed(() => [
                             <p v-if="wahaProblem" class="mt-3 text-xs text-destructive">{{ wahaProblem }}</p>
                         </section>
 
-                        <section v-else-if="waha.available" class="surface p-5">
-                            <h2 class="flex items-center gap-2 font-semibold">
-                                <QrCode class="size-4 text-primary" />
-                                رقمك إنت — بمسح كود زي واتساب ويب
-                            </h2>
-                            <p class="mt-2 text-sm leading-relaxed text-muted-foreground">
-                                الرسايل بتطلع من رقم متجرك وباسمه، من غير أي حساب في مواقع تانية ولا توكن. امسح الكود من
-                                موبايلك وخلاص. العميل بيوصله استطلاع «تأكيد الطلب / إلغاء الطلب»، ولما يختار الطلب يتأكّد لوحده.
-                            </p>
-                            <p class="mt-3 flex items-start gap-1.5 rounded-xl border border-warning/30 bg-warning/5 p-3 text-xs leading-relaxed text-warning">
-                                <AlertTriangle class="mt-0.5 size-3.5 shrink-0" />
-                                مش طريقة رسمية من ميتا، وواتساب ممكن يقفل رقم بيبعت رسايل آلية كتير. إحنا بنبعت بس رسالة التأكيد
-                                للعميل اللي لسه طالب، بس الأمان يبقى على رقم مخصّص للمتجر، مش رقمك الشخصي.
-                            </p>
-                            <div class="mt-4 flex flex-wrap items-center gap-3">
-                                <button class="btn-primary" :disabled="startingWaha" @click="useWaha">
-                                    <LoaderCircle v-if="startingWaha" class="size-4 animate-spin" />
-                                    <QrCode v-else class="size-4" />
-                                    اربط رقمي
-                                </button>
-                                <span class="badge-neutral">التأكيد: {{ money(waha.fee) }}</span>
-                            </div>
-                        </section>
 
                         <!-- ── Gateway ────────────────────────────────── -->
                         <section v-if="!isPlatform && !isWaha" class="surface p-5">

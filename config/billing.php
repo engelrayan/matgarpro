@@ -44,10 +44,9 @@ return [
     | WhatsApp confirmation
     |--------------------------------------------------------------------------
     | Added to an order's price when a confirmation message is actually sent
-    | for it — automatically or by the merchant's click, once per order. So an
-    | order costs 0.50 without one and 1.00 with one in the introductory
-    | months, then 0.75 and 1.25. A store whose orders are free (the founding
-    | plan, an operator's zero override) pays nothing for these either.
+    | for it — automatically or by the merchant's click, once per order. A
+    | store whose orders are free (the founding plan, an operator's zero
+    | override) pays nothing for these either.
     */
     'whatsapp_confirmation_fee' => (float) env('BILLING_WHATSAPP_CONFIRMATION_FEE', 0.50),
 
@@ -55,16 +54,18 @@ return [
     | …priced by the channel it went out on, because they cost us differently:
     |
     |   meta   the platform's official number — Meta bills us per template
-    |          message, so this is the default fee above.
+    |          message. 0.75: an order is 1.25 with it in the introductory
+    |          months (0.50 + 0.75), 1.50 after.
     |   waha   the store's own number through our WAHA server — no per-message
-    |          bill, only the server it runs on, so it is cheaper.
+    |          bill, only the server it runs on. 0.50: an order is 1.00 with
+    |          it in the introductory months, 1.25 after.
     |
     | A store on a gateway it pays for itself (its own Cloud API keys, Wapilot,
     | Whats360) pays the default fee, as before.
     */
     'whatsapp_fees' => [
-        'meta' => (float) env('BILLING_WHATSAPP_FEE_META', env('BILLING_WHATSAPP_CONFIRMATION_FEE', 0.50)),
-        'waha' => (float) env('BILLING_WHATSAPP_FEE_WAHA', 0.25),
+        'meta' => (float) env('BILLING_WHATSAPP_FEE_META', 0.75),
+        'waha' => (float) env('BILLING_WHATSAPP_FEE_WAHA', 0.50),
     ],
 
     /*
