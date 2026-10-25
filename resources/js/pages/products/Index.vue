@@ -2,7 +2,7 @@
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { Copy, ExternalLink, Package, Pencil, Plus, Search, Trash2 } from 'lucide-vue-next';
+import { Copy, ExternalLink, Package, Pencil, Plus, Rocket, Search, Trash2 } from 'lucide-vue-next';
 import { ref, watch } from 'vue';
 
 interface Product {
@@ -17,6 +17,8 @@ interface Product {
     image: string | null;
     url: string;
     created_at: string;
+    landing: 'live' | 'draft' | null;
+    landing_url: string;
 }
 
 const props = defineProps<{
@@ -98,6 +100,10 @@ const destroy = (product: Product) => {
                             <span class="truncate font-medium">{{ product.name }}</span>
                             <span v-if="product.status === 'draft'" class="badge-neutral">مسودّة</span>
                             <span v-else-if="product.track_stock && product.stock <= 0" class="badge-danger">خلص</span>
+                            <span v-if="product.landing === 'live'" class="badge-success gap-1">
+                                <Rocket class="size-3" />
+                                صفحة هبوط
+                            </span>
                         </div>
                         <div class="mt-1 flex flex-wrap items-baseline gap-2 text-sm">
                             <span class="tabular font-semibold text-primary">{{ product.price }}</span>
@@ -112,6 +118,13 @@ const destroy = (product: Product) => {
                     </div>
 
                     <div class="flex shrink-0 items-center gap-1">
+                        <!-- In words, not just an icon: it is the one action here
+                             a merchant may not know exists yet. -->
+                        <Link :href="product.landing_url" class="btn-outline border-primary/30 px-2.5 py-1.5 text-xs text-primary"
+                              :title="product.landing ? 'عدّل صفحة الهبوط' : 'اعمل صفحة هبوط للمنتج ده'">
+                            <Rocket class="h-4 w-4" />
+                            <span class="hidden sm:inline">{{ product.landing ? 'صفحة الهبوط' : 'اعمل صفحة هبوط' }}</span>
+                        </Link>
                         <a :href="product.url" target="_blank" class="btn-ghost px-2" title="شوفه في المتجر">
                             <ExternalLink class="h-4 w-4" />
                         </a>

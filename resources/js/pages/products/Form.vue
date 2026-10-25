@@ -234,6 +234,10 @@ const submit = () => {
                  settings below the fold. -->
             <div class="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
                 <div class="space-y-6">
+                    <!-- On a phone the rail drops below the whole form, so the
+                         landing card is repeated here, at the top, where it is
+                         seen; on a wide screen it lives at the head of the rail. -->
+                    <LandingCard v-if="landing" v-model:below="form.settings.landing_below_product" :landing="landing" class="lg:hidden" />
                     <AiProductWriter :images="previewImages" :categories="categories" @apply="applyDraft" @add-images="addFiles" />
 
                     <!-- ── Basics ───────────────────────────────────────────── -->
@@ -423,6 +427,13 @@ const submit = () => {
 
                 <!-- ══ Side rail ══════════════════════════════════════════ -->
                 <aside class="space-y-5 lg:sticky lg:top-6 lg:self-start">
+                    <!-- First in the rail: for a product sold through ads, its
+                         landing page is the thing most worth doing next. -->
+                    <LandingCard v-if="landing" v-model:below="form.settings.landing_below_product" :landing="landing" class="hidden lg:block" />
+                    <p v-else class="surface p-4 text-xs leading-relaxed text-muted-foreground">
+                        احفظ المنتج الأول، وبعدها هتقدر تعمله صفحة هبوط كاملة — أو تخلّي الذكاء الاصطناعي يكتبهالك.
+                    </p>
+
                     <LivePreview
                         :name="form.name"
                         :price="form.price"
@@ -503,7 +514,6 @@ const submit = () => {
                         </div>
                     </section>
 
-                    <LandingCard v-if="landing" v-model:below="form.settings.landing_below_product" :landing="landing" />
                     <AdvancedSettings v-model="form.settings" />
                 </aside>
 

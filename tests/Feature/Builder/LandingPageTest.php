@@ -159,6 +159,21 @@ class LandingPageTest extends TestCase
 
     // ── The builder ─────────────────────────────────────────────────────
 
+    /** One click from the product list, which also says which ones already have one. */
+    public function test_the_product_list_links_every_product_to_its_landing_page(): void
+    {
+        $plain = Product::factory()->for($this->store)->create();
+        $this->publishLanding();
+
+        $this->actingAs($this->merchant)
+            ->get('http://localhost/products')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('products.data', fn ($rows) => collect($rows)->firstWhere('id', $this->product->id)['landing'] === 'live'
+                    && collect($rows)->firstWhere('id', $plain->id)['landing'] === null
+                    && collect($rows)->firstWhere('id', $plain->id)['landing_url'] === '/builder/' . $this->key($plain)));
+    }
+
     public function test_the_merchant_designs_it_in_the_builder(): void
     {
         $this->actingAs($this->merchant)

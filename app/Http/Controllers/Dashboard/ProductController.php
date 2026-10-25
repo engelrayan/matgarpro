@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\ProductRequest;
 use App\Models\Product;
 use App\Models\Store;
+use App\Models\StorePage;
 use App\Services\Builder\PageBuilder;
 use App\Services\Builder\SectionRegistry;
 use Illuminate\Http\RedirectResponse;
@@ -38,7 +39,16 @@ class ProductController extends Controller
             ))
             ->orderByDesc('id')
             ->paginate(20)
-            ->withQueryString()
+            ->withQueryString();
+
+        // Which of this page's products have a landing page, in one query —
+        // the list marks them, and the button says "عدّل" instead of "اعمل".
+        $landings = StorePage::where('store_id', $store->id)
+            ->whereIn('key', $products->getCollection()->map(fn (Product $p) => SectionRegistry::landingKey($p->id)))
+            ->get(['key', 'published_sections'])
+            ->mapWithKeys(fn (StorePage $page) => [$page->key => $page->published_sections !== null ? 'live' : 'draft']);
+
+        $products = $products
             ->through(fn (Product $p) => [
                 'id' => $p->id,
                 'name' => $p->name,
@@ -51,6 +61,8 @@ class ProductController extends Controller
                 'image' => $p->primaryImage()?->url(),
                 'url' => $store->canonicalUrl() . '/p/' . $p->slug,
                 'created_at' => $p->created_at->format('Y-m-d'),
+                'landing' => $landings->get(SectionRegistry::landingKey($p->id)),
+                'landing_url' => '/builder/' . SectionRegistry::landingKey($p->id),
             ]);
 
         return Inertia::render('products/Index', [
