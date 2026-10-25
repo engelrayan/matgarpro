@@ -3,8 +3,8 @@ import InputError from '@/components/InputError.vue';
 import StatTile from '@/components/admin/StatTile.vue';
 import AdminLayout from '@/layouts/AdminLayout.vue';
 import { money, num } from '@/composables/useFormat';
-import { Head, Link, useForm } from '@inertiajs/vue3';
-import { ExternalLink, ShieldAlert } from 'lucide-vue-next';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
+import { ExternalLink, ShieldAlert, Trash2 } from 'lucide-vue-next';
 import { computed } from 'vue';
 
 const props = defineProps<{
@@ -87,6 +87,16 @@ const themeForm = useForm({ theme: props.store.theme });
 const saveTheme = (key: string) => {
     themeForm.theme = key;
     themeForm.patch(`/admin/stores/${props.store.id}/theme`, { preserveScroll: true });
+};
+
+// ---- Delete -------------------------------------------------------------
+const page = usePage<{ auth: { admin: { is_super: boolean } | null } }>();
+const isSuper = computed(() => !!page.props.auth.admin?.is_super);
+
+const deleteForm = useForm({ confirm: '' });
+const destroyStore = () => {
+    if (!confirm(`آخر تأكيد: متجر «${props.store.name}» هيتمسح بكل طلباته ومنتجاته، ومفيش رجوع.`)) return;
+    deleteForm.delete(`/admin/stores/${props.store.id}`);
 };
 
 const STATUS_BADGE: Record<string, string> = {
@@ -442,6 +452,34 @@ const TX_LABEL: Record<string, string> = {
                             </li>
                         </ul>
                         <p v-else class="p-5 text-sm text-muted-foreground">محدش عمل حاجة على المتجر ده لسه.</p>
+                    </section>
+
+                    <!-- ── Danger zone — super admins only, and the slug typed
+                         out, because nothing brings a deleted store back. ── -->
+                    <section v-if="isSuper" class="surface border-destructive/30 p-5">
+                        <p class="flex items-center gap-1.5 text-sm font-semibold text-destructive">
+                            <Trash2 class="size-4" />
+                            مسح المتجر نهائيًا
+                        </p>
+                        <p class="mt-2 text-xs leading-relaxed text-muted-foreground">
+                            هيتمسح المتجر وكل اللي فيه: {{ num(stats.orders) }} طلب، {{ num(stats.products) }} منتج،
+                            العملاء، المحادثات، الصور، والدومينات. حساب التاجر نفسه هيفضل.
+                            <b class="text-destructive">مفيش رجوع.</b>
+                        </p>
+                        <form class="mt-3 space-y-2" @submit.prevent="destroyStore">
+                            <label class="block text-xs">
+                                اكتب <span class="font-mono font-semibold" dir="ltr">{{ store.slug }}</span> عشان تأكد
+                            </label>
+                            <input v-model="deleteForm.confirm" class="field font-mono text-sm" dir="ltr" autocomplete="off" />
+                            <InputError :message="deleteForm.errors.confirm" />
+                            <button
+                                type="submit"
+                                class="btn-outline w-full border-destructive/40 text-destructive hover:bg-destructive/5"
+                                :disabled="deleteForm.processing || deleteForm.confirm !== store.slug"
+                            >
+                                امسح المتجر
+                            </button>
+                        </form>
                     </section>
                 </div>
             </div>

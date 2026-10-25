@@ -79,6 +79,9 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
 
         // ---- Rules of the platform: super only -----------------------------
         Route::middleware('admin.super')->group(function (): void {
+            // Permanent, and it takes every order with it — super only.
+            Route::delete('stores/{store}', [StoreController::class, 'destroy'])->name('stores.destroy');
+
             Route::get('plans', [PlanController::class, 'index'])->name('plans.index');
             Route::post('plans', [PlanController::class, 'store'])->name('plans.store');
             Route::patch('plans/{plan}', [PlanController::class, 'update'])->name('plans.update');

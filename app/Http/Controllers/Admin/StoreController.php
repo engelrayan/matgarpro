@@ -9,6 +9,7 @@ use App\Models\Store;
 use App\Models\StoreUsageEvent;
 use App\Models\StoreWalletTransaction;
 use App\Services\Admin\AuditLogger;
+use App\Services\Admin\StoreDeleter;
 use App\Services\Billing\OrderUnlocker;
 use App\Services\Billing\WalletService;
 use App\Services\Storefront\ThemeResolver;
@@ -339,6 +340,29 @@ class StoreController extends Controller
         }
 
         return back()->with('status', 'store-wallet-updated');
+    }
+
+    /**
+     * Delete a store permanently — see StoreDeleter. The operator types the
+     * store's slug: a button alone is one misclick from losing a merchant's
+     * every order.
+     */
+    public function destroy(Request $request, Store $store, StoreDeleter $deleter): RedirectResponse
+    {
+        $request->validate([
+            'confirm' => ['required', 'string', Rule::in([$store->slug])],
+        ], [
+            'confirm.required' => 'اكتب اسم المتجر في الرابط عشان تأكد المسح.',
+            'confirm.in' => 'الاسم مش مطابق — اكتب «' . $store->slug . '» بالظبط.',
+        ]);
+
+        $name = $store->name;
+        $counts = $deleter->delete($store, $request->user('admin'));
+
+        return to_route('admin.stores.index')->with(
+            'status',
+            "اتمسح متجر «{$name}» نهائيًا، ومعاه {$counts['orders']} طلب و{$counts['products']} منتج.",
+        );
     }
 
     /** Set a store's theme on its behalf — support, not a preference. */

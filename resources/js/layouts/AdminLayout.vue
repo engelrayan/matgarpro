@@ -165,7 +165,9 @@ const logout = () => router.post('/admin/logout');
                     class="rounded-xl px-4 py-3 text-sm"
                     :class="flash.error ? 'bg-destructive/10 text-destructive' : 'bg-success/10 text-success'"
                 >
-                    {{ flash.error ?? 'تمام، اتحفظ.' }}
+                    <!-- A status is either a code (`store-billing-updated`) or a
+                         sentence worth reading as-is, like what a delete took. -->
+                    {{ flash.error ?? (flash.status?.includes(' ') ? flash.status : 'تمام، اتحفظ.') }}
                 </p>
             </div>
 
