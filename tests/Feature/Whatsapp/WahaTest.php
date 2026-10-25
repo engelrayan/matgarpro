@@ -112,6 +112,33 @@ class WahaTest extends TestCase
             && in_array('poll.vote', $request['config']['webhooks'][0]['events'], true));
     }
 
+    /**
+     * Nobody scanned in time, so WAHA parked the session in FAILED. Pressing
+     * «كود جديد» must restart it — "start" on a failed session does nothing.
+     */
+    public function test_a_session_whose_codes_ran_out_is_restarted_for_fresh_ones(): void
+    {
+        $this->linked('FAILED');
+        Http::fake([
+            'waha.test/api/sessions/store-*/restart' => Http::response(['status' => 'STARTING']),
+            'waha.test/api/sessions/store-*' => Http::response(['name' => 'store-' . $this->store->id, 'status' => 'FAILED']),
+        ]);
+
+        $this->actingAs($this->user)->post('http://localhost/settings/whatsapp/waha')->assertSessionHas('status', 'whatsapp-waha-started');
+
+        Http::assertSent(fn ($request) => $request->method() === 'POST' && str_ends_with($request->url(), '/restart'));
+    }
+
+    public function test_a_linked_number_is_never_restarted_by_relinking(): void
+    {
+        $this->linked();
+        Http::fake(['waha.test/api/sessions/store-*' => Http::response(['name' => 'store-' . $this->store->id, 'status' => 'WORKING'])]);
+
+        $this->actingAs($this->user)->post('http://localhost/settings/whatsapp/waha');
+
+        Http::assertNotSent(fn ($request) => str_ends_with($request->url(), '/restart'));
+    }
+
     public function test_the_screen_gets_the_qr_while_waiting_and_the_number_once_linked(): void
     {
         $link = $this->linked('STARTING');
