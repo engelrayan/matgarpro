@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\Store;
 use App\Models\StoreWhatsappIntegration;
 use App\Models\WhatsappMessage;
+use App\Services\Whatsapp\ConfirmsWithButtons;
 use App\Services\Whatsapp\DriverFactory;
 use App\Services\Whatsapp\OrderConfirmationMessage;
 use App\Services\Whatsapp\PlatformWhatsapp;
@@ -357,7 +358,17 @@ class WhatsappController extends Controller
         }
 
         $message = $this->composer->build($link, $order);
-        $result = $this->drivers->make($link)->send($phone, $message['body'], $message['variables']);
+        $driver = $this->drivers->make($link);
+
+        /*
+         | Exactly what a customer gets — buttons or the poll included. A test
+         | that sent only the text made the merchant think the customer would
+         | have to type. Safe to tap: a reply only moves an order when it
+         | comes from that order's own phone, and this goes to the merchant's.
+         */
+        $result = $driver instanceof ConfirmsWithButtons
+            ? $driver->sendOrderConfirmation($phone, $message['body'], $message['variables'], $order)
+            : $driver->send($phone, $message['body'], $message['variables']);
 
         WhatsappMessage::create([
             'store_id' => $store->id,
