@@ -102,6 +102,8 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
         ->name('ai.store-plans.store');
     Route::get('ai/store-plans/{generation}', [AiStoreBuilderController::class, 'show'])->name('ai.store-plans.show');
     Route::post('ai/store-plans/{generation}/apply', [AiStoreBuilderController::class, 'apply'])->name('ai.store-plans.apply');
+    Route::get('ai/store-plans/{generation}/preview', [AiStoreBuilderController::class, 'preview'])->name('ai.store-plans.preview');
+    Route::post('ai/store-plans/{generation}/publish', [AiStoreBuilderController::class, 'publish'])->name('ai.store-plans.publish');
 
     // The merchant's balance and asking to top it up. An operator confirms.
     Route::get('billing', [BillingController::class, 'index'])->name('billing.index');

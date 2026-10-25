@@ -10,6 +10,8 @@ use App\Models\Store;
 use App\Services\AI\AiFeature;
 use App\Services\AI\AiUsageMeter;
 use App\Services\AI\StoreBuilder\StorePlanApplier;
+use App\Services\Builder\PageBuilder;
+use App\Services\Builder\PreviewToken;
 use App\Services\Storefront\ThemeResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -141,14 +143,74 @@ class AiStoreBuilderController extends Controller
         $applier->apply(
             $request->user()->currentStore(),
             $generation->result,
-            array_map('strval', $data['categories'] ?? []),
+            // Sent straight from the plan screen without edits, it is the
+            // plan's own list; the merchant prunes it in الأقسام later.
+            array_map('strval', $request->has('categories')
+                ? ($data['categories'] ?? [])
+                : array_column((array) ($generation->result['categories'] ?? []), 'name')),
             (bool) ($data['apply_theme'] ?? false),
             (array) ($generation->input['social'] ?? []),
         );
 
         $generation->update(['result' => [...$generation->result, 'applied_at' => now()->toIso8601String()]]);
 
-        return to_route('builder', ['page' => 'home'])->with('status', 'ai-store-drafted');
+        return to_route('ai.store-plans.preview', $generation)->with('status', 'ai-store-drafted');
+    }
+
+    /**
+     * The plan as a shop: the real storefront, drafts and starter products
+     * and all, in the theme the plan suggested — before any of it is live.
+     */
+    public function preview(Request $request, AiGeneration $generation, PreviewToken $tokens, ThemeResolver $themes, AiUsageMeter $meter): Response|RedirectResponse
+    {
+        $generation = $this->ownedGeneration($request, $generation, AiFeature::StoreBuilder);
+        $store = $request->user()->currentStore();
+        $plan = (array) $generation->result;
+
+        if (blank($plan['applied_at'] ?? null)) {
+            return to_route('ai.store-builder');
+        }
+
+        $theme = $themes->byKey((string) ($plan['theme'] ?? ''));
+
+        return Inertia::render('ai/StorePreview', [
+            'generationId' => $generation->id,
+            'storeName' => $store->name,
+            'storeUrl' => $store->canonicalUrl(),
+            'previewUrl' => $tokens->urlFor($store, 'home', $tokens->issue($store, $theme['key'])),
+            'theme' => ['key' => $theme['key'], 'name' => $theme['name'], 'reason' => $plan['theme_reason'] ?? ''],
+            'headsUp' => $plan['heads_up'] ?? '',
+            'productCount' => count((array) ($plan['products'] ?? [])),
+            'published' => filled($plan['published_at'] ?? null),
+            'triesLeft' => $meter->remaining($store, AiFeature::StoreBuilder),
+        ]);
+    }
+
+    /**
+     * Everything the plan drafted, made live in one go: home, header and
+     * footer published, and the shop switched to the suggested theme. The
+     * starter products stay drafts — they are examples until the merchant
+     * gives each a real photo and price.
+     */
+    public function publish(Request $request, AiGeneration $generation, PageBuilder $builder): RedirectResponse
+    {
+        $generation = $this->ownedGeneration($request, $generation, AiFeature::StoreBuilder);
+        $store = $request->user()->currentStore();
+        $plan = (array) $generation->result;
+
+        abort_if(blank($plan['applied_at'] ?? null), 404);
+
+        foreach (['home', 'header', 'footer'] as $page) {
+            $builder->publish($store, $page);
+        }
+
+        if (array_key_exists($plan['theme'] ?? '', (array) config('themes.themes'))) {
+            $store->update(['settings' => [...(array) $store->settings, 'theme' => $plan['theme']]]);
+        }
+
+        $generation->update(['result' => [...$plan, 'published_at' => now()->toIso8601String()]]);
+
+        return back()->with('status', 'ai-store-published');
     }
 
     /**

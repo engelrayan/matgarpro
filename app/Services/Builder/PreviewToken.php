@@ -27,11 +27,16 @@ class PreviewToken
 
     public const QUERY_KEY = '_preview';
 
-    public function issue(Store $store): string
+    /**
+     * @param  string|null  $theme  a theme to preview in instead of the store's
+     *   own — the AI store builder shows its plan in the theme it suggested,
+     *   before the merchant has agreed to switch the live shop to it
+     */
+    public function issue(Store $store, ?string $theme = null): string
     {
         $token = Str::random(40);
 
-        Cache::put($this->cacheKey($token), $store->id, now()->addMinutes(self::TTL_MINUTES));
+        Cache::put($this->cacheKey($token), ['store' => $store->id, 'theme' => $theme], now()->addMinutes(self::TTL_MINUTES));
 
         return $token;
     }
@@ -39,7 +44,18 @@ class PreviewToken
     /** The store this token was issued for, if it is still valid. */
     public function storeId(string $token): ?int
     {
-        return Cache::get($this->cacheKey($token));
+        $payload = Cache::get($this->cacheKey($token));
+
+        // Tokens issued before the theme was carried held the bare id.
+        return is_array($payload) ? ($payload['store'] ?? null) : $payload;
+    }
+
+    /** The theme this token previews in, when it overrides the store's own. */
+    public function theme(string $token): ?string
+    {
+        $payload = Cache::get($this->cacheKey($token));
+
+        return is_array($payload) ? ($payload['theme'] ?? null) : null;
     }
 
     /** A browsable preview URL for one page of one store. */

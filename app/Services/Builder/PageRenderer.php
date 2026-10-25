@@ -3,6 +3,7 @@
 namespace App\Services\Builder;
 
 use App\Models\Store;
+use App\Services\AI\StoreBuilder\StorePlanApplier;
 use Illuminate\Http\Request;
 
 /**
@@ -33,6 +34,20 @@ class PageRenderer
     }
 
     /**
+     * Drafts a preview shows as if they were live: the AI store builder's
+     * starter products, so the merchant's first look at the plan is a stocked
+     * shop. Never anything on a customer's request.
+     *
+     * @return array<int,int>
+     */
+    public function previewProductIds(Request $request, Store $store): array
+    {
+        return $this->isPreview($request)
+            ? array_map('intval', (array) data_get($store->settings, StorePlanApplier::SAMPLES_SETTING, []))
+            : [];
+    }
+
+    /**
      * A page's sections plus the data they need.
      *
      * @param  array<string,mixed>  $context
@@ -46,7 +61,7 @@ class PageRenderer
 
         return [
             'sections' => $sections,
-            'sectionData' => new SectionData($store, $sections, $context),
+            'sectionData' => new SectionData($store, $sections, $context, $this->previewProductIds($request, $store)),
         ];
     }
 
@@ -74,7 +89,7 @@ class PageRenderer
 
         return [
             'sections' => $sections,
-            'sectionData' => new SectionData($store, $sections, $context),
+            'sectionData' => new SectionData($store, $sections, $context, $this->previewProductIds($request, $store)),
         ];
     }
 
@@ -93,7 +108,7 @@ class PageRenderer
             ? $this->builder->draft($store, 'footer')
             : $this->builder->published($store, 'footer');
 
-        $this->chromeData ??= new SectionData($store, [...$header, ...$footer]);
+        $this->chromeData ??= new SectionData($store, [...$header, ...$footer], [], $this->previewProductIds($request, $store));
 
         return [
             'headerSections' => $header,
