@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\Product;
 use App\Services\Dashboard\StoreInsights;
+use App\Services\Shipping\CarrierLedger;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -64,6 +65,9 @@ class OverviewController extends Controller
             ],
             'range' => $range,
             'insights' => $insights->all(),
+            // Cash on delivery leaves the money with the carriers for a
+            // while; how much, at a glance, with الشحن والتحصيل one tap away.
+            'shipping' => app(CarrierLedger::class)->totals(app(CarrierLedger::class)->carriers($store)),
             // The setup list disappears once done rather than sitting there
             // permanently ticked — a finished checklist is just noise.
             'setup' => [

@@ -13,6 +13,7 @@ use App\Http\Controllers\Dashboard\OrderController;
 use App\Http\Controllers\Dashboard\OrderWhatsappController;
 use App\Http\Controllers\Dashboard\ProductController;
 use App\Http\Controllers\Dashboard\ProfitController;
+use App\Http\Controllers\Dashboard\ShipmentController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -100,6 +101,13 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     // Hand a batch over to Daman, which routes it to the carrier the merchant
     // is contracted with and answers with the waybill.
     Route::post('orders-bulk/daman', [DamanShipmentController::class, 'store'])->name('orders.daman');
+
+    // الشحن والتحصيل: shipments by carrier, the cash each one holds, and the
+    // collections recorded when a carrier pays.
+    Route::get('shipments', [ShipmentController::class, 'index'])->name('shipments');
+    Route::get('shipments/due', [ShipmentController::class, 'due'])->name('shipments.due');
+    Route::post('shipments/collections', [ShipmentController::class, 'store'])->name('shipments.collections.store');
+    Route::delete('shipments/collections/{collection}', [ShipmentController::class, 'destroy'])->name('shipments.collections.destroy');
 
     // Ask the customer to confirm, by hand — for a store that leaves auto-send
     // off, and for the order whose first message never got an answer.

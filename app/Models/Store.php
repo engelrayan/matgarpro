@@ -144,6 +144,12 @@ class Store extends Model
         return $this->hasOne(StoreDamanIntegration::class);
     }
 
+    /** Carriers paying over the cash they collected — see CarrierLedger. */
+    public function carrierCollections(): HasMany
+    {
+        return $this->hasMany(CarrierCollection::class);
+    }
+
     /** The store's own WhatsApp line, if the merchant has connected one. */
     public function whatsappIntegration(): HasOne
     {

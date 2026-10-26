@@ -101,6 +101,12 @@ class Order extends Model
         return $this->belongsTo(Store::class);
     }
 
+    /** The carrier payment that settled this order's cash; null while the carrier still holds it. */
+    public function carrierCollection(): BelongsTo
+    {
+        return $this->belongsTo(CarrierCollection::class);
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(OrderItem::class);

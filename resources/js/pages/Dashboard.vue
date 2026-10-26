@@ -5,7 +5,7 @@ import FunnelBars from '@/components/charts/FunnelBars.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { AlertTriangle, Check, ChevronLeft, Copy, ExternalLink, Gift, Globe, ImagePlus, Package, Plus, ShoppingBag } from 'lucide-vue-next';
+import { AlertTriangle, Check, ChevronLeft, Copy, ExternalLink, Gift, Globe, ImagePlus, Package, Plus, ShoppingBag, Truck } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface SeriesPoint {
@@ -48,6 +48,8 @@ const props = defineProps<{
         balance: number;
         locked: { count: number; value: number };
     };
+    /** CarrierLedger::totals — the money still with carriers, and the road. */
+    shipping: { in_transit_count: number; in_transit_value: number; due_count: number; due_value: number; collected_value: number; returned_count: number };
     setup: { has_product: boolean; has_domain: boolean; has_logo: boolean; has_order: boolean };
     // `customer_name` is null while the order is hidden until a top-up.
     recent: { id: number; number: number; customer_name: string | null; locked: boolean; total: string; status: string; status_label: string; created_at: string }[];
@@ -217,6 +219,31 @@ const copyUrl = async () => {
                     <Link href="/billing" class="font-medium text-primary">رصيدك</Link>
                 </p>
             </section>
+
+            <!-- ── Cash on delivery, still with the carriers ─────────────── -->
+            <Link
+                v-if="shipping.due_count || shipping.in_transit_count"
+                href="/shipments"
+                class="surface group flex flex-wrap items-center gap-x-6 gap-y-3 p-4 transition-colors hover:bg-foreground/[0.02] md:p-5"
+            >
+                <span class="ios-tile bg-primary text-primary-foreground"><Truck class="size-[18px]" /></span>
+                <div class="min-w-0">
+                    <p class="text-[13px] font-medium text-muted-foreground">فلوسك عند شركات الشحن</p>
+                    <p class="tabular text-[22px] font-bold leading-tight text-primary">
+                        {{ money(shipping.due_value) }} <span class="text-[13px] font-medium text-muted-foreground">{{ store.currency }}</span>
+                    </p>
+                    <p class="text-[13px] text-muted-foreground"><span class="tabular">{{ num(shipping.due_count) }}</span> طلب اتسلّم ومستني تحصيل</p>
+                </div>
+                <div class="min-w-0">
+                    <p class="text-[13px] font-medium text-muted-foreground">في الطريق</p>
+                    <p class="tabular text-[17px] font-semibold leading-tight">{{ money(shipping.in_transit_value) }}</p>
+                    <p class="text-[13px] text-muted-foreground"><span class="tabular">{{ num(shipping.in_transit_count) }}</span> شحنة</p>
+                </div>
+                <span class="ms-auto inline-flex items-center gap-1 text-[15px] font-semibold text-primary">
+                    الشحن والتحصيل
+                    <ChevronLeft class="size-4 transition-transform group-hover:-translate-x-0.5" />
+                </span>
+            </Link>
 
             <!-- ── Setup: a grouped list, as in Settings ────────────────── -->
             <section v-if="remainingSteps.length">

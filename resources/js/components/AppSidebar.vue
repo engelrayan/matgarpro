@@ -27,6 +27,7 @@ const navGroups = computed<NavGroup[]>(() => [
         items: [
             { title: 'لوحة التحكم', href: '/dashboard', icon: LayoutGrid },
             { title: 'الطلبات', href: '/orders', icon: ShoppingBag },
+            { title: 'الشحن والتحصيل', href: '/shipments', icon: Truck },
             { title: 'السلات المتروكة', href: '/carts', icon: ShoppingCart },
             { title: 'تقرير الربح', href: '/reports/profit', icon: TrendingUp },
             { title: 'المنتجات', href: '/products', icon: Package },
