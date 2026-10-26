@@ -249,7 +249,7 @@ class DamanShippingTest extends TestCase
         return [
             'no carrier price' => [
                 ['pricing' => ['Carrier has no price configured for this governorate.']],
-                'ضيف سعر المحافظة من حسابك في ضمان',
+                'اكتب المنطقة في عنوان الطلب',
             ],
             'credit limit' => [
                 ['credit_limit' => ['Daily credit limit exceeded.']],

@@ -125,7 +125,10 @@ class DamanClient
      * (no carrier linked, no collection agreement) already say what to do.
      */
     private const ADVICE = [
-        'pricing' => 'شركة الشحن بتاعتك في ضمان مش محدّد لها سعر للمحافظة دي. ضيف سعر المحافظة من حسابك في ضمان، أو اربط شركة شحن بتغطيها، وبعدين ابعت الطلب تاني.',
+        // Daman says this both when the governorate has no price at all and
+        // when it is priced by area with no default and the address names no
+        // area — the second is the common one, and the fix is on the order.
+        'pricing' => 'ضمان ملقاش سعر شحن للعنوان ده. لو شركة الشحن مسعّرة المحافظة بالمناطق، اكتب المنطقة في عنوان الطلب (زي مدينة نصر أو المعادي) وابعته تاني. ولو لسه مرفوض، ضيف سعر افتراضي للمحافظة من حسابك في ضمان.',
         'credit_limit' => 'وصلت للحد اليومي المسموح بيه في ضمان. ابعت الطلب بكرة، أو كلّم ضمان يزوّدوا الحد.',
         'governorate' => 'ضمان مش عارف المحافظة اللي في الطلب. عدّل المحافظة من صفحة الطلب وابعته تاني.',
         'governorate_id' => 'ضمان مش عارف المحافظة اللي في الطلب. عدّل المحافظة من صفحة الطلب وابعته تاني.',
