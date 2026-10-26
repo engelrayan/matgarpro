@@ -46,6 +46,7 @@ class ShipmentController extends Controller
                 ]),
             'currency' => $store->currency,
             'manualKey' => CarrierLedger::MANUAL,
+            'lateAfterDays' => CarrierLedger::LATE_AFTER_DAYS,
             'damanLinked' => (bool) $store->damanIntegration()->exists(),
         ]);
     }

@@ -31,6 +31,13 @@ class CarrierLedger
     private const SHIPPED_STATUSES = [Order::STATUS_SHIPPED, Order::STATUS_DELIVERED, Order::STATUS_RETURNED];
 
     /**
+     * A parcel still on the road this many days after it was handed over is
+     * late: Egyptian carriers deliver in two to four, so five is a parcel
+     * worth asking about.
+     */
+    public const LATE_AFTER_DAYS = 5;
+
+    /**
      * One row per carrier the store has shipped with, busiest first.
      *
      * @return array<int,array<string,mixed>>
@@ -53,6 +60,12 @@ class CarrierLedger
             ->selectRaw("SUM(status = ? AND carrier_collection_id IS NULL) as due_count", [$delivered])
             ->selectRaw("COALESCE(SUM(CASE WHEN status = ? AND carrier_collection_id IS NULL THEN total END), 0) as due_value", [$delivered])
             ->selectRaw("SUM(status = ?) as returned_count", [$returned])
+            // When it was handed over: Daman stamps it; an order shipped by
+            // hand only has the moment its status last changed.
+            ->selectRaw(
+                "SUM(status = ? AND COALESCE(daman_sent_at, updated_at) < ?) as late_count",
+                [$shipped, now()->subDays(self::LATE_AFTER_DAYS)],
+            )
             ->get()
             ->keyBy(fn ($row) => $row->carrier ?? self::MANUAL);
 
@@ -79,6 +92,10 @@ class CarrierLedger
                     'due_count' => (int) ($row->due_count ?? 0),
                     'due_value' => round((float) ($row->due_value ?? 0), 2),
                     'returned_count' => $returned,
+                    'late_count' => (int) ($row->late_count ?? 0),
+                    // Everything ever handed to this carrier: on the road,
+                    // delivered, or back.
+                    'sent_count' => (int) ($row->in_transit_count ?? 0) + $delivered + $returned,
                     'collected_value' => round((float) ($paid->collected_value ?? 0), 2),
                     'last_collected_on' => $paid?->last_collected_on,
                     // Of the parcels that reached an end, how many were
@@ -100,8 +117,16 @@ class CarrierLedger
     public function totals(array $carriers): array
     {
         $sum = fn (string $field) => collect($carriers)->sum($field);
+        $delivered = (int) $sum('delivered_count');
+        $returned = (int) $sum('returned_count');
 
         return [
+            'sent_count' => (int) $sum('sent_count'),
+            'delivered_count' => $delivered,
+            'late_count' => (int) $sum('late_count'),
+            // Same definition as each carrier's: of the parcels that reached
+            // an end, how many were accepted. Null until one has.
+            'delivery_rate' => $delivered + $returned > 0 ? (int) round($delivered / ($delivered + $returned) * 100) : null,
             'in_transit_count' => (int) $sum('in_transit_count'),
             'in_transit_value' => round((float) $sum('in_transit_value'), 2),
             'due_count' => (int) $sum('due_count'),

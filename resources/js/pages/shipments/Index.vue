@@ -24,6 +24,9 @@ interface Carrier {
     due_count: number;
     due_value: number;
     returned_count: number;
+    /** Still on the road CarrierLedger::LATE_AFTER_DAYS after hand-over. */
+    late_count: number;
+    sent_count: number;
     collected_value: number;
     last_collected_on: string | null;
     delivery_rate: number | null;
@@ -53,7 +56,19 @@ interface DueOrder {
 
 const props = defineProps<{
     carriers: Carrier[];
-    totals: { in_transit_count: number; in_transit_value: number; due_count: number; due_value: number; collected_value: number; returned_count: number };
+    totals: {
+        sent_count: number;
+        delivered_count: number;
+        late_count: number;
+        delivery_rate: number | null;
+        in_transit_count: number;
+        in_transit_value: number;
+        due_count: number;
+        due_value: number;
+        collected_value: number;
+        returned_count: number;
+    };
+    lateAfterDays: number;
     collections: CollectionRow[];
     currency: string;
     manualKey: string;
@@ -65,6 +80,12 @@ const breadcrumbItems: BreadcrumbItem[] = [{ title: 'الشحن والتحصيل
 const money = (v: number) => v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const num = (v: number) => v.toLocaleString('en-US');
 const carrierName = (name: string | null) => name ?? 'شحن بنفسك';
+
+// A carrier's parcels as shares of everything handed to it, for its bar.
+const share = (part: number, whole: number) => (whole ? `${(part / whole) * 100}%` : '0%');
+// Green from 85%, amber from 70%, red under: the thresholds Egyptian COD
+// shops talk about — under 70 the returns eat the margin.
+const rateTone = (rate: number | null) => (rate === null ? 'text-muted-foreground' : rate >= 85 ? 'text-success' : rate >= 70 ? 'text-warning' : 'text-destructive');
 
 const page = usePage();
 const flash = computed(() => page.props.flash?.status as string | undefined);
@@ -192,6 +213,69 @@ const undo = (row: CollectionRow) => {
                         <p class="flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground"><Undo2 class="size-4" /> مرتجع</p>
                         <p class="tabular mt-2 text-[26px] font-bold leading-none">{{ num(totals.returned_count) }}</p>
                         <p class="mt-1.5 text-[13px] text-muted-foreground">شحنة رجعت من غير ما تتسلّم</p>
+                    </div>
+                </section>
+
+                <!-- ── Delivery, overall and per carrier ──────────────── -->
+                <section>
+                    <h2 class="ios-caption mb-1.5">إحصائية التسليم</h2>
+                    <div class="surface grid grid-cols-1 gap-6 p-4 md:p-5 lg:grid-cols-[17rem_minmax(0,1fr)] lg:gap-8">
+                        <!-- The one number: of every parcel that reached an
+                             end, how many were accepted. -->
+                        <div class="flex flex-col">
+                            <p class="text-[13px] font-medium text-muted-foreground">نسبة التسليم الكلية</p>
+                            <p class="tabular mt-1 text-[48px] font-bold leading-none" :class="rateTone(totals.delivery_rate)" dir="ltr">
+                                {{ totals.delivery_rate === null ? '—' : `${totals.delivery_rate}%` }}
+                            </p>
+                            <p class="mt-1.5 text-[13px] text-muted-foreground">
+                                من <span class="tabular">{{ num(totals.delivered_count + totals.returned_count) }}</span> شحنة خلصت (اتسلّمت أو رجعت)
+                            </p>
+
+                            <dl class="ios-group mt-4 text-[14px]">
+                                <div class="ios-row min-h-[40px] justify-between"><dt class="text-muted-foreground">اتبعت للشركات</dt><dd class="tabular font-semibold">{{ num(totals.sent_count) }}</dd></div>
+                                <div class="ios-row min-h-[40px] justify-between"><dt class="text-muted-foreground">اتسلّم</dt><dd class="tabular font-semibold text-success">{{ num(totals.delivered_count) }}</dd></div>
+                                <div class="ios-row min-h-[40px] justify-between"><dt class="text-muted-foreground">رجع</dt><dd class="tabular font-semibold text-destructive">{{ num(totals.returned_count) }}</dd></div>
+                                <div class="ios-row min-h-[40px] justify-between"><dt class="text-muted-foreground">لسه عند الشركات</dt><dd class="tabular font-semibold">{{ num(totals.in_transit_count) }}</dd></div>
+                                <div v-if="totals.late_count" class="ios-row min-h-[40px] justify-between bg-warning/[0.06]">
+                                    <dt class="text-warning">متأخرة أكتر من {{ lateAfterDays }} أيام</dt>
+                                    <dd class="tabular font-semibold text-warning">{{ num(totals.late_count) }}</dd>
+                                </div>
+                            </dl>
+                        </div>
+
+                        <div class="min-w-0">
+                            <!-- Legend: identity is never colour alone. -->
+                            <div class="mb-4 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-muted-foreground">
+                                <span class="inline-flex items-center gap-1.5"><span class="size-2.5 rounded-sm bg-success" /> اتسلّم</span>
+                                <span class="inline-flex items-center gap-1.5"><span class="size-2.5 rounded-sm bg-destructive" /> رجع</span>
+                                <span class="inline-flex items-center gap-1.5"><span class="size-2.5 rounded-sm bg-foreground/15" /> لسه عند الشركة</span>
+                            </div>
+
+                            <ul class="space-y-5">
+                                <li v-for="c in carriers" :key="c.key">
+                                    <div class="flex items-baseline justify-between gap-3">
+                                        <p class="truncate text-[15px] font-semibold">{{ carrierName(c.name) }}</p>
+                                        <p class="tabular shrink-0 text-[17px] font-bold" :class="rateTone(c.delivery_rate)" dir="ltr">
+                                            {{ c.delivery_rate === null ? '—' : `${c.delivery_rate}%` }}
+                                        </p>
+                                    </div>
+                                    <!-- Everything handed to this carrier, as one bar. -->
+                                    <div v-if="c.sent_count" class="mt-1.5 flex h-2.5 gap-0.5 overflow-hidden rounded" role="img"
+                                         :aria-label="`${carrierName(c.name)}: ${c.delivered_count} اتسلّم، ${c.returned_count} رجع، ${c.in_transit_count} لسه عند الشركة`">
+                                        <span v-if="c.delivered_count" class="rounded-[3px] bg-success" :style="{ width: share(c.delivered_count, c.sent_count) }" :title="`${c.delivered_count} اتسلّم`" />
+                                        <span v-if="c.returned_count" class="rounded-[3px] bg-destructive" :style="{ width: share(c.returned_count, c.sent_count) }" :title="`${c.returned_count} رجع`" />
+                                        <span v-if="c.in_transit_count" class="rounded-[3px] bg-foreground/15" :style="{ width: share(c.in_transit_count, c.sent_count) }" :title="`${c.in_transit_count} لسه عند الشركة`" />
+                                    </div>
+                                    <p class="mt-1.5 text-[12px] text-muted-foreground">
+                                        <span class="tabular">{{ num(c.sent_count) }}</span> اتبعت ·
+                                        <span class="tabular">{{ num(c.delivered_count) }}</span> اتسلّم ·
+                                        <span class="tabular">{{ num(c.returned_count) }}</span> رجع ·
+                                        <span class="tabular">{{ num(c.in_transit_count) }}</span> لسه عندهم
+                                        <span v-if="c.late_count" class="font-medium text-warning">(<span class="tabular">{{ num(c.late_count) }}</span> متأخرة)</span>
+                                    </p>
+                                </li>
+                            </ul>
+                        </div>
                     </div>
                 </section>
 

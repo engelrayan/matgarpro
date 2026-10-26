@@ -65,6 +65,42 @@ class CarrierCollectionsTest extends TestCase
         $this->assertSame(900.0, $this->carrier('Aramex')['due_value']);
     }
 
+    public function test_the_overall_delivery_rate_and_the_parcels_running_late(): void
+    {
+        $this->order(Order::STATUS_DELIVERED, 100, 'Bosta');
+        $this->order(Order::STATUS_DELIVERED, 100, 'Bosta');
+        $this->order(Order::STATUS_DELIVERED, 100, 'Aramex');
+        $this->order(Order::STATUS_RETURNED, 100, 'Aramex');
+
+        // On the road: one handed over a week ago, one this morning.
+        $late = $this->order(Order::STATUS_SHIPPED, 100, 'Bosta');
+        $late->forceFill(['daman_sent_at' => now()->subDays(7)])->save();
+        $fresh = $this->order(Order::STATUS_SHIPPED, 100, 'Bosta');
+        $fresh->forceFill(['daman_sent_at' => now()->subHours(3)])->save();
+
+        $ledger = app(CarrierLedger::class);
+        $totals = $ledger->totals($ledger->carriers($this->store));
+
+        $this->assertSame(6, $totals['sent_count']);
+        $this->assertSame(75, $totals['delivery_rate'], '3 delivered of 4 that reached an end — not of all 6 sent');
+        $this->assertSame(1, $totals['late_count']);
+
+        $this->assertSame(100, $this->carrier('Bosta')['delivery_rate']);
+        $this->assertSame(50, $this->carrier('Aramex')['delivery_rate']);
+        $this->assertSame(1, $this->carrier('Bosta')['late_count']);
+        $this->assertSame(4, $this->carrier('Bosta')['sent_count']);
+    }
+
+    public function test_no_rate_is_claimed_before_any_parcel_reached_an_end(): void
+    {
+        $this->order(Order::STATUS_SHIPPED, 100, 'Bosta');
+
+        $ledger = app(CarrierLedger::class);
+
+        $this->assertNull($ledger->totals($ledger->carriers($this->store))['delivery_rate']);
+        $this->assertNull($this->carrier('Bosta')['delivery_rate']);
+    }
+
     public function test_orders_shipped_without_daman_are_grouped_as_the_merchants_own(): void
     {
         $this->order(Order::STATUS_DELIVERED, 200, null);
