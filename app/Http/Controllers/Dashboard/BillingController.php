@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
-use App\Models\Store;
 use App\Models\StoreTopupRequest;
 use App\Models\StoreWalletTransaction;
 use App\Services\Billing\TopupService;
@@ -24,8 +23,6 @@ class BillingController extends Controller
     public function index(Request $request): Response
     {
         $store = $request->user()->currentStore()->loadMissing('plan');
-        $pending = $store->topupRequests()->where('status', StoreTopupRequest::STATUS_PENDING)->latest('id')->first();
-        $instapay = (string) config('billing.topup.instapay_number');
 
         return Inertia::render('billing/Index', [
             'currency' => $store->currency,
@@ -45,13 +42,8 @@ class BillingController extends Controller
                 'with_confirmation_after' => $store->basePricePerOrder() + $store->confirmationPrice(),
             ],
             'amounts' => TopupService::amounts(),
-            'instapay' => $instapay,
-            'pending' => $pending ? [
-                'id' => $pending->id,
-                'amount' => (float) $pending->amount,
-                'created_at' => $pending->created_at->translatedFormat('j F Y — g:i a'),
-                'whatsapp_url' => $this->receiptLink($store, $pending, $instapay),
-            ] : null,
+            'instapay' => TopupService::instapayNumber(),
+            'pending' => $this->topups->pending($store),
             'requests' => $store->topupRequests()->latest('id')->limit(10)->get()
                 ->map(fn (StoreTopupRequest $r) => [
                     'id' => $r->id,
@@ -91,25 +83,5 @@ class BillingController extends Controller
         $this->topups->cancel($topup);
 
         return back()->with('status', 'topup-cancelled');
-    }
-
-    /**
-     * WhatsApp to the InstaPay number, with a message that already says which
-     * store and which request — so the operator can match the receipt to the
-     * row without asking.
-     */
-    private function receiptLink(Store $store, StoreTopupRequest $request, string $instapay): ?string
-    {
-        $digits = preg_replace('/\D/', '', $instapay);
-
-        if ($digits === '') {
-            return null;
-        }
-
-        $international = str_starts_with($digits, '0') ? '2' . $digits : $digits;
-        $amount = number_format((float) $request->amount);
-        $text = "إيصال تحويل لشحن رصيد متجر «{$store->name}» ({$store->slug}) — المبلغ {$amount} جنيه — طلب رقم {$request->id}";
-
-        return "https://wa.me/{$international}?text=" . rawurlencode($text);
     }
 }

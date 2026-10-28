@@ -1,18 +1,14 @@
 <script setup lang="ts">
-import InputError from '@/components/InputError.vue';
+import TopupPanel from '@/components/billing/TopupPanel.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
-import { Head, router, useForm, usePage } from '@inertiajs/vue3';
-import { Check, Copy, LoaderCircle, MessageCircle, Wallet } from 'lucide-vue-next';
-import { computed, ref } from 'vue';
+import { Head, usePage } from '@inertiajs/vue3';
+import { Check, Wallet } from 'lucide-vue-next';
+import { computed } from 'vue';
 
 /*
- * The merchant's balance, what an order costs them, and adding money.
- *
- * Topping up is a choice from fixed amounts, never a typed number: the same
- * screen has to work unchanged when online payment arrives, and a payment
- * gateway is never handed an amount typed by hand. Until then the money moves
- * by InstaPay and an operator confirms it.
+ * The merchant's balance, what an order costs them, and adding money (the
+ * steps themselves are TopupPanel's, shared with the dashboard).
  */
 
 interface Prices {
@@ -25,7 +21,7 @@ interface Prices {
     with_confirmation_after: number;
 }
 
-const props = defineProps<{
+defineProps<{
     currency: string;
     balance: number;
     overdraftLimit: number;
@@ -50,30 +46,6 @@ const flash = computed(() => FLASH[page.props.flash?.status as string] ?? null);
 
 const money = (v: number) => v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const whole = (v: number) => v.toLocaleString('en-US');
-
-const form = useForm({ amount: props.amounts[2] ?? props.amounts[0] });
-const submit = () => form.post(route('billing.topups.store'), { preserveScroll: true });
-
-const cancelling = ref(false);
-const cancel = () => {
-    if (!props.pending) return;
-    cancelling.value = true;
-    router.delete(route('billing.topups.destroy', props.pending.id), {
-        preserveScroll: true,
-        onFinish: () => (cancelling.value = false),
-    });
-};
-
-const copied = ref(false);
-const copyNumber = async () => {
-    try {
-        await navigator.clipboard.writeText(props.instapay);
-        copied.value = true;
-        setTimeout(() => (copied.value = false), 2000);
-    } catch {
-        // Clipboard refused (an old browser, an iframe): the number is on screen.
-    }
-};
 
 const STATUS_CLASS: Record<string, string> = {
     pending: 'badge-warning',
@@ -124,70 +96,7 @@ const STATUS_CLASS: Record<string, string> = {
             <!-- ── Top up ────────────────────────────────────────────────── -->
             <section class="surface space-y-5 p-6">
                 <h2 class="font-medium">اشحن رصيدك</h2>
-
-                <!-- A request already waiting: what to do next, in order. -->
-                <div v-if="pending" class="space-y-4">
-                    <p class="rounded-xl bg-primary/5 px-4 py-3 text-sm">
-                        طلب شحن بـ <strong class="tabular">{{ whole(pending.amount) }} {{ currency }}</strong> مستني التأكيد
-                        <span class="text-muted-foreground">— {{ pending.created_at }}</span>
-                    </p>
-
-                    <ol class="space-y-4 text-sm">
-                        <li class="flex gap-3">
-                            <span class="grid size-6 shrink-0 place-items-center rounded-full bg-primary text-xs text-primary-foreground">١</span>
-                            <div class="space-y-2">
-                                <p>
-                                    حوّل <strong class="tabular">{{ whole(pending.amount) }} {{ currency }}</strong> على إنستاباي للرقم ده:
-                                </p>
-                                <button type="button" class="btn-outline tabular py-1.5" dir="ltr" @click="copyNumber">
-                                    {{ instapay }}
-                                    <Check v-if="copied" class="h-4 w-4 text-success" />
-                                    <Copy v-else class="h-4 w-4" />
-                                </button>
-                            </div>
-                        </li>
-                        <li class="flex gap-3">
-                            <span class="grid size-6 shrink-0 place-items-center rounded-full bg-primary text-xs text-primary-foreground">٢</span>
-                            <div class="space-y-2">
-                                <p>ابعت صورة الإيصال على واتساب لنفس الرقم:</p>
-                                <a v-if="pending.whatsapp_url" :href="pending.whatsapp_url" target="_blank" rel="noopener" class="btn-primary py-1.5">
-                                    <MessageCircle class="h-4 w-4" />
-                                    ابعت الإيصال على واتساب
-                                </a>
-                            </div>
-                        </li>
-                        <li class="flex gap-3">
-                            <span class="grid size-6 shrink-0 place-items-center rounded-full bg-primary text-xs text-primary-foreground">٣</span>
-                            <p>هنراجع التحويل ونضيف المبلغ لرصيدك.</p>
-                        </li>
-                    </ol>
-
-                    <button type="button" class="btn-ghost text-sm text-destructive" :disabled="cancelling" @click="cancel">إلغاء الطلب</button>
-                </div>
-
-                <!-- Picking an amount. -->
-                <form v-else class="space-y-4" @submit.prevent="submit">
-                    <p class="text-sm text-muted-foreground">اختار المبلغ اللي هتشحن بيه:</p>
-                    <div class="grid grid-cols-3 gap-2 sm:grid-cols-6">
-                        <button
-                            v-for="amount in amounts"
-                            :key="amount"
-                            type="button"
-                            class="tabular rounded-xl border px-2 py-3 text-sm font-semibold transition-colors"
-                            :class="form.amount === amount ? 'border-primary bg-primary/10 text-primary' : 'border-border'"
-                            @click="form.amount = amount"
-                        >
-                            {{ whole(amount) }}
-                        </button>
-                    </div>
-                    <InputError :message="form.errors.amount" />
-
-                    <button type="submit" class="btn-primary" :disabled="form.processing">
-                        <LoaderCircle v-if="form.processing" class="h-4 w-4 animate-spin" />
-                        اشحن {{ whole(form.amount) }} {{ currency }}
-                    </button>
-                    <p class="text-xs text-muted-foreground">بعدها هتحوّل المبلغ على إنستاباي وتبعت الإيصال على واتساب.</p>
-                </form>
+                <TopupPanel :currency="currency" :amounts="amounts" :instapay="instapay" :pending="pending" />
             </section>
 
             <!-- ── What an order costs ───────────────────────────────────── -->

@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import AiSetupCard from '@/components/AiSetupCard.vue';
+import TopupPanel from '@/components/billing/TopupPanel.vue';
 import AreaChart from '@/components/charts/AreaChart.vue';
 import FunnelBars from '@/components/charts/FunnelBars.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { AlertTriangle, Check, ChevronLeft, Copy, ExternalLink, Gift, Globe, ImagePlus, Package, Plus, ShoppingBag, Truck } from 'lucide-vue-next';
+import { AlertTriangle, Check, ChevronLeft, Copy, ExternalLink, Gift, Globe, ImagePlus, Package, Plus, ShoppingBag, Truck, Wallet } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 interface SeriesPoint {
@@ -46,7 +47,11 @@ const props = defineProps<{
         price_after_intro: number;
         price_after_intro_with_confirmation: number;
         balance: number;
+        hides_new_orders: boolean;
         locked: { count: number; value: number };
+        amounts: number[];
+        instapay: string;
+        pending: { id: number; amount: number; created_at: string; whatsapp_url: string | null } | null;
     };
     /** CarrierLedger::totals — the money still with carriers, and the road. */
     shipping: { in_transit_count: number; in_transit_value: number; due_count: number; due_value: number; collected_value: number; returned_count: number };
@@ -124,6 +129,10 @@ const statusTotal = computed(() => props.insights.statuses.reduce((sum, s) => su
 // wrong. Say the number is not there yet instead.
 const hasTraffic = computed(() => props.insights.funnel.views > 0);
 
+// The top-up steps fold under the balance; they open on the button, and
+// stay open across the request they send so its next steps show in place.
+const topupOpen = ref(false);
+
 const copied = ref(false);
 const copyUrl = async () => {
     await navigator.clipboard.writeText(props.store.url);
@@ -190,6 +199,37 @@ const copyUrl = async () => {
                 </p>
                 <ChevronLeft class="size-5 shrink-0 text-muted-foreground/50" />
             </Link>
+
+            <!-- ── Balance, and adding to it without leaving the page ──── -->
+            <section class="surface p-4 md:p-5">
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-3">
+                    <span class="ios-tile bg-primary text-primary-foreground"><Wallet class="size-[18px]" /></span>
+                    <div class="min-w-0 flex-1">
+                        <p class="text-[13px] font-medium text-muted-foreground">رصيدك</p>
+                        <p class="tabular flex items-baseline gap-1 text-[22px] font-bold leading-tight" :class="billing.balance < 0 ? 'text-destructive' : ''">
+                            <span dir="ltr">{{ money(billing.balance) }}</span>
+                            <span class="text-[13px] font-medium text-muted-foreground">{{ store.currency }}</span>
+                        </p>
+                        <p v-if="billing.pending" class="text-[13px] text-muted-foreground">
+                            طلب شحن بـ <span class="tabular">{{ num(billing.pending.amount) }}</span> {{ store.currency }} مستني التأكيد
+                        </p>
+                        <p v-else-if="billing.hides_new_orders" class="text-[13px] text-warning">
+                            رصيدك خلص — بيانات العملاء في الطلبات الجديدة مخفية لحد ما تشحن
+                        </p>
+                    </div>
+                    <div class="flex w-full items-center gap-3 sm:w-auto">
+                        <button type="button" class="btn-primary flex-1 sm:flex-none" :aria-expanded="topupOpen" @click="topupOpen = !topupOpen">
+                            <Plus class="size-4" />
+                            {{ billing.pending ? 'خطوات التحويل' : 'اشحن رصيدك' }}
+                        </button>
+                        <Link href="/billing" class="shrink-0 text-[15px] font-medium text-primary">الحركات</Link>
+                    </div>
+                </div>
+
+                <div v-if="topupOpen" class="mt-4 border-t border-border pt-4">
+                    <TopupPanel :currency="store.currency" :amounts="billing.amounts" :instapay="billing.instapay" :pending="billing.pending" />
+                </div>
+            </section>
 
             <!-- An empty store: the AI builder, ahead of everything else. -->
             <AiSetupCard v-if="!setup.has_product" :store-name="store.name" />

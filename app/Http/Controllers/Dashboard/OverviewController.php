@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Dashboard;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\Product;
+use App\Services\Billing\TopupService;
 use App\Services\Dashboard\StoreInsights;
 use App\Services\Shipping\CarrierLedger;
 use Carbon\CarbonImmutable;
@@ -61,7 +62,13 @@ class OverviewController extends Controller
                 'price_after_intro' => $store->basePricePerOrder(),
                 'price_after_intro_with_confirmation' => $store->basePricePerOrder() + $store->confirmationPrice(),
                 'balance' => (float) $store->balance,
+                'hides_new_orders' => $store->hidesNewOrders(),
                 'locked' => $store->lockedOrdersSummary(),
+                // Topping up from the front page itself: the balance is what
+                // keeps orders visible, so adding to it is one tap from it.
+                'amounts' => TopupService::amounts(),
+                'instapay' => TopupService::instapayNumber(),
+                'pending' => app(TopupService::class)->pending($store),
             ],
             'range' => $range,
             'insights' => $insights->all(),

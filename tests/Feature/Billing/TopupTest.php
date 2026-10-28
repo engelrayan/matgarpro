@@ -104,6 +104,32 @@ class TopupTest extends TestCase
                     && str_contains(rawurldecode($url), "طلب رقم {$id}")));
     }
 
+    public function test_the_dashboard_shows_the_balance_and_tops_up_from_there(): void
+    {
+        $this->store->forceFill(['balance' => 42.5])->save();
+
+        $this->actingAs($this->merchant)
+            ->get('http://localhost/dashboard')
+            ->assertInertia(fn ($page) => $page->component('Dashboard')
+                ->where('billing.balance', 42.5)
+                ->where('billing.amounts', [200, 500, 1000, 2000, 5000, 10000])
+                ->where('billing.instapay', '01006262330')
+                ->where('billing.pending', null));
+
+        // Asked from the dashboard, the request comes back to it — with the
+        // same receipt link رصيدك gives.
+        $this->actingAs($this->merchant)
+            ->from('http://localhost/dashboard')
+            ->post('http://localhost/billing/topups', ['amount' => 500])
+            ->assertRedirect('http://localhost/dashboard');
+
+        $this->actingAs($this->merchant)
+            ->get('http://localhost/dashboard')
+            ->assertInertia(fn ($page) => $page
+                ->where('billing.pending.amount', 500)
+                ->where('billing.pending.whatsapp_url', fn (string $url) => str_starts_with($url, 'https://wa.me/201006262330?text=')));
+    }
+
     public function test_a_merchant_cancels_their_own_request_and_no_one_elses(): void
     {
         $this->ask(1000);

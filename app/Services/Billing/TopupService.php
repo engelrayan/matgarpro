@@ -67,6 +67,49 @@ class TopupService
         });
     }
 
+    public static function instapayNumber(): string
+    {
+        return (string) config('billing.topup.instapay_number');
+    }
+
+    /**
+     * The store's open request as the merchant's screens show it — رصيدك and
+     * the dashboard both — with the WhatsApp link that carries the receipt.
+     *
+     * @return array{id: int, amount: float, created_at: string, whatsapp_url: ?string}|null
+     */
+    public function pending(Store $store): ?array
+    {
+        $pending = $store->topupRequests()->where('status', StoreTopupRequest::STATUS_PENDING)->latest('id')->first();
+
+        return $pending ? [
+            'id' => $pending->id,
+            'amount' => (float) $pending->amount,
+            'created_at' => $pending->created_at->translatedFormat('j F Y — g:i a'),
+            'whatsapp_url' => $this->receiptLink($store, $pending),
+        ] : null;
+    }
+
+    /**
+     * WhatsApp to the InstaPay number, with a message that already says which
+     * store and which request — so the operator can match the receipt to the
+     * row without asking.
+     */
+    private function receiptLink(Store $store, StoreTopupRequest $request): ?string
+    {
+        $digits = preg_replace('/\D/', '', self::instapayNumber());
+
+        if ($digits === '') {
+            return null;
+        }
+
+        $international = str_starts_with($digits, '0') ? '2' . $digits : $digits;
+        $amount = number_format((float) $request->amount);
+        $text = "إيصال تحويل لشحن رصيد متجر «{$store->name}» ({$store->slug}) — المبلغ {$amount} جنيه — طلب رقم {$request->id}";
+
+        return "https://wa.me/{$international}?text=" . rawurlencode($text);
+    }
+
     public function cancel(StoreTopupRequest $request): void
     {
         DB::transaction(function () use ($request) {
