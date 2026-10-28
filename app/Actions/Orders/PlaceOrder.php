@@ -118,12 +118,11 @@ class PlaceOrder
         // ad optimisation they are paying for.
         $this->reportConversion($store, $order);
 
-        // Not while hidden: the customer's reply would land on the merchant's
-        // own WhatsApp and show them the number we are hiding. It goes out
-        // when the order opens.
-        if (! $order->isLocked()) {
-            $this->askCustomerToConfirm($store, $order);
-        }
+        // Hidden or not: an empty balance hides the customer from the
+        // merchant, it never stops the customer being asked. A confirmation
+        // held back until a top-up is a customer who has stopped waiting —
+        // and a cash-on-delivery order nobody confirmed is a parcel returned.
+        $this->askCustomerToConfirm($store, $order);
 
         return $order;
     }

@@ -498,7 +498,7 @@ const sendWhatsapp = () => {
                         </p>
 
                         <button
-                            v-if="whatsapp_enabled && !order.locked"
+                            v-if="whatsapp_enabled"
                             class="btn-outline mt-3 w-full"
                             :disabled="messaging"
                             @click="sendWhatsapp"

@@ -195,7 +195,7 @@ const copyUrl = async () => {
                         عندك <span class="tabular">{{ num(billing.locked.count) }}</span> طلب مخفي بقيمة
                         <span class="tabular">{{ money(billing.locked.value) }}</span> {{ store.currency }}
                     </span>
-                    <span class="text-muted-foreground"> — اشحن رصيدك وبيانات العملاء تظهر وتتأكّد على واتساب.</span>
+                    <span class="text-muted-foreground"> — اشحن رصيدك وبيانات العملاء تظهر. تأكيد واتساب بيتبعت للعملاء عادي.</span>
                 </p>
                 <ChevronLeft class="size-5 shrink-0 text-muted-foreground/50" />
             </Link>

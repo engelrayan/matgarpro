@@ -132,7 +132,7 @@ class HiddenOrdersTest extends TestCase
         $this->assertSame('-24.75', (string) $this->store->refresh()->balance);
     }
 
-    public function test_a_hidden_order_does_not_message_the_customer(): void
+    public function test_a_hidden_order_still_asks_the_customer_to_confirm(): void
     {
         Queue::fake();
         config(['services.whatsapp.waha.url' => 'http://waha.test', 'services.whatsapp.waha.api_key' => 'waha-key', 'services.whatsapp.waha.webhook_secret' => 'secret']);
@@ -145,9 +145,12 @@ class HiddenOrdersTest extends TestCase
             'connected_at' => now(),
         ]);
 
-        $this->hiddenOrder();
+        $order = $this->hiddenOrder();
 
-        Queue::assertNotPushed(SendWhatsappOrderConfirmation::class);
+        // The balance hides the customer from the merchant; it never stops
+        // the customer being asked.
+        $this->assertTrue($order->isLocked());
+        Queue::assertPushed(SendWhatsappOrderConfirmation::class, fn ($job) => $job->orderId === $order->id);
     }
 
     // ── What the merchant sees ───────────────────────────────────────────
@@ -239,8 +242,6 @@ class HiddenOrdersTest extends TestCase
 
         $this->assertSame(Order::STATUS_PENDING, $order->fresh()->status);
         $this->assertSame('شارع الهرم، عمارة ٥', $order->fresh()->address);
-
-        $as->post("http://localhost/orders/{$order->id}/whatsapp")->assertSessionHas('error');
     }
 
     public function test_no_paper_or_file_carries_a_hidden_customer(): void
@@ -292,6 +293,12 @@ class HiddenOrdersTest extends TestCase
         [$first, $second, $third] = Order::orderBy('id')->get()->all();
         $this->assertTrue($first->isLocked() && $second->isLocked() && $third->isLocked());
 
+        // Asked to confirm as they came in, hidden or not. Once sent, opening
+        // them must not ask a second time.
+        Queue::assertPushed(SendWhatsappOrderConfirmation::class, 3);
+        Order::query()->update(['whatsapp_state' => 'sent']);
+        Queue::fake();
+
         // One pound: -25 → -24 opens the first (-24.75), still above the floor
         // so the second opens (-25.50), and that is past it — the third waits.
         $request = $this->store->topupRequests()->create(['amount' => 200, 'status' => StoreTopupRequest::STATUS_PENDING]);
@@ -306,8 +313,34 @@ class HiddenOrdersTest extends TestCase
         $this->assertSame(2, StoreUsageEvent::where('type', StoreUsageEvent::TYPE_ORDER)->count());
         $this->assertSame('-25.50', (string) $this->store->refresh()->balance);
 
-        Queue::assertPushed(SendWhatsappOrderConfirmation::class, 2);
-        Queue::assertPushed(SendWhatsappOrderConfirmation::class, fn ($job) => $job->orderId === $first->id);
+        Queue::assertNotPushed(SendWhatsappOrderConfirmation::class);
+    }
+
+    public function test_an_order_hidden_before_confirmations_went_out_regardless_is_asked_as_it_opens(): void
+    {
+        Queue::fake();
+
+        // Hidden with no confirmation sent — from before a hidden order was
+        // still asked, or a store that connected WhatsApp afterwards.
+        $order = $this->hiddenOrder();
+        $this->store->whatsappIntegration()->create([
+            'driver' => StoreWhatsappIntegration::DRIVER_WAHA,
+            'credentials' => ['status' => 'WORKING'],
+            'is_active' => true, 'auto_send' => true,
+            'webhook_token' => StoreWhatsappIntegration::newToken(),
+            'verify_token' => StoreWhatsappIntegration::newToken(),
+            'connected_at' => now(),
+        ]);
+        config(['services.whatsapp.waha.url' => 'http://waha.test', 'services.whatsapp.waha.api_key' => 'waha-key', 'services.whatsapp.waha.webhook_secret' => 'secret']);
+        Queue::assertNothingPushed();
+
+        $request = $this->store->topupRequests()->create(['amount' => 200, 'status' => StoreTopupRequest::STATUS_PENDING]);
+        $this->actingAs(Admin::factory()->create(), 'admin')
+            ->post("http://localhost/admin/topups/{$request->id}/confirm", ['amount' => 200])
+            ->assertSessionHasNoErrors();
+
+        $this->assertFalse($order->fresh()->isLocked());
+        Queue::assertPushed(SendWhatsappOrderConfirmation::class, fn ($job) => $job->orderId === $order->id);
     }
 
     public function test_an_operators_manual_credit_opens_them_too(): void

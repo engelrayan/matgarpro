@@ -17,8 +17,9 @@ use Illuminate\Support\Facades\Log;
  * (Store::hidesNewOrders), so an order is never opened into a balance that
  * would have hidden it.
  *
- * Every opened order gets the WhatsApp confirmation it was held back from,
- * if the store sends them automatically.
+ * A hidden order is asked to confirm when it is placed, like any other. One
+ * that never was — hidden back when the balance held confirmations too — gets
+ * it as it opens, if the store sends them automatically.
  *
  * Run after anything that adds money: a confirmed top-up, an operator's
  * manual credit, a change of price that makes orders free.

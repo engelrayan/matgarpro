@@ -29,11 +29,8 @@ class OrderWhatsappController extends Controller
             403,
         );
 
-        // Hidden until a top-up: the reply would land on the merchant's own
-        // WhatsApp, showing them the customer. It goes out when the order opens.
-        if ($order->isLocked()) {
-            return back()->with('error', 'الطلب ده مخفي لحد ما تشحن رصيدك.');
-        }
+        // A hidden order is sent too: the balance never stops a customer
+        // being asked to confirm (see PlaceOrder).
 
         $store = $request->user()->currentStore();
         $link = $store->whatsappIntegration;
